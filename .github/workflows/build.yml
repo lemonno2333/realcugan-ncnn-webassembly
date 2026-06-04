@@ -1,0 +1,43 @@
+name: Build Real-CUGAN WebAssembly
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git cmake make g++ python3 nodejs npm
+
+      - name: Install Emscripten 3.1.13
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git ~/emsdk
+          cd ~/emsdk
+          ./emsdk install 3.1.13
+          ./emsdk activate 3.1.13
+
+      - name: Build project
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          git submodule update --init --recursive
+          sh build.sh
+
+      - name: Pack web folder
+        run: |
+          tar -czvf realcugan-web.tar.gz web
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: realcugan-web
+          path: realcugan-web.tar.gz
+          retention-days: 7
