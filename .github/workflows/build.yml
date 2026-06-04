@@ -16,19 +16,21 @@ jobs:
           sudo apt update
           sudo apt install -y git cmake make g++ python3 nodejs npm
 
-      - name: Clone upstream repository with submodules
+      - name: Clone source and dependencies
         run: |
           git clone https://github.com/hanFengSan/realcugan-ncnn-webassembly.git source
           cd source
-          git submodule sync --recursive
-          git submodule update --init --recursive
-          echo "===== root files ====="
+
+          echo "===== clone dependencies manually ====="
+          rm -rf fmt ncnn
+          git clone --depth 1 https://github.com/fmtlib/fmt.git fmt
+          git clone --depth 1 https://github.com/Tencent/ncnn.git ncnn
+
+          echo "===== check directories ====="
+          pwd
           ls -lah
-          echo "===== submodule check ====="
-          test -d fmt && echo "fmt exists" || echo "fmt missing"
-          test -d ncnn && echo "ncnn exists" || echo "ncnn missing"
-          ls -lah fmt || true
-          ls -lah ncnn || true
+          test -d fmt && echo "fmt exists" || exit 1
+          test -d ncnn && echo "ncnn exists" || exit 1
 
       - name: Install Emscripten 3.1.13
         run: |
