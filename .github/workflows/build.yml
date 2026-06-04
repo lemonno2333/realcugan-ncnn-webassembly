@@ -3,15 +3,23 @@ name: Build Real-CUGAN WebAssembly
 on:
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - name: Clone upstream repository
+        run: |
+          git clone --recursive https://github.com/hanFengSan/realcugan-ncnn-webassembly.git source
+          cd source
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          ls -lah
+          ls -lah fmt || true
+          ls -lah ncnn || true
 
       - name: Install system dependencies
         run: |
@@ -28,12 +36,19 @@ jobs:
       - name: Build project
         run: |
           source ~/emsdk/emsdk_env.sh
-          git submodule update --init --recursive
+          cd source
           sh build.sh
+
+      - name: List build result
+        run: |
+          cd source
+          ls -lah web
+          find web -maxdepth 2 -type f | head -100
 
       - name: Pack web folder
         run: |
-          tar -czvf realcugan-web.tar.gz web
+          cd source
+          tar -czvf ../realcugan-web.tar.gz web
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
