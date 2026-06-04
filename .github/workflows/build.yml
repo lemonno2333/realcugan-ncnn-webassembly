@@ -27,8 +27,6 @@ jobs:
           git clone --depth 1 https://github.com/Tencent/ncnn.git ncnn
 
           echo "===== check directories ====="
-          pwd
-          ls -lah
           test -d fmt && echo "fmt exists" || exit 1
           test -d ncnn && echo "ncnn exists" || exit 1
 
@@ -43,6 +41,11 @@ jobs:
         run: |
           source ~/emsdk/emsdk_env.sh
           cd source
+
+          echo "===== patch fmt include ====="
+          sed -i 's|"fmt/core.h"|"fmt/format.h"|g' main.cpp realcugan.cpp
+          grep -n "fmt/" main.cpp realcugan.cpp
+
           sh build.sh
 
       - name: List build result
