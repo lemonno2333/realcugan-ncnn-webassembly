@@ -11,20 +11,24 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Clone upstream repository
-        run: |
-          git clone --recursive https://github.com/hanFengSan/realcugan-ncnn-webassembly.git source
-          cd source
-          git submodule sync --recursive
-          git submodule update --init --recursive
-          ls -lah
-          ls -lah fmt || true
-          ls -lah ncnn || true
-
       - name: Install system dependencies
         run: |
           sudo apt update
           sudo apt install -y git cmake make g++ python3 nodejs npm
+
+      - name: Clone upstream repository with submodules
+        run: |
+          git clone https://github.com/hanFengSan/realcugan-ncnn-webassembly.git source
+          cd source
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          echo "===== root files ====="
+          ls -lah
+          echo "===== submodule check ====="
+          test -d fmt && echo "fmt exists" || echo "fmt missing"
+          test -d ncnn && echo "ncnn exists" || echo "ncnn missing"
+          ls -lah fmt || true
+          ls -lah ncnn || true
 
       - name: Install Emscripten 3.1.13
         run: |
@@ -42,6 +46,7 @@ jobs:
       - name: List build result
         run: |
           cd source
+          echo "===== web files ====="
           ls -lah web
           find web -maxdepth 2 -type f | head -100
 
