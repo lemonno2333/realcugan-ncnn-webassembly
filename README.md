@@ -13,6 +13,7 @@ when pthreads or SharedArrayBuffer are unavailable.
 
 The web UI has also been updated for local image inspection:
 
+- selectable SE and Pro Real-CUGAN model sets, including the full upstream SE model set;
 - fixed header/footer tool layout with a larger image workspace;
 - automatic theme color extraction from the uploaded image, inspired by
   Material Design Monet;
@@ -23,7 +24,7 @@ The web UI has also been updated for local image inspection:
 - mobile-friendly scrolling layout with touch panning for zoomed previews;
 - reset button for clearing the current image and processing another one.
 
-[Real-CUGAN](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) is an AI super resolution model for anime images, trained in a million scale anime dataset, using the same architecture as Waifu2x-CUNet. It supports 2x\3x\4x super resolving. For different enhancement strength, now 2x Real-CUGAN supports 5 model weights, 3x/4x Real-CUGAN supports 3 model weights.
+[Real-CUGAN](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) is an AI super resolution model for anime images, trained in a million scale anime dataset, using the same architecture as Waifu2x-CUNet. It supports 2x\3x\4x super resolving. The bundled SE models match the upstream `models-se` set: 2x supports conservative, no denoise, and denoise1x/2x/3x; 3x and 4x support conservative, no denoise, and denoise3x.
 
 The code implementation deeply refers to [realcugan-ncnn-vulkan](https://github.com/nihui/realcugan-ncnn-vulkan) and [ncnn-webassembly-nanodet](https://github.com/nihui/ncnn-webassembly-nanodet).
 

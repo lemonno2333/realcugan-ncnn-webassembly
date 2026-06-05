@@ -20,13 +20,13 @@
             location.replace(`https:${location.href.substring(location.protocol.length)}`);
         }
     </script>
-    <script src="vue.min.js?v=2026.06.05-ncnn20220729.17"></script>
+    <script src="vue.min.js?v=2026.06.05-alpha.23"></script>
     <!-- import CSS -->
-    <link rel="stylesheet" href="normalize.css?v=2026.06.05-ncnn20220729.17">
-    <link rel="stylesheet" href="element.css?v=2026.06.05-ncnn20220729.17">
+    <link rel="stylesheet" href="normalize.css?v=2026.06.05-alpha.23">
+    <link rel="stylesheet" href="element.css?v=2026.06.05-alpha.23">
     <!-- import JavaS/docs/doccnToNsFKaK01nwkKpHD5S4xbcript -->
-    <script src="element.js?v=2026.06.05-ncnn20220729.17"></script>
-    <script src="wasmFeatureDetect.js?v=2026.06.05-ncnn20220729.17"></script>
+    <script src="element.js?v=2026.06.05-alpha.23"></script>
+    <script src="wasmFeatureDetect.js?v=2026.06.05-alpha.23"></script>
 </head>
 
 <body>
@@ -103,17 +103,27 @@
                         <div class="control-section">
                             <div class="section-title">{{t('controls.params')}}</div>
                             <div class="field-row">
+                                <span class="option-title">{{t('controls.model')}}</span>
+                                <el-radio-group v-model="modelTypeRadio" v-on:change="onModelTypeOptionChange" size="small">
+                                    <el-radio-button label="se">{{t('model.se')}}</el-radio-button>
+                                    <el-radio-button label="pro">{{t('model.pro')}}</el-radio-button>
+                                </el-radio-group>
+                            </div>
+                            <div class="field-row">
                                 <span class="option-title">{{t('controls.scale')}}</span>
                                 <el-radio-group v-model="scaleRadio" v-on:change="onScaleOptionChange" size="small">
                                     <el-radio-button :label="2">2X</el-radio-button>
                                     <el-radio-button :label="3">3X</el-radio-button>
+                                    <el-radio-button :disabled="modelTypeRadio==='pro'" :label="4">4X</el-radio-button>
                                 </el-radio-group>
                             </div>
                             <div class="field-row">
                                 <span class="option-title">{{t('controls.denoise')}}</span>
                                 <el-radio-group v-model="denoiseRadio" v-on:change="onDenoiseOptionChange" size="small">
-                                    <el-radio-button :disabled="scaleRadio==3" :label="-1">{{t('denoise.conservative')}}</el-radio-button>
-                                    <el-radio-button :disabled="scaleRadio==3" :label="0">{{t('denoise.none')}}</el-radio-button>
+                                    <el-radio-button :disabled="isDenoiseDisabled(-1)" :label="-1">{{t('denoise.conservative')}}</el-radio-button>
+                                    <el-radio-button :disabled="isDenoiseDisabled(0)" :label="0">{{t('denoise.none')}}</el-radio-button>
+                                    <el-radio-button :disabled="isDenoiseDisabled(1)" :label="1">1X</el-radio-button>
+                                    <el-radio-button :disabled="isDenoiseDisabled(2)" :label="2">2X</el-radio-button>
                                     <el-radio-button :label="3">3X</el-radio-button>
                                 </el-radio-group>
                             </div>
@@ -244,7 +254,7 @@
 </script>
 
 <script>
-    const APP_VERSION = '2026.06.05-alpha.18';
+    const APP_VERSION = '2026.06.05-alpha.24';
     const I18N = {
         zh: {
             app: {
@@ -268,7 +278,7 @@
                 noticeTitle: '注意：',
                 noticeText: '处理图片时内存和 CPU 占用较高。如果输出有问题或长时间无响应，请刷新重试。',
                 scaleTitle: '超分倍率：',
-                scaleText: '决定输出图片尺寸，推荐 2X；3X 处理会更久，且不能调整降噪。',
+                scaleText: '决定输出图片尺寸，推荐 2X；倍率越高处理越久。',
                 denoiseTitle: '降噪：',
                 denoiseText: '原片噪声多或压缩严重时推荐使用；原片质量较好时可选无降噪；担心画风、纹理或颜色改变时可选保守。',
             },
@@ -276,8 +286,13 @@
                 run: '运行',
                 backendMode: '后端模式',
                 params: '参数',
+                model: '模型',
                 scale: '倍率',
                 denoise: '降噪',
+            },
+            model: {
+                se: 'SE',
+                pro: 'Pro',
             },
             backend: {
                 auto: '自动',
@@ -362,7 +377,7 @@
                 noticeTitle: 'Note: ',
                 noticeText: 'Processing uses a lot of memory and CPU. If the output looks wrong or the page stops responding, refresh and try again.',
                 scaleTitle: 'Scale: ',
-                scaleText: 'Controls the output size. 2X is recommended. 3X takes longer and locks denoise to 3X.',
+                scaleText: 'Controls the output size. 2X is recommended. Higher scales take longer to process.',
                 denoiseTitle: 'Denoise: ',
                 denoiseText: 'Use denoise for noisy or heavily compressed images. Choose none for clean originals, or conservative if you want to preserve style, texture, and color.',
             },
@@ -370,8 +385,13 @@
                 run: 'Runtime',
                 backendMode: 'Backend',
                 params: 'Settings',
+                model: 'Model',
                 scale: 'Scale',
                 denoise: 'Denoise',
+            },
+            model: {
+                se: 'SE',
+                pro: 'Pro',
             },
             backend: {
                 auto: 'Auto',
@@ -456,7 +476,7 @@
                 noticeTitle: '注意: ',
                 noticeText: '処理中はメモリと CPU を多く使用します。出力がおかしい場合や長時間応答しない場合は、更新して再試行してください。',
                 scaleTitle: '拡大率: ',
-                scaleText: '出力画像のサイズを決めます。2X 推奨です。3X は処理に時間がかかり、ノイズ除去は 3X 固定になります。',
+                scaleText: '出力画像のサイズを決めます。2X 推奨です。倍率が高いほど処理に時間がかかります。',
                 denoiseTitle: 'ノイズ除去: ',
                 denoiseText: 'ノイズや圧縮劣化が多い画像におすすめです。元画像がきれいな場合は「なし」、画風・質感・色の変化を抑えたい場合は「控えめ」を選んでください。',
             },
@@ -464,8 +484,13 @@
                 run: '実行',
                 backendMode: 'バックエンド',
                 params: '設定',
+                model: 'モデル',
                 scale: '倍率',
                 denoise: 'ノイズ除去',
+            },
+            model: {
+                se: 'SE',
+                pro: 'Pro',
             },
             backend: {
                 auto: '自動',
@@ -540,6 +565,7 @@
             return {
                 activeIndex: '1',
                 language: 'zh',
+                modelTypeRadio: 'se',
                 scaleRadio: 2,
                 denoiseRadio: 3,
                 backendMode: 'auto',
@@ -573,6 +599,7 @@
                 outputPreviewHeight: 0,
                 outputScale: 0,
                 outputDenoise: 0,
+                outputModelType: 'se',
                 windowWidth: 0,
                 outputImgSrc: '',
                 // emscripten
@@ -596,6 +623,7 @@
             // load preferences
             let scale = this.getPreference('scale');
             let denoise = this.getPreference('denoise');
+            let modelType = this.getPreference('modelType');
             let backendMode = this.getPreference('backendMode');
             if (scale) {
                 this.scaleRadio = scale * 1;
@@ -603,6 +631,10 @@
             if (denoise) {
                 this.denoiseRadio = denoise * 1;
             }
+            if (modelType === 'se' || modelType === 'pro') {
+                this.modelTypeRadio = modelType;
+            }
+            this.normalizeModelOptions();
             if (backendMode) {
                 this.backendMode = backendMode;
             }
@@ -695,15 +727,40 @@
             },
 
             onScaleOptionChange() {
-                if (this.scaleRadio === 3 && this.denoiseRadio !== 3) {
-                    this.denoiseRadio = 3;
-                    this.onDenoiseOptionChange();
-                }
+                this.normalizeModelOptions();
                 this.savePreference('scale', '' + this.scaleRadio);
+                this.savePreference('denoise', '' + this.denoiseRadio);
             },
 
             onDenoiseOptionChange() {
+                this.normalizeModelOptions();
                 this.savePreference('denoise', '' + this.denoiseRadio);
+            },
+
+            onModelTypeOptionChange() {
+                this.normalizeModelOptions();
+                this.savePreference('scale', '' + this.scaleRadio);
+                this.savePreference('denoise', '' + this.denoiseRadio);
+                this.savePreference('modelType', this.modelTypeRadio);
+            },
+
+            isDenoiseDisabled(denoise) {
+                if (this.modelTypeRadio === 'pro') {
+                    return denoise === 1 || denoise === 2;
+                }
+                if (this.scaleRadio === 2) {
+                    return false;
+                }
+                return denoise === 1 || denoise === 2;
+            },
+
+            normalizeModelOptions() {
+                if (this.modelTypeRadio === 'pro' && this.scaleRadio === 4) {
+                    this.scaleRadio = 2;
+                }
+                if (this.isDenoiseDisabled(this.denoiseRadio)) {
+                    this.denoiseRadio = 3;
+                }
             },
 
             onBackendModeChange() {
@@ -919,6 +976,10 @@
                 return false;
             },
 
+            getModelTypeCode(modelType) {
+                return modelType === 'pro' ? 1 : 0;
+            },
+
             onUploadChange(file, fileList) {
                 if (this.isNotReady()) {
                     return;
@@ -961,6 +1022,7 @@
                 // init output params
                 this.outputScale = this.scaleRadio;
                 this.outputDenoise = this.denoiseRadio;
+                this.outputModelType = this.modelTypeRadio;
                 this.outputPreviewWidth = this.uploadPreviewWidth * this.outputScale;
                 this.outputPreviewHeight = this.uploadPreviewHeight * this.outputScale;
                 outputCanvas.width = this.outputPreviewWidth;
@@ -974,7 +1036,7 @@
                 let imageDataOutput = ctxOutput.getImageData(0, 0, canvasOutput.width, canvasOutput.height);
                 dstInteractedData = _malloc(imageDataOutput.data.length);
 
-                let retCode = _process_image(0, srcInteractedData, dstInteractedData, w, h, this.outputScale, this.outputDenoise);
+                let retCode = _process_image(0, srcInteractedData, dstInteractedData, w, h, this.outputScale, this.outputDenoise, this.getModelTypeCode(this.outputModelType));
                 if (retCode !== 0) {
                     this.$alert(this.t('dialog.conflictText'), this.t('dialog.conflictTitle'), {
                         confirmButtonText: this.t('dialog.ok'),
@@ -1228,6 +1290,12 @@
                     .then((buffer) => {
                         return new Promise((resolve, reject) => {
                             Module.wasmBinary = buffer;
+                            Module.locateFile = (path, prefix) => {
+                                if (path.indexOf('.data') !== -1 || path.indexOf('.worker.js') !== -1) {
+                                    return this.versionedUrl(path);
+                                }
+                                return prefix + path;
+                            };
                             Module.onRuntimeInitialized = () => {
                                 console.log("wasm module loaded:", backend);
                                 this.wasmModuleLoaded = true;
@@ -1322,13 +1390,16 @@
                 if (this.uploadPreviewName && this.uploadPreviewName.length > 0) {
                     filename = this.uploadPreviewName.replace(/\.[^/.]+$/, "");
                 }
-                filename += "-up" + this.outputScale + "x";
+                filename += "-" + this.outputModelType + "-up" + this.outputScale + "x";
                 switch (this.outputDenoise) {
                     case -1:
                         filename += "-conservative.png";
                         break;
                     case 1:
-                        filename += "-denoise.png";
+                        filename += "-denoise1x.png";
+                        break;
+                    case 2:
+                        filename += "-denoise2x.png";
                         break;
                     case 3:
                         filename += "-denoise3x.png";
@@ -1359,6 +1430,7 @@
                 this.outputPreviewHeight = 0;
                 this.outputScale = 0;
                 this.outputDenoise = 0;
+                this.outputModelType = 'se';
                 this.isProcessing = false;
                 this.isProcessDone = false;
                 this.progressRate = 0;

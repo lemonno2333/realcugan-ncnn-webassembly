@@ -13,7 +13,7 @@ endif()
 if (NOT LOCAL_DEBUG)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s FORCE_FILESYSTEM=1  -sALLOW_MEMORY_GROWTH -s EXIT_RUNTIME=1")
 
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sEXPORTED_FUNCTIONS=['_process_image','_free'] --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/models@. --use-preload-cache")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sEXPORTED_FUNCTIONS=['_process_image','_free'] --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/models@.")
 
     set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 endif()

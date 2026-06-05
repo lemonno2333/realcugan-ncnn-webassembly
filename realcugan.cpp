@@ -27,22 +27,24 @@ void progress_callback(long total_cost, long tile_cost, float progress_rate)
     std::cout << script << std::endl;
 }
 
-int RealCUGAN::load(int scaleOption, int noiseOption) {
+int RealCUGAN::load(int scaleOption, int noiseOption, int modelType) {
     ncnnNet.clear();
     this->scale = scaleOption;
     this->noise = noiseOption;
+    this->model_type = modelType;
 
     std::string paramFilePath;
     std::string binFilePath;
+    std::string modelDir = this->model_type == 1 ? "models-pro/" : "";
     if (this->noise == 0) {
-        paramFilePath = fmt::format("up{}x-no-denoise.param", this->scale);
-        binFilePath = fmt::format("up{}x-no-denoise.bin", this->scale);
+        paramFilePath = fmt::format("{}up{}x-no-denoise.param", modelDir, this->scale);
+        binFilePath = fmt::format("{}up{}x-no-denoise.bin", modelDir, this->scale);
     } else if (this->noise == -1) {
-        paramFilePath = fmt::format("up{}x-conservative.param", this->scale);
-        binFilePath = fmt::format("up{}x-conservative.bin", this->scale);
+        paramFilePath = fmt::format("{}up{}x-conservative.param", modelDir, this->scale);
+        binFilePath = fmt::format("{}up{}x-conservative.bin", modelDir, this->scale);
     } else {
-        paramFilePath = fmt::format("up{}x-denoise{}x.param", this->scale, this->noise);
-        binFilePath = fmt::format("up{}x-denoise{}x.bin", this->scale, this->noise);
+        paramFilePath = fmt::format("{}up{}x-denoise{}x.param", modelDir, this->scale, this->noise);
+        binFilePath = fmt::format("{}up{}x-denoise{}x.bin", modelDir, this->scale, this->noise);
     }
     ncnnNet.load_param(paramFilePath.c_str());
     ncnnNet.load_model(binFilePath.c_str());

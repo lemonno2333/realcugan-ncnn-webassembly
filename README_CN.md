@@ -8,6 +8,7 @@
 
 网页前端也做了更新，方便本地查看图片细节：
 
+- 可选择 SE 和 Pro 两套 Real-CUGAN 模型，并包含完整的上游 SE 模型；
 - 固定页头/页脚的工具式布局，工作区留给图片预览；
 - 参考 Material Design Monet，从上传图片中提取主题色并应用到界面；
 - 处理中会根据图片主色生成动态 mesh 弥散渐变等待态；
@@ -16,7 +17,7 @@
 - 移动端使用自然滚动布局，并支持手指拖拽查看放大后的图片区域；
 - 上传或处理完图片后，可以用“复位”清空当前结果并处理下一张图片。
 
-[Real-CUGAN](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) 是一个使用百万级动漫数据进行训练的，结构与Waifu2x兼容的通用动漫图像超分辨率模型。它支持2x\3x\4x倍超分辨率，其中2倍模型支持4种降噪强度与保守修复，3倍/4倍模型支持2种降噪强度与保守修复。
+[Real-CUGAN](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) 是一个使用百万级动漫数据进行训练的，结构与Waifu2x兼容的通用动漫图像超分辨率模型。它支持2x\3x\4x倍超分辨率。本项目内置的 SE 模型已对齐上游 `models-se`：2倍模型支持保守、无降噪、denoise1x/2x/3x，3倍和4倍模型支持保守、无降噪、denoise3x。
 
 代码实现上深度参考了nihui大佬的[realcugan-ncnn-vulkan](https://github.com/nihui/realcugan-ncnn-vulkan)和[ncnn-webassembly-nanodet](https://github.com/nihui/ncnn-webassembly-nanodet)
 

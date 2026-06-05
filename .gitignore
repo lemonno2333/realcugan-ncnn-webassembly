@@ -14,3 +14,5 @@ cmake-build-debug/
 /web/realcugan-ncnn-webassembly*
 /web/up2x*
 /web/up3x*
+/web/up4x*
+/web/models-pro/

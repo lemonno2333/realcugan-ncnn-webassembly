@@ -7,12 +7,13 @@ class RealCUGAN {
 public:
     RealCUGAN();
 
-    int load(int scale, int noise);
+    int load(int scale, int noise, int model_type);
 
     int process(const ncnn::Mat &inimage, ncnn::Mat &outimage);
 
     int noise;
     int scale;
+    int model_type;
     int prepadding;
     int tilesize = 200;
     int syncgap = 0;

@@ -28,7 +28,7 @@ if [ -d ./ncnn/.git ]; then
 fi
 
 mkdir -p ./build ./web
-cp ./models/* ./web
+cp -R ./models/. ./web
 
 for feature in ${FEATURES}; do
     build_dir="./build/${feature}"

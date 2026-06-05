@@ -24,6 +24,7 @@ public:
     int input_channel;
     int scale;
     int noise;
+    int model_type;
 };
 
 static RealCUGAN *realcugan;
@@ -101,11 +102,11 @@ static void run_task(Task *task) {
 
     if (!realcugan) {
         realcugan = new RealCUGAN();
-        realcugan->load(task->scale, task->noise);
+        realcugan->load(task->scale, task->noise, task->model_type);
     }
-    if (realcugan->scale != task->scale || realcugan->noise != task->noise)
+    if (realcugan->scale != task->scale || realcugan->noise != task->noise || realcugan->model_type != task->model_type)
     {
-        realcugan->load(task->scale, task->noise);
+        realcugan->load(task->scale, task->noise, task->model_type);
     }
 
     ncnn::Mat inImage = ncnn::Mat(task->input_w, task->input_h,
@@ -161,7 +162,7 @@ extern "C"
 {
 
 int process_image(int image_id, unsigned char *input_image_data, unsigned char *output_image_data, int input_w,
-                  int input_h, int scale, int noise) {
+                  int input_h, int scale, int noise, int model_type) {
 #ifdef REALCUGAN_USE_PTHREADS
     lock.lock();
 #endif
@@ -188,6 +189,7 @@ int process_image(int image_id, unsigned char *input_image_data, unsigned char *
     tsk->input_channel = 3;
     tsk->scale = scale;
     tsk->noise = noise;
+    tsk->model_type = model_type;
     proc_img_task = tsk;
 
 #ifdef REALCUGAN_USE_PTHREADS
