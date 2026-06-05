@@ -7,26 +7,26 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta charset="utf-8">
     <meta name="renderer" content="webkit" />
-    <title>动漫图片超分辨率 Real-CUGAN</title>
+    <title>Real-CUGAN Anime Image Upscaler</title>
     <meta name="force-rendering" content="webkit" />
     <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <meta name="description" content="realcugan-ncnn-assembly - 通用动漫图像超分辨率处理">
+    <meta name="description" content="realcugan-ncnn-assembly - browser-based anime image super-resolution">
     <!-- <script src="vue.js"></script> -->
     <script>
         if (location.protocol !== 'https:' && location.href.includes('real-cugan')) {
             location.replace(`https:${location.href.substring(location.protocol.length)}`);
         }
     </script>
-    <script src="vue.min.js?v=2026.06.05-ncnn20220729.15"></script>
+    <script src="vue.min.js?v=2026.06.05-ncnn20220729.17"></script>
     <!-- import CSS -->
-    <link rel="stylesheet" href="normalize.css?v=2026.06.05-ncnn20220729.15">
-    <link rel="stylesheet" href="element.css?v=2026.06.05-ncnn20220729.15">
+    <link rel="stylesheet" href="normalize.css?v=2026.06.05-ncnn20220729.17">
+    <link rel="stylesheet" href="element.css?v=2026.06.05-ncnn20220729.17">
     <!-- import JavaS/docs/doccnToNsFKaK01nwkKpHD5S4xbcript -->
-    <script src="element.js?v=2026.06.05-ncnn20220729.15"></script>
-    <script src="wasmFeatureDetect.js?v=2026.06.05-ncnn20220729.15"></script>
+    <script src="element.js?v=2026.06.05-ncnn20220729.17"></script>
+    <script src="wasmFeatureDetect.js?v=2026.06.05-ncnn20220729.17"></script>
 </head>
 
 <body>
@@ -38,17 +38,23 @@
         <el-container>
             <el-header class="app-header">
                 <el-menu :default-active="'1'" class="el-menu-demo" mode="horizontal">
-                    <el-menu-item index="1">动漫图片超分辨率</el-menu-item>
-                    <el-menu-item index="2"><a href="https://github.com/lemonno2333/realcugan-ncnn-webassembly" target="_blank">GitHub</a></el-menu-item>
+                    <el-menu-item index="1">{{t('nav.title')}}</el-menu-item>
                     <el-submenu index="5">
-                        <template slot="title">关于</template>
-                        <el-menu-item index="6"><a href="https://github.com/hanFengSan/realcugan-ncnn-webassembly" target="_blank">原作项目</a></el-menu-item>
-                        <el-menu-item index="7"><a href="https://github.com/bilibili/ailab/tree/main/Real-CUGAN"
+                        <template slot="title">{{t('nav.about')}}</template>
+                        <el-menu-item index="6"><a href="https://github.com/lemonno2333/realcugan-ncnn-webassembly" target="_blank">GitHub</a></el-menu-item>
+                        <el-menu-item index="7"><a href="https://github.com/hanFengSan/realcugan-ncnn-webassembly" target="_blank">{{t('nav.originalProject')}}</a></el-menu-item>
+                        <el-menu-item index="8"><a href="https://github.com/bilibili/ailab/tree/main/Real-CUGAN"
                                                    target="_blank">Real-CUGAN</a></el-menu-item>
-                        <el-menu-item index="8"><a href="https://github.com/Tencent/ncnn" target="_blank">ncnn</a>
+                        <el-menu-item index="9"><a href="https://github.com/Tencent/ncnn" target="_blank">ncnn</a>
                         </el-menu-item>
-                        <el-menu-item index="9"><a href="https://github.com/emscripten-core/emscripten" target="_blank">emscripten</a>
+                        <el-menu-item index="13"><a href="https://github.com/emscripten-core/emscripten" target="_blank">emscripten</a>
                         </el-menu-item>
+                    </el-submenu>
+                    <el-submenu index="10">
+                        <template slot="title">{{t('nav.language')}}</template>
+                        <el-menu-item index="11" v-on:click="setLanguage('zh')">中文</el-menu-item>
+                        <el-menu-item index="12" v-on:click="setLanguage('en')">English</el-menu-item>
+                        <el-menu-item index="14" v-on:click="setLanguage('ja')">日本語</el-menu-item>
                     </el-submenu>
                 </el-menu>
             </el-header>
@@ -59,77 +65,77 @@
                         <div class="brand-block">
                             <div>
                                 <div class="eyebrow">Real-CUGAN Web</div>
-                                <h1>动漫图片超分辨率</h1>
+                                <h1>{{t('app.heading')}}</h1>
                             </div>
                             <el-tag size="mini" :type="wasmModuleLoaded ? 'success' : 'warning'">
-                                {{wasmModuleLoaded ? '就绪' : '加载中'}}
+                                {{wasmModuleLoaded ? t('state.ready') : t('state.loading')}}
                             </el-tag>
                         </div>
 
                         <div class="help-note">
                             <p>
-                                本项目基于 Web Assembly 技术，<b>在浏览器端使用 CPU 完成图像处理，</b>不会上传任何图片到云端。
+                                {{t('help.localPrefix')}}<b>{{t('help.localStrong')}}</b>{{t('help.localSuffix')}}
                             </p>
                             <p>
-                                <b>注意：</b>处理图片时内存和 CPU 占用较高。如果输出有问题或长时间无响应，请刷新重试。
+                                <b>{{t('help.noticeTitle')}}</b>{{t('help.noticeText')}}
                             </p>
                             <p>
-                                <b>超分倍率：</b>决定输出图片尺寸，推荐 2X；3X 处理会更久，且不能调整降噪。
+                                <b>{{t('help.scaleTitle')}}</b>{{t('help.scaleText')}}
                             </p>
                             <p>
-                                <b>降噪：</b>原片噪声多或压缩严重时推荐使用；原片质量较好时可选无降噪；担心画风、纹理或颜色改变时可选保守。
+                                <b>{{t('help.denoiseTitle')}}</b>{{t('help.denoiseText')}}
                             </p>
                         </div>
 
                         <div class="control-section">
-                            <div class="section-title">运行</div>
+                            <div class="section-title">{{t('controls.run')}}</div>
                             <div class="field-row">
-                                <span class="option-title">后端模式</span>
+                                <span class="option-title">{{t('controls.backendMode')}}</span>
                                 <el-radio-group v-model="backendMode" v-on:change="onBackendModeChange" size="small">
-                                    <el-radio-button label="auto">自动</el-radio-button>
-                                    <el-radio-button label="simd-threads">多线程</el-radio-button>
+                                    <el-radio-button label="auto">{{t('backend.auto')}}</el-radio-button>
+                                    <el-radio-button label="simd-threads">{{t('backend.threads')}}</el-radio-button>
                                     <el-radio-button label="simd">SIMD</el-radio-button>
-                                    <el-radio-button label="basic">兼容</el-radio-button>
+                                    <el-radio-button label="basic">{{t('backend.basic')}}</el-radio-button>
                                 </el-radio-group>
                             </div>
                         </div>
 
                         <div class="control-section">
-                            <div class="section-title">参数</div>
+                            <div class="section-title">{{t('controls.params')}}</div>
                             <div class="field-row">
-                                <span class="option-title">倍率</span>
+                                <span class="option-title">{{t('controls.scale')}}</span>
                                 <el-radio-group v-model="scaleRadio" v-on:change="onScaleOptionChange" size="small">
                                     <el-radio-button :label="2">2X</el-radio-button>
                                     <el-radio-button :label="3">3X</el-radio-button>
                                 </el-radio-group>
                             </div>
                             <div class="field-row">
-                                <span class="option-title">降噪</span>
+                                <span class="option-title">{{t('controls.denoise')}}</span>
                                 <el-radio-group v-model="denoiseRadio" v-on:change="onDenoiseOptionChange" size="small">
-                                    <el-radio-button :disabled="scaleRadio==3" :label="-1">保守</el-radio-button>
-                                    <el-radio-button :disabled="scaleRadio==3" :label="0">无</el-radio-button>
+                                    <el-radio-button :disabled="scaleRadio==3" :label="-1">{{t('denoise.conservative')}}</el-radio-button>
+                                    <el-radio-button :disabled="scaleRadio==3" :label="0">{{t('denoise.none')}}</el-radio-button>
                                     <el-radio-button :label="3">3X</el-radio-button>
                                 </el-radio-group>
                             </div>
                         </div>
 
                         <div class="control-section action-section">
-                            <el-button type="plain" size="small" v-if="!isProcessing && uploadPreviewWidth === 0" v-on:click="runTestCase">示例图片</el-button>
-                            <el-button type="plain" size="small" v-if="!isProcessing && uploadPreviewWidth !== 0" v-on:click="resetWorkspace">复位</el-button>
-                            <el-button type="primary" size="small" v-if="isProcessDone" v-on:click="saveOutput">保存图片</el-button>
-                            <el-button type="plain" size="small" v-if="isProcessing && !isProcessDone" v-on:click="stopProcess">取消处理</el-button>
+                            <el-button type="plain" size="small" v-if="!isProcessing && uploadPreviewWidth === 0" v-on:click="runTestCase">{{t('actions.sample')}}</el-button>
+                            <el-button type="plain" size="small" v-if="!isProcessing && uploadPreviewWidth !== 0" v-on:click="resetWorkspace">{{t('actions.reset')}}</el-button>
+                            <el-button type="primary" size="small" v-if="isProcessDone" v-on:click="saveOutput">{{t('actions.save')}}</el-button>
+                            <el-button type="plain" size="small" v-if="isProcessing && !isProcessDone" v-on:click="stopProcess">{{t('actions.cancel')}}</el-button>
                         </div>
                     </aside>
 
                     <section class="stage-panel">
                         <div class="stage-toolbar">
                             <div>
-                                <div class="stage-title">{{uploadPreviewName || '工作区'}}</div>
+                                <div class="stage-title">{{uploadPreviewName || t('stage.workspace')}}</div>
                                 <div class="stage-meta" v-if="uploadPreviewWidth !== 0">
                                     {{uploadPreviewWidth}} × {{uploadPreviewHeight}} -> {{outputPreviewWidth || uploadPreviewWidth * scaleRadio}} × {{outputPreviewHeight || uploadPreviewHeight * scaleRadio}}
                                 </div>
                                 <div class="stage-meta" v-else>
-                                    {{wasmModuleLoaded ? '等待图片' : '资源加载中'}}
+                                    {{wasmModuleLoaded ? t('stage.waiting') : t('stage.loadingAssets')}}
                                 </div>
                                 <div class="stage-status" v-if="isProcessing || isProcessDone">
                                     {{progressTip}}
@@ -138,14 +144,14 @@
                             <div class="toolbar-progress-wrap" v-if="isProcessing">
                                 <el-progress class="toolbar-progress" :percentage="progressRate"></el-progress>
                                 <div class="toolbar-progress-meta" v-if="!isProcessDone && procRemainingTime > 0">
-                                    剩余 {{procRemainingTime}} 秒
+                                    {{t('progress.remaining', {seconds: procRemainingTime})}}
                                 </div>
                             </div>
                             <div class="preview-tools" v-if="isProcessDone">
-                                <el-button size="mini" v-on:click="zoomOutPreview" :disabled="previewZoom <= previewZoomMin">缩小</el-button>
+                                <el-button size="mini" v-on:click="zoomOutPreview" :disabled="previewZoom <= previewZoomMin">{{t('preview.zoomOut')}}</el-button>
                                 <span>{{previewZoom}}%</span>
-                                <el-button size="mini" v-on:click="zoomInPreview" :disabled="previewZoom >= previewZoomMax">放大</el-button>
-                                <el-button size="mini" type="plain" v-on:click="resetPreviewZoom" :disabled="previewZoom === previewZoomMin">复位</el-button>
+                                <el-button size="mini" v-on:click="zoomInPreview" :disabled="previewZoom >= previewZoomMax">{{t('preview.zoomIn')}}</el-button>
+                                <el-button size="mini" type="plain" v-on:click="resetPreviewZoom" :disabled="previewZoom === previewZoomMin">{{t('actions.reset')}}</el-button>
                             </div>
                         </div>
 
@@ -163,7 +169,7 @@
                                           d="M7.646 5.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2z"/>
                                     <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383zm.653.757c-.757.653-1.153 1.44-1.153 2.056v.448l-.445.049C2.064 6.805 1 7.952 1 9.318 1 10.785 2.23 12 3.781 12h8.906C13.98 12 15 10.988 15 9.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 4.825 10.328 3 8 3a4.53 4.53 0 0 0-2.941 1.1z"/>
                                 </svg>
-                                <div class="el-upload__text">将文件拖到此处，或<em>点击选取</em></div>
+                                <div class="el-upload__text">{{t('upload.drag')}}<em>{{t('upload.click')}}</em></div>
                                 <div class="el-upload__tip" slot="tip">jpg / png / webp / bmp</div>
                             </el-upload>
                         </div>
@@ -230,15 +236,299 @@
                 </div>
             </el-main>
             <el-footer class="app-footer">
-                <span>版本: {{appVersion}}</span>
-                <span>后端: {{wasmBackend || '检测中'}}</span>
+                <span>{{t('footer.version')}}: {{appVersion}}</span>
+                <span>{{t('footer.backend')}}: {{wasmBackend || t('backend.detecting')}}</span>
             </el-footer>
         </el-container>
     </div>
 </script>
 
 <script>
-    const APP_VERSION = '2026.06.05-ncnn20220729.15';
+    const APP_VERSION = '2026.06.05-ncnn20220729.17';
+    const I18N = {
+        zh: {
+            app: {
+                title: '动漫图片超分辨率 Real-CUGAN',
+                heading: '动漫图片超分辨率',
+            },
+            nav: {
+                title: '动漫图片超分辨率',
+                about: '关于',
+                originalProject: '原作项目',
+                language: '语言',
+            },
+            state: {
+                ready: '就绪',
+                loading: '加载中',
+            },
+            help: {
+                localPrefix: '本项目基于 Web Assembly 技术，',
+                localStrong: '在浏览器端使用 CPU 完成图像处理，',
+                localSuffix: '不会上传任何图片到云端。',
+                noticeTitle: '注意：',
+                noticeText: '处理图片时内存和 CPU 占用较高。如果输出有问题或长时间无响应，请刷新重试。',
+                scaleTitle: '超分倍率：',
+                scaleText: '决定输出图片尺寸，推荐 2X；3X 处理会更久，且不能调整降噪。',
+                denoiseTitle: '降噪：',
+                denoiseText: '原片噪声多或压缩严重时推荐使用；原片质量较好时可选无降噪；担心画风、纹理或颜色改变时可选保守。',
+            },
+            controls: {
+                run: '运行',
+                backendMode: '后端模式',
+                params: '参数',
+                scale: '倍率',
+                denoise: '降噪',
+            },
+            backend: {
+                auto: '自动',
+                threads: '多线程',
+                basic: '兼容',
+                detecting: '检测中',
+            },
+            denoise: {
+                conservative: '保守',
+                none: '无',
+            },
+            actions: {
+                sample: '示例图片',
+                reset: '复位',
+                save: '保存图片',
+                cancel: '取消处理',
+            },
+            stage: {
+                workspace: '工作区',
+                waiting: '等待图片',
+                loadingAssets: '资源加载中',
+            },
+            progress: {
+                starting: '启动中，预计10秒内完成耗时估算...',
+                processing: '本地CPU努力处理中......',
+                done: '处理完成！耗时: {seconds}秒',
+                remaining: '剩余 {seconds} 秒',
+            },
+            preview: {
+                zoomOut: '缩小',
+                zoomIn: '放大',
+            },
+            upload: {
+                drag: '将文件拖到此处，或',
+                click: '点击选取',
+            },
+            footer: {
+                version: '版本',
+                backend: '后端',
+            },
+            dialog: {
+                backendSavedTitle: '设置已保存',
+                backendSavedText: '后端模式会在刷新后生效',
+                reload: '刷新',
+                notReadyTitle: '加载未完成',
+                notReadyText: '正在努力加载资源中(约12MB)，请稍后再试',
+                ok: '确定',
+                processErrorTitle: '处理错误',
+                processErrorText: '错误信息: {message}',
+                retryReload: '刷新重试',
+                conflictTitle: '调用冲突',
+                conflictText: '请稍后再试',
+                resourceErrorTitle: '资源加载失败',
+                resourceErrorText: '无法加载 {backend} 后端，请确认 web 目录包含完整构建产物。',
+                oomTitle: '标签页内存受限',
+                oomText: '本页面多次处理图片后，触发了浏览器内存限制，请点击刷新按钮重试',
+            },
+            notify: {
+                success: '成功',
+                saved: '保存成功',
+            },
+        },
+        en: {
+            app: {
+                title: 'Real-CUGAN Anime Image Upscaler',
+                heading: 'Anime Image Upscaler',
+            },
+            nav: {
+                title: 'Anime Image Upscaler',
+                about: 'About',
+                originalProject: 'Original project',
+                language: 'Language',
+            },
+            state: {
+                ready: 'Ready',
+                loading: 'Loading',
+            },
+            help: {
+                localPrefix: 'Powered by WebAssembly. ',
+                localStrong: 'Images are processed locally on your CPU in the browser, ',
+                localSuffix: 'and are never uploaded to the cloud.',
+                noticeTitle: 'Note: ',
+                noticeText: 'Processing uses a lot of memory and CPU. If the output looks wrong or the page stops responding, refresh and try again.',
+                scaleTitle: 'Scale: ',
+                scaleText: 'Controls the output size. 2X is recommended. 3X takes longer and locks denoise to 3X.',
+                denoiseTitle: 'Denoise: ',
+                denoiseText: 'Use denoise for noisy or heavily compressed images. Choose none for clean originals, or conservative if you want to preserve style, texture, and color.',
+            },
+            controls: {
+                run: 'Runtime',
+                backendMode: 'Backend',
+                params: 'Settings',
+                scale: 'Scale',
+                denoise: 'Denoise',
+            },
+            backend: {
+                auto: 'Auto',
+                threads: 'Threads',
+                basic: 'Basic',
+                detecting: 'Detecting',
+            },
+            denoise: {
+                conservative: 'Conservative',
+                none: 'None',
+            },
+            actions: {
+                sample: 'Sample',
+                reset: 'Reset',
+                save: 'Save image',
+                cancel: 'Cancel',
+            },
+            stage: {
+                workspace: 'Workspace',
+                waiting: 'Waiting for image',
+                loadingAssets: 'Loading assets',
+            },
+            progress: {
+                starting: 'Starting. Time estimate should be ready within 10 seconds...',
+                processing: 'Processing locally on CPU...',
+                done: 'Done. Time: {seconds}s',
+                remaining: '{seconds}s remaining',
+            },
+            preview: {
+                zoomOut: 'Zoom out',
+                zoomIn: 'Zoom in',
+            },
+            upload: {
+                drag: 'Drop an image here, or ',
+                click: 'click to choose',
+            },
+            footer: {
+                version: 'Version',
+                backend: 'Backend',
+            },
+            dialog: {
+                backendSavedTitle: 'Setting saved',
+                backendSavedText: 'The backend mode will take effect after refresh.',
+                reload: 'Refresh',
+                notReadyTitle: 'Still loading',
+                notReadyText: 'Assets are still loading (about 12 MB). Please try again in a moment.',
+                ok: 'OK',
+                processErrorTitle: 'Processing error',
+                processErrorText: 'Error: {message}',
+                retryReload: 'Refresh and retry',
+                conflictTitle: 'Call conflict',
+                conflictText: 'Please try again later.',
+                resourceErrorTitle: 'Asset loading failed',
+                resourceErrorText: 'Could not load the {backend} backend. Please make sure the web directory contains the full build output.',
+                oomTitle: 'Tab memory limit',
+                oomText: 'The browser memory limit was reached after multiple runs. Refresh this tab and try again.',
+            },
+            notify: {
+                success: 'Success',
+                saved: 'Saved',
+            },
+        },
+        ja: {
+            app: {
+                title: 'Real-CUGAN アニメ画像アップスケーラー',
+                heading: 'アニメ画像アップスケーラー',
+            },
+            nav: {
+                title: 'アニメ画像アップスケーラー',
+                about: '概要',
+                originalProject: '元プロジェクト',
+                language: '言語',
+            },
+            state: {
+                ready: '準備完了',
+                loading: '読み込み中',
+            },
+            help: {
+                localPrefix: 'このプロジェクトは WebAssembly を利用しています。',
+                localStrong: '画像処理はブラウザー内の CPU でローカルに実行され、',
+                localSuffix: '画像がクラウドへアップロードされることはありません。',
+                noticeTitle: '注意: ',
+                noticeText: '処理中はメモリと CPU を多く使用します。出力がおかしい場合や長時間応答しない場合は、更新して再試行してください。',
+                scaleTitle: '拡大率: ',
+                scaleText: '出力画像のサイズを決めます。2X 推奨です。3X は処理に時間がかかり、ノイズ除去は 3X 固定になります。',
+                denoiseTitle: 'ノイズ除去: ',
+                denoiseText: 'ノイズや圧縮劣化が多い画像におすすめです。元画像がきれいな場合は「なし」、画風・質感・色の変化を抑えたい場合は「控えめ」を選んでください。',
+            },
+            controls: {
+                run: '実行',
+                backendMode: 'バックエンド',
+                params: '設定',
+                scale: '倍率',
+                denoise: 'ノイズ除去',
+            },
+            backend: {
+                auto: '自動',
+                threads: 'マルチスレッド',
+                basic: '互換',
+                detecting: '検出中',
+            },
+            denoise: {
+                conservative: '控えめ',
+                none: 'なし',
+            },
+            actions: {
+                sample: 'サンプル画像',
+                reset: 'リセット',
+                save: '画像を保存',
+                cancel: 'キャンセル',
+            },
+            stage: {
+                workspace: 'ワークスペース',
+                waiting: '画像待機中',
+                loadingAssets: 'リソース読み込み中',
+            },
+            progress: {
+                starting: '起動中です。約10秒以内に残り時間を見積もります...',
+                processing: 'ローカル CPU で処理中...',
+                done: '処理完了！所要時間: {seconds}秒',
+                remaining: '残り {seconds} 秒',
+            },
+            preview: {
+                zoomOut: '縮小',
+                zoomIn: '拡大',
+            },
+            upload: {
+                drag: 'ここに画像をドラッグ、または',
+                click: 'クリックして選択',
+            },
+            footer: {
+                version: 'バージョン',
+                backend: 'バックエンド',
+            },
+            dialog: {
+                backendSavedTitle: '設定を保存しました',
+                backendSavedText: 'バックエンド設定は更新後に反映されます。',
+                reload: '更新',
+                notReadyTitle: '読み込み未完了',
+                notReadyText: 'リソースを読み込み中です（約12MB）。少し待ってから再試行してください。',
+                ok: 'OK',
+                processErrorTitle: '処理エラー',
+                processErrorText: 'エラー: {message}',
+                retryReload: '更新して再試行',
+                conflictTitle: '呼び出しの競合',
+                conflictText: 'しばらくしてから再試行してください。',
+                resourceErrorTitle: 'リソースの読み込みに失敗しました',
+                resourceErrorText: '{backend} バックエンドを読み込めませんでした。web ディレクトリに完全なビルド成果物があるか確認してください。',
+                oomTitle: 'タブのメモリ制限',
+                oomText: '複数回処理したため、ブラウザーのメモリ制限に達しました。このタブを更新して再試行してください。',
+            },
+            notify: {
+                success: '成功',
+                saved: '保存しました',
+            },
+        },
+    };
     let srcInteractedData = null;
     let dstInteractedData = null;
     var Module = null;
@@ -249,6 +539,7 @@
         data: function () {
             return {
                 activeIndex: '1',
+                language: 'zh',
                 scaleRadio: 2,
                 denoiseRadio: 3,
                 backendMode: 'auto',
@@ -275,6 +566,7 @@
                 progressRate: 0,
                 procTotalCost: 0,
                 procRemainingTime: 0,
+                procFinalCostSeconds: null,
                 progressTip: '',
                 // output param
                 outputPreviewWidth: 0,
@@ -291,6 +583,9 @@
         },
 
         mounted() {
+            this.language = this.getInitialLanguage();
+            this.applyLanguage();
+
             // watch window width
             this.windowWidth = window.innerWidth;
             window.addEventListener("resize", () => {
@@ -326,8 +621,8 @@
                     if ((text + '').includes("memory access out of bounds")) {
                         this.handleOOM();
                     } else {
-                        this.$alert('错误信息: ' + text, '处理错误', {
-                            confirmButtonText: '刷新重试',
+                        this.$alert(this.t('dialog.processErrorText', {message: text}), this.t('dialog.processErrorTitle'), {
+                            confirmButtonText: this.t('dialog.retryReload'),
                             callback: action => {
                                 window.location.reload();
                             }
@@ -339,6 +634,66 @@
         },
 
         methods: {
+            t(key, params) {
+                let parts = key.split('.');
+                let value = I18N[this.language] || I18N.zh;
+                parts.forEach((part) => {
+                    value = value && value[part];
+                });
+                if (typeof value !== 'string') {
+                    value = I18N.zh;
+                    parts.forEach((part) => {
+                        value = value && value[part];
+                    });
+                }
+                if (typeof value !== 'string') {
+                    return key;
+                }
+                if (params) {
+                    Object.keys(params).forEach((name) => {
+                        value = value.replace(new RegExp('\\{' + name + '\\}', 'g'), params[name]);
+                    });
+                }
+                return value;
+            },
+
+            getInitialLanguage() {
+                let savedLanguage = this.getPreference('language');
+                if (savedLanguage === 'zh' || savedLanguage === 'en' || savedLanguage === 'ja') {
+                    return savedLanguage;
+                }
+                let browserLanguage = (navigator.language || navigator.userLanguage || '').toLowerCase();
+                if (browserLanguage.indexOf('ja') === 0) {
+                    return 'ja';
+                }
+                return browserLanguage.indexOf('zh') === 0 ? 'zh' : 'en';
+            },
+
+            applyLanguage() {
+                document.documentElement.lang = this.language === 'ja' ? 'ja' : (this.language === 'en' ? 'en' : 'zh-CN');
+                document.title = this.t('app.title');
+            },
+
+            setLanguage(language) {
+                if (language !== 'zh' && language !== 'en' && language !== 'ja') {
+                    return;
+                }
+                this.language = language;
+                this.savePreference('language', language);
+                this.applyLanguage();
+                this.syncProgressTipLanguage();
+            },
+
+            syncProgressTipLanguage() {
+                if (this.isProcessDone && this.procFinalCostSeconds !== null) {
+                    this.progressTip = this.t('progress.done', {seconds: this.procFinalCostSeconds});
+                    return;
+                }
+                if (this.isProcessing) {
+                    this.progressTip = this.progressRate > 0 ? this.t('progress.processing') : this.t('progress.starting');
+                }
+            },
+
             onScaleOptionChange() {
                 if (this.scaleRadio === 3 && this.denoiseRadio !== 3) {
                     this.denoiseRadio = 3;
@@ -354,8 +709,8 @@
             onBackendModeChange() {
                 this.savePreference('backendMode', this.backendMode);
                 if (this.wasmModuleLoaded) {
-                    this.$alert('后端模式会在刷新后生效', '设置已保存', {
-                        confirmButtonText: '刷新',
+                    this.$alert(this.t('dialog.backendSavedText'), this.t('dialog.backendSavedTitle'), {
+                        confirmButtonText: this.t('dialog.reload'),
                         callback: action => {
                             window.location.reload();
                         }
@@ -556,8 +911,8 @@
 
             isNotReady() {
                 if (!this.wasmModuleLoaded) {
-                    this.$alert('正在努力加载资源中(约12MB)，请稍后再试', '加载未完成', {
-                        confirmButtonText: '确定',
+                    this.$alert(this.t('dialog.notReadyText'), this.t('dialog.notReadyTitle'), {
+                        confirmButtonText: this.t('dialog.ok'),
                     });
                     return true;
                 }
@@ -593,8 +948,7 @@
             process(uploadImageData, w, h) {
                 let outputCanvas = document.getElementById('canvas-output');
                 let outputCtx = outputCanvas.getContext('2d');
-                // this.progressTip = '本地CPU努力处理中，请稍后...';
-                this.progressTip = '启动中，预计10秒内完成耗时估算...';
+                this.progressTip = this.t('progress.starting');
                 this.isProcessing = true;
                 this.isProcessDone = false;
                 this.previewOverlapRate = 50;
@@ -603,6 +957,7 @@
                 this.progressRate = 0;
                 this.procTotalCost = 0;
                 this.procRemainingTime = 0;
+                this.procFinalCostSeconds = null;
                 // init output params
                 this.outputScale = this.scaleRadio;
                 this.outputDenoise = this.denoiseRadio;
@@ -621,8 +976,8 @@
 
                 let retCode = _process_image(0, srcInteractedData, dstInteractedData, w, h, this.outputScale, this.outputDenoise);
                 if (retCode !== 0) {
-                    this.$alert('请稍后再试', '调用冲突', {
-                        confirmButtonText: '确定',
+                    this.$alert(this.t('dialog.conflictText'), this.t('dialog.conflictTitle'), {
+                        confirmButtonText: this.t('dialog.ok'),
                     });
                 }
             },
@@ -896,8 +1251,8 @@
                             this.loadWasmBackend(backends.slice(1));
                             return;
                         }
-                        this.$alert('无法加载 ' + backend + ' 后端，请确认 web 目录包含完整构建产物。', '资源加载失败', {
-                            confirmButtonText: '确定',
+                        this.$alert(this.t('dialog.resourceErrorText', {backend: backend}), this.t('dialog.resourceErrorTitle'), {
+                            confirmButtonText: this.t('dialog.ok'),
                         });
                     });
             },
@@ -926,19 +1281,21 @@
                 if (cost < 1000) {
                     costNum = (cost / 1000).toFixed(2);
                 }
-                this.progressTip = '处理完成！耗时: ' + costNum + '秒';
+                this.procFinalCostSeconds = costNum;
+                this.progressTip = this.t('progress.done', {seconds: costNum});
                 this.$notify({
-                    title: '成功',
+                    title: this.t('notify.success'),
                     message: this.progressTip,
                     type: 'success'
                 });
             },
 
             onProcessProgressChange(totalCost, tileCost, progressRate, remainingTime) {
-                this.progressTip = "本地CPU努力处理中......";
+                this.progressTip = this.t('progress.processing');
                 this.progressRate = Math.ceil(progressRate * 100);
                 this.procTotalCost = totalCost;
                 this.procRemainingTime = Math.round(remainingTime / 1000);
+                this.procFinalCostSeconds = null;
             },
 
             wasmCallback(rawData) {
@@ -982,7 +1339,7 @@
                 a.download = filename;
                 a.click();
                 this.$notify({
-                    title: '保存成功',
+                    title: this.t('notify.saved'),
                     message: filename,
                     type: 'success'
                 });
@@ -1007,6 +1364,7 @@
                 this.progressRate = 0;
                 this.procTotalCost = 0;
                 this.procRemainingTime = 0;
+                this.procFinalCostSeconds = null;
                 this.progressTip = '';
                 this.previewOverlapRate = 50;
                 this.previewZoom = this.previewZoomMin;
@@ -1026,8 +1384,8 @@
             },
 
             handleOOM() {
-                this.$alert('本页面多次处理图片后，触发了浏览器内存限制，请点击刷新按钮重试', '标签页内存受限', {
-                    confirmButtonText: '刷新',
+                this.$alert(this.t('dialog.oomText'), this.t('dialog.oomTitle'), {
+                    confirmButtonText: this.t('dialog.reload'),
                     callback: action => {
                         window.location.reload();
                     }
