@@ -35,6 +35,9 @@ Android/iOS: please open in a browser app.
 PC/Mac/Linux: recommend using the latest version of Chrome or Firefox.
 
 # How to build
+
+You can download the pre-built version from GitHub Actions, or build it manually following the tutorial below.
+
  1. Install [emscripten](https://github.com/emscripten-core/emscripten):
  ```shell
  git clone https://github.com/emscripten-core/emsdk.git

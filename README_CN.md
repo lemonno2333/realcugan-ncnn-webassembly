@@ -26,6 +26,9 @@
 Android/iOS请在独立浏览器内打开，PC推荐使用最新版本的Chrome或Firefox。
 
 # How to build
+
+你可以在GitHub Actions里面下载构建好的版本，或者按照下面的教程手动构建
+
  1. 安装[emscripten](https://github.com/emscripten-core/emscripten)
  ```shell
  git clone https://github.com/emscripten-core/emsdk.git
