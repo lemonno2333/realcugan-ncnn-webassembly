@@ -2,33 +2,39 @@ name: Build Real-CUGAN WebAssembly
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NCNN_TAG: 20220729
 
 jobs:
   build:
     runs-on: ubuntu-22.04
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
       - name: Install system dependencies
         run: |
           sudo apt update
           sudo apt install -y git cmake make g++ python3 nodejs npm
 
-      - name: Clone source and dependencies
+      - name: Prepare dependencies
         run: |
-          git clone https://github.com/hanFengSan/realcugan-ncnn-webassembly.git source
-          cd source
-
-          echo "===== clone dependencies manually ====="
-          rm -rf fmt ncnn
-          git clone --depth 1 https://github.com/fmtlib/fmt.git fmt
-          git clone --depth 1 https://github.com/Tencent/ncnn.git ncnn
-
-          echo "===== check directories ====="
-          test -d fmt && echo "fmt exists" || exit 1
-          test -d ncnn && echo "ncnn exists" || exit 1
+          if [ ! -d fmt ]; then
+            git clone --depth 1 https://github.com/fmtlib/fmt.git fmt
+          fi
+          if [ ! -d ncnn ]; then
+            git clone --depth 1 https://github.com/Tencent/ncnn.git ncnn
+          fi
+          git -C ncnn fetch --depth 1 origin tag "$NCNN_TAG"
+          git -C ncnn checkout "$NCNN_TAG"
 
       - name: Install Emscripten 3.1.13
         run: |
@@ -40,25 +46,17 @@ jobs:
       - name: Build project
         run: |
           source ~/emsdk/emsdk_env.sh
-          cd source
-
-          echo "===== patch fmt include ====="
-          sed -i 's|"fmt/core.h"|"fmt/format.h"|g' main.cpp realcugan.cpp
-          grep -n "fmt/" main.cpp realcugan.cpp
-
           sh build.sh
 
       - name: List build result
         run: |
-          cd source
           echo "===== web files ====="
           ls -lah web
           find web -maxdepth 2 -type f | head -100
 
       - name: Pack web folder
         run: |
-          cd source
-          tar -czvf ../realcugan-web.tar.gz web
+          tar -czvf realcugan-web.tar.gz web
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

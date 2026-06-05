@@ -4,7 +4,7 @@
 #include <iostream>
 #include <thread>
 #include <string>
-#include "fmt/core.h"
+#include "fmt/format.h"
 
 RealCUGAN::RealCUGAN() {
     std::cout << "cpu count: " << ncnn::get_big_cpu_count() << std::endl;

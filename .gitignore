@@ -9,6 +9,8 @@ cmake-build-debug/
 # files
 .DS_Store
 /ncnn
+/fmt
+/third_party/emsdk
 /web/realcugan-ncnn-webassembly*
 /web/up2x*
 /web/up3x*

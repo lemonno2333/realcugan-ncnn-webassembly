@@ -6,10 +6,12 @@
 
 #include "stb_image.h"
 #include <chrono>
+#ifdef REALCUGAN_USE_PTHREADS
 #include <thread>
+#endif
 #include "realcugan.h"
 #include <cpu.h>
-#include "fmt/core.h"
+#include "fmt/format.h"
 
 //#define STB_IMAGE_WRITE_IMPLEMENTATION
 //#include "stb_image_write.h"
@@ -35,13 +37,15 @@ public:
     int h;
 };
 
-static ncnn::Mutex lock;
-static ncnn::ConditionVariable condition;
 static RealCUGAN *realcugan;
 static Task *proc_img_task;
 
+#ifdef REALCUGAN_USE_PTHREADS
+static ncnn::Mutex lock;
+static ncnn::ConditionVariable condition;
 static ncnn::Mutex finish_lock;
 static ncnn::ConditionVariable finish_condition;
+#endif
 
 void remove_alpha_channel(unsigned char *image_data, int w, int h) {
     // remove the alpha channel to avoid exceeding memory limits
@@ -70,6 +74,35 @@ void process_image_success_callback(int image_id, long cost)
     std::cout << script << std::endl;
 }
 
+static void run_task(Task *task) {
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    std::cout << "process start" << std::endl;
+
+    if (!realcugan) {
+        realcugan = new RealCUGAN();
+        realcugan->load(task->scale, task->noise);
+    }
+    if (realcugan->scale != task->scale || realcugan->noise != task->noise)
+    {
+        realcugan->load(task->scale, task->noise);
+    }
+
+    ncnn::Mat inImage = ncnn::Mat(task->input_w, task->input_h,
+                                  (void *) task->input_image_data, (size_t) task->input_channel,
+                                  task->input_channel);
+    ncnn::Mat outImage = ncnn::Mat(inImage.w * realcugan->scale, inImage.h * realcugan->scale,
+                                   (size_t) inImage.elemsize, (int) inImage.elemsize);
+    realcugan->process(inImage, outImage);
+    copy_with_alpha_channel(task->output_image_data, (const unsigned char *) outImage.data, outImage.w,
+                            outImage.h);
+
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    auto cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+    std::cout << "process done, cost: " << cost / 1000 << "secs" << std::endl;
+    process_image_success_callback(task->image_id, cost);
+}
+
+#ifdef REALCUGAN_USE_PTHREADS
 static void worker() {
     while (1) {
         lock.lock();
@@ -77,33 +110,10 @@ static void worker() {
             condition.wait(lock);
         }
 
-        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-        std::cout << "thread process start" << std::endl;
+        Task *task = proc_img_task;
+        run_task(task);
 
-        if (!realcugan) {
-            realcugan = new RealCUGAN();
-            realcugan->load(proc_img_task->scale, proc_img_task->noise);
-        }
-        if (realcugan->scale != proc_img_task->scale || realcugan->noise != proc_img_task->noise)
-        {
-            realcugan->load(proc_img_task->scale, proc_img_task->noise);
-        }
-
-        ncnn::Mat inImage = ncnn::Mat(proc_img_task->input_w, proc_img_task->input_h,
-                                      (void *) proc_img_task->input_image_data, (size_t) proc_img_task->input_channel,
-                                      proc_img_task->input_channel);
-        ncnn::Mat outImage = ncnn::Mat(inImage.w * realcugan->scale, inImage.h * realcugan->scale,
-                                       (size_t) inImage.elemsize, (int) inImage.elemsize);
-        realcugan->process(inImage, outImage);
-        copy_with_alpha_channel(proc_img_task->output_image_data, (const unsigned char *) outImage.data, outImage.w,
-                                outImage.h);
-
-        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-        auto cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-        std::cout << "thread process done, cost: " << cost / 1000 << "secs" << std::endl;
-        process_image_success_callback(proc_img_task->image_id, cost);
-
-        delete proc_img_task;
+        delete task;
         proc_img_task = nullptr;
         lock.unlock();
         finish_lock.lock();
@@ -114,15 +124,21 @@ static void worker() {
 }
 
 static std::thread t(worker);
+#endif
 
 extern "C"
 {
 
 int process_image(int image_id, unsigned char *input_image_data, unsigned char *output_image_data, int input_w,
                   int input_h, int scale, int noise) {
+#ifdef REALCUGAN_USE_PTHREADS
     lock.lock();
+#endif
 
     if (proc_img_task != nullptr) {
+#ifdef REALCUGAN_USE_PTHREADS
+        lock.unlock();
+#endif
         return -1;
     }
     remove_alpha_channel(input_image_data, input_w, input_h);
@@ -138,8 +154,14 @@ int process_image(int image_id, unsigned char *input_image_data, unsigned char *
     tsk->noise = noise;
     proc_img_task = tsk;
 
+#ifdef REALCUGAN_USE_PTHREADS
     lock.unlock();
     condition.signal();
+#else
+    run_task(tsk);
+    delete tsk;
+    proc_img_task = nullptr;
+#endif
     return 0;
 }
 
