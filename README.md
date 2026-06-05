@@ -28,11 +28,9 @@ The web UI has also been updated for local image inspection:
 The code implementation deeply refers to [realcugan-ncnn-vulkan](https://github.com/nihui/realcugan-ncnn-vulkan) and [ncnn-webassembly-nanodet](https://github.com/nihui/ncnn-webassembly-nanodet).
 
 # Usage
-Website： https://real-cugan.animesales.xyz/
+Website： https://realcugan.lemonno.xyz/
 
-iOS: is not currently supported.
-
-Android: please open in a browser app.
+Android/iOS: please open in a browser app.
 
 PC/Mac/Linux: recommend using the latest version of Chrome or Firefox.
 
@@ -45,7 +43,7 @@ cd emsdk
 ./emsdk activate 3.1.13
 
 source emsdk/emsdk_env.sh # or add it to .zshrc etc.
-```
+ ```
 2. build:
 ```shell
 git clone https://github.com/lemonno2333/realcugan-ncnn-webassembly.git

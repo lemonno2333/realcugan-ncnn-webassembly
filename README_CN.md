@@ -21,9 +21,9 @@
 代码实现上深度参考了nihui大佬的[realcugan-ncnn-vulkan](https://github.com/nihui/realcugan-ncnn-vulkan)和[ncnn-webassembly-nanodet](https://github.com/nihui/ncnn-webassembly-nanodet)
 
 # 使用
-网站地址： https://real-cugan.animesales.xyz/
+网站地址： https://realcugan.lemonno.xyz/
 
-目前不支持iOS，Android请在独立浏览器内打开，PC推荐使用最新版本的Chrome或Firefox。
+Android/iOS请在独立浏览器内打开，PC推荐使用最新版本的Chrome或Firefox。
 
 # How to build
  1. 安装[emscripten](https://github.com/emscripten-core/emscripten)
@@ -34,7 +34,7 @@ cd emsdk
 ./emsdk activate 3.1.13
 
 source emsdk/emsdk_env.sh # 或者添加到.zshrc等地方
-```
+ ```
 2. 构建项目:
 ```shell
 git clone https://github.com/lemonno2333/realcugan-ncnn-webassembly.git
