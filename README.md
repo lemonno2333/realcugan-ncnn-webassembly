@@ -16,8 +16,11 @@ The web UI has also been updated for local image inspection:
 - fixed header/footer tool layout with a larger image workspace;
 - automatic theme color extraction from the uploaded image, inspired by
   Material Design Monet;
+- animated mesh-gradient processing state generated from the uploaded image's
+  dominant colors;
 - single overlay comparison mode with a viewport-relative split slider;
-- bounded zoom, mouse-wheel zoom, and drag-to-pan preview behavior;
+- bounded zoom, mouse-wheel zoom, and drag-to-pan preview behavior on desktop;
+- mobile-friendly scrolling layout with touch panning for zoomed previews;
 - reset button for clearing the current image and processing another one.
 
 [Real-CUGAN](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) is an AI super resolution model for anime images, trained in a million scale anime dataset, using the same architecture as Waifu2x-CUNet. It supports 2x\3x\4x super resolving. For different enhancement strength, now 2x Real-CUGAN supports 5 model weights, 3x/4x Real-CUGAN supports 3 model weights.

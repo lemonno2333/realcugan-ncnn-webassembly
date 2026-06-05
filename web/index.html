@@ -20,13 +20,13 @@
             location.replace(`https:${location.href.substring(location.protocol.length)}`);
         }
     </script>
-    <script src="vue.min.js?v=2026.06.05-ncnn20220729.2"></script>
+    <script src="vue.min.js?v=2026.06.05-ncnn20220729.15"></script>
     <!-- import CSS -->
-    <link rel="stylesheet" href="normalize.css?v=2026.06.05-ncnn20220729.2">
-    <link rel="stylesheet" href="element.css?v=2026.06.05-ncnn20220729.2">
+    <link rel="stylesheet" href="normalize.css?v=2026.06.05-ncnn20220729.15">
+    <link rel="stylesheet" href="element.css?v=2026.06.05-ncnn20220729.15">
     <!-- import JavaS/docs/doccnToNsFKaK01nwkKpHD5S4xbcript -->
-    <script src="element.js?v=2026.06.05-ncnn20220729.2"></script>
-    <script src="wasmFeatureDetect.js?v=2026.06.05-ncnn20220729.2"></script>
+    <script src="element.js?v=2026.06.05-ncnn20220729.15"></script>
+    <script src="wasmFeatureDetect.js?v=2026.06.05-ncnn20220729.15"></script>
 </head>
 
 <body>
@@ -131,12 +131,21 @@
                                 <div class="stage-meta" v-else>
                                     {{wasmModuleLoaded ? '等待图片' : '资源加载中'}}
                                 </div>
+                                <div class="stage-status" v-if="isProcessing || isProcessDone">
+                                    {{progressTip}}
+                                </div>
                             </div>
                             <div class="toolbar-progress-wrap" v-if="isProcessing">
                                 <el-progress class="toolbar-progress" :percentage="progressRate"></el-progress>
                                 <div class="toolbar-progress-meta" v-if="!isProcessDone && procRemainingTime > 0">
                                     剩余 {{procRemainingTime}} 秒
                                 </div>
+                            </div>
+                            <div class="preview-tools" v-if="isProcessDone">
+                                <el-button size="mini" v-on:click="zoomOutPreview" :disabled="previewZoom <= previewZoomMin">缩小</el-button>
+                                <span>{{previewZoom}}%</span>
+                                <el-button size="mini" v-on:click="zoomInPreview" :disabled="previewZoom >= previewZoomMax">放大</el-button>
+                                <el-button size="mini" type="plain" v-on:click="resetPreviewZoom" :disabled="previewZoom === previewZoomMin">复位</el-button>
                             </div>
                         </div>
 
@@ -159,31 +168,33 @@
                             </el-upload>
                         </div>
 
-                        <div class="stage-body" v-if="uploadPreviewWidth !== 0 && !isProcessDone">
+                        <div class="stage-body processing-stage" :class="{'is-processing': isProcessing}" v-if="uploadPreviewWidth !== 0 && !isProcessDone">
+                            <div class="processing-gradient" v-if="isProcessing">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
                             <el-image
+                                    v-if="!isProcessing"
+                                    class="processing-preview"
                                     :preview-src-list="[uploadImgSrc]"
                                     :src="uploadImgSrc"
                                     :style="{width: getInputPreviewSize().width + 'px', height: getInputPreviewSize().height + 'px'}">
                             </el-image>
                         </div>
 
-                        <div class="process-bar" v-if="isProcessing || isProcessDone">
-                            <span>{{progressTip}}</span>
-                        </div>
-
                         <div class="result-stage result-overlap" v-if="isProcessDone">
-                            <div class="preview-tools">
-                                <el-button size="mini" v-on:click="zoomOutPreview" :disabled="previewZoom <= previewZoomMin">缩小</el-button>
-                                <span>{{previewZoom}}%</span>
-                                <el-button size="mini" v-on:click="zoomInPreview" :disabled="previewZoom >= previewZoomMax">放大</el-button>
-                                <el-button size="mini" type="plain" v-on:click="resetPreviewZoom" :disabled="previewZoom === previewZoomMin">复位</el-button>
-                            </div>
                             <div class="preview-pan-viewport"
                                  :class="{'is-draggable': previewZoom > previewZoomMin, 'is-dragging': previewDragging}"
                                  v-on:mousedown="startPreviewPan"
                                  v-on:mousemove="movePreviewPan"
                                  v-on:mouseup="endPreviewPan"
                                  v-on:mouseleave="endPreviewPan"
+                                 v-on:touchstart="startPreviewPan"
+                                 v-on:touchmove="movePreviewPan"
+                                 v-on:touchend="endPreviewPan"
+                                 v-on:touchcancel="endPreviewPan"
                                  v-on:wheel.prevent="onPreviewWheel">
                                 <div class="preview-pan-content"
                                      :style="{transform: 'translate(' + previewPanX + 'px, ' + previewPanY + 'px)'}">
@@ -227,7 +238,7 @@
 </script>
 
 <script>
-    const APP_VERSION = '2026.06.05-ncnn20220729.2';
+    const APP_VERSION = '2026.06.05-ncnn20220729.15';
     let srcInteractedData = null;
     let dstInteractedData = null;
     var Module = null;
@@ -246,6 +257,8 @@
                 previewZoomMin: 100,
                 previewZoomMax: 300,
                 previewZoomStep: 25,
+                previewViewportWidth: 0,
+                previewSliderInset: 18,
                 previewPanX: 0,
                 previewPanY: 0,
                 previewDragging: false,
@@ -282,6 +295,7 @@
             this.windowWidth = window.innerWidth;
             window.addEventListener("resize", () => {
                 this.windowWidth = window.innerWidth;
+                this.syncPreviewViewport();
             });
 
             // load preferences
@@ -431,6 +445,11 @@
             },
 
             extractThemeColor(imageData) {
+                let colors = this.extractThemeColors(imageData, 1);
+                return colors[0];
+            },
+
+            extractThemeColors(imageData, limit) {
                 let data = imageData.data;
                 let pixelCount = imageData.width * imageData.height;
                 let stride = Math.max(4, Math.floor(pixelCount / 6000) * 4);
@@ -462,24 +481,45 @@
                     buckets[key].weight += score;
                     buckets[key].score += score;
                 }
-                let best = null;
-                Object.keys(buckets).forEach((key) => {
-                    if (!best || buckets[key].score > best.score) {
-                        best = buckets[key];
+                let ranked = Object.keys(buckets)
+                    .map((key) => {
+                        let bucket = buckets[key];
+                        return {
+                            r: Math.round(bucket.r / bucket.weight),
+                            g: Math.round(bucket.g / bucket.weight),
+                            b: Math.round(bucket.b / bucket.weight),
+                            score: bucket.score,
+                        };
+                    })
+                    .sort((a, b) => b.score - a.score);
+                let selected = [];
+                ranked.forEach((candidate) => {
+                    if (selected.length >= limit) {
+                        return;
+                    }
+                    let distinct = selected.every((color) => {
+                        let delta = Math.abs(candidate.r - color.r) + Math.abs(candidate.g - color.g) + Math.abs(candidate.b - color.b);
+                        return delta > 72;
+                    });
+                    if (distinct) {
+                        selected.push(candidate);
                     }
                 });
-                if (!best || best.weight === 0) {
-                    return {r: 64, g: 158, b: 255};
+                if (selected.length === 0) {
+                    selected.push({r: 64, g: 158, b: 255});
                 }
-                return {
-                    r: Math.round(best.r / best.weight),
-                    g: Math.round(best.g / best.weight),
-                    b: Math.round(best.b / best.weight),
-                };
+                while (selected.length < limit) {
+                    let base = selected[selected.length % selected.length];
+                    let hsl = this.rgbToHsl(base.r, base.g, base.b);
+                    let next = this.hslToRgb((hsl.h + selected.length * 38) % 360, this.clampColorValue(hsl.s, 35, 76), this.clampColorValue(hsl.l + (selected.length % 2 === 0 ? 12 : -8), 36, 72));
+                    selected.push(next);
+                }
+                return selected.slice(0, limit);
             },
 
             applyImageTheme(imageData) {
-                let color = this.extractThemeColor(imageData);
+                let colors = this.extractThemeColors(imageData, 4);
+                let color = colors[0];
                 let hsl = this.rgbToHsl(color.r, color.g, color.b);
                 let primary = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 42, 78), this.clampColorValue(hsl.l, 34, 52));
                 let soft = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 32, 70), 94);
@@ -492,6 +532,11 @@
                 root.style.setProperty('--theme-surface-tint', 'rgba(' + primary.r + ', ' + primary.g + ', ' + primary.b + ', 0.08)');
                 root.style.setProperty('--theme-text-strong', this.rgbCss(textStrong));
                 root.style.setProperty('--theme-on-primary', hsl.l > 58 ? '#111827' : '#ffffff');
+                colors.forEach((themeColor, index) => {
+                    let colorHsl = this.rgbToHsl(themeColor.r, themeColor.g, themeColor.b);
+                    let fluid = this.hslToRgb(colorHsl.h, this.clampColorValue(colorHsl.s, 45, 82), this.clampColorValue(colorHsl.l, 46, 68));
+                    root.style.setProperty('--fluid-color-' + (index + 1), 'rgba(' + fluid.r + ', ' + fluid.g + ', ' + fluid.b + ', 0.72)');
+                });
             },
 
             resetTheme() {
@@ -502,6 +547,10 @@
                     '--theme-surface-tint',
                     '--theme-text-strong',
                     '--theme-on-primary',
+                    '--fluid-color-1',
+                    '--fluid-color-2',
+                    '--fluid-color-3',
+                    '--fluid-color-4',
                 ].forEach((name) => document.documentElement.style.removeProperty(name));
             },
 
@@ -648,16 +697,11 @@
 
             getPreviewSplitViewportX() {
                 let viewport = document.querySelector('.preview-pan-viewport');
-                let runway = document.querySelector('.preview-overlap-slider .el-slider__runway');
-                if (!viewport) {
+                let viewportWidth = this.previewViewportWidth || (viewport ? viewport.clientWidth : 0);
+                if (!viewportWidth) {
                     return 0;
                 }
-                if (runway) {
-                    let viewportRect = viewport.getBoundingClientRect();
-                    let runwayRect = runway.getBoundingClientRect();
-                    return runwayRect.left - viewportRect.left + runwayRect.width * this.previewOverlapRate / 100;
-                }
-                return viewport.clientWidth * this.previewOverlapRate / 100;
+                return this.previewSliderInset + (viewportWidth - this.previewSliderInset * 2) * this.previewOverlapRate / 100;
             },
 
             getPreviewSplitLocalX() {
@@ -669,6 +713,23 @@
                 let imageLeft = (viewport.clientWidth - size.outputImgWidth) / 2 + this.previewPanX;
                 let splitX = this.getPreviewSplitViewportX() - imageLeft;
                 return Math.max(0, Math.min(size.outputImgWidth, splitX));
+            },
+
+            syncPreviewViewport() {
+                this.$nextTick(() => {
+                    let update = () => {
+                        let viewport = document.querySelector('.preview-pan-viewport');
+                        if (viewport && viewport.clientWidth) {
+                            this.previewViewportWidth = viewport.clientWidth;
+                            this.clampPreviewPan();
+                        }
+                    };
+                    update();
+                    requestAnimationFrame(() => {
+                        update();
+                        requestAnimationFrame(update);
+                    });
+                });
             },
 
             zoomInPreview() {
@@ -719,6 +780,16 @@
                 this.previewPanY = Math.max(-bounds.maxY, Math.min(bounds.maxY, this.previewPanY));
             },
 
+            getPanEventPoint(event) {
+                let touch = event.touches && event.touches.length > 0 ? event.touches[0] : null;
+                let changedTouch = event.changedTouches && event.changedTouches.length > 0 ? event.changedTouches[0] : null;
+                let point = touch || changedTouch || event;
+                return {
+                    x: point.clientX,
+                    y: point.clientY,
+                };
+            },
+
             startPreviewPan(event) {
                 if (event.target.closest && event.target.closest('.el-slider')) {
                     return;
@@ -727,9 +798,10 @@
                 if (bounds.maxX === 0 && bounds.maxY === 0) {
                     return;
                 }
+                let point = this.getPanEventPoint(event);
                 this.previewDragging = true;
-                this.previewDragStartX = event.clientX;
-                this.previewDragStartY = event.clientY;
+                this.previewDragStartX = point.x;
+                this.previewDragStartY = point.y;
                 this.previewDragOriginX = this.previewPanX;
                 this.previewDragOriginY = this.previewPanY;
                 event.preventDefault();
@@ -739,9 +811,10 @@
                 if (!this.previewDragging) {
                     return;
                 }
+                let point = this.getPanEventPoint(event);
                 let bounds = this.getPreviewPanBounds();
-                this.previewPanX = this.previewDragOriginX + event.clientX - this.previewDragStartX;
-                this.previewPanY = this.previewDragOriginY + event.clientY - this.previewDragStartY;
+                this.previewPanX = this.previewDragOriginX + point.x - this.previewDragStartX;
+                this.previewPanY = this.previewDragOriginY + point.y - this.previewDragStartY;
                 this.previewPanX = Math.max(-bounds.maxX, Math.min(bounds.maxX, this.previewPanX));
                 this.previewPanY = Math.max(-bounds.maxY, Math.min(bounds.maxY, this.previewPanY));
                 event.preventDefault();
@@ -847,6 +920,7 @@
 
                 this.isProcessing = false;
                 this.isProcessDone = true;
+                this.syncPreviewViewport();
 
                 let costNum = Math.round(cost / 1000);
                 if (cost < 1000) {
@@ -936,6 +1010,7 @@
                 this.progressTip = '';
                 this.previewOverlapRate = 50;
                 this.previewZoom = this.previewZoomMin;
+                this.previewViewportWidth = 0;
                 this.resetPreviewPan();
                 this.resetTheme();
                 let uploadCanvas = document.getElementById('canvas-upload');
@@ -995,6 +1070,10 @@
         --theme-primary-border: #b8d9ff;
         --theme-surface-tint: rgba(64, 158, 255, 0.08);
         --theme-text-strong: #202733;
+        --fluid-color-1: rgba(64, 158, 255, 0.72);
+        --fluid-color-2: rgba(103, 194, 58, 0.68);
+        --fluid-color-3: rgba(230, 162, 60, 0.66);
+        --fluid-color-4: rgba(245, 108, 108, 0.62);
     }
 
     html,
@@ -1477,6 +1556,13 @@
         line-height: 1.3;
     }
 
+    .stage-status {
+        margin-top: 7px;
+        color: #5d6675;
+        font-size: 13px;
+        line-height: 1.35;
+    }
+
     .toolbar-progress-wrap {
         flex: 0 0 min(320px, 38vw);
     }
@@ -1527,6 +1613,160 @@
         object-fit: contain;
     }
 
+    .processing-stage {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+    }
+
+    .processing-stage.is-processing {
+        background: #f8fafc;
+    }
+
+    .processing-gradient {
+        position: absolute;
+        inset: -12%;
+        z-index: 0;
+        overflow: hidden;
+        background:
+            radial-gradient(ellipse at 16% 20%, var(--fluid-color-1) 0%, transparent 44%),
+            radial-gradient(ellipse at 78% 18%, var(--fluid-color-2) 0%, transparent 46%),
+            radial-gradient(ellipse at 18% 86%, var(--fluid-color-3) 0%, transparent 46%),
+            radial-gradient(ellipse at 88% 82%, var(--fluid-color-4) 0%, transparent 42%),
+            linear-gradient(135deg, rgba(4, 7, 28, 0.96) 0%, transparent 34%, rgba(255, 255, 255, 0.34) 68%, rgba(4, 7, 28, 0.82) 100%),
+            linear-gradient(28deg, var(--fluid-color-3) 0%, var(--fluid-color-1) 42%, var(--fluid-color-2) 72%, var(--fluid-color-4) 100%);
+        background-position: 0% 0%, 100% 0%, 0% 100%, 100% 100%, 50% 50%, 50% 50%;
+        background-size: 140% 140%, 150% 150%, 145% 145%, 150% 150%, 160% 160%, 130% 130%;
+        filter: saturate(1.32) contrast(1.08);
+        opacity: 1;
+        pointer-events: none;
+        animation: meshGradientFlow 7s ease-in-out infinite alternate;
+    }
+
+    .processing-gradient::before {
+        position: absolute;
+        inset: 0;
+        background:
+            linear-gradient(110deg, rgba(255, 255, 255, 0.22), transparent 32%, rgba(0, 0, 0, 0.22) 74%, transparent),
+            radial-gradient(circle at 8% 12%, rgba(0, 0, 0, 0.54), transparent 30%),
+            radial-gradient(circle at 92% 8%, rgba(0, 0, 0, 0.48), transparent 32%),
+            radial-gradient(circle at 52% 96%, rgba(255, 255, 255, 0.36), transparent 34%);
+        content: "";
+        mix-blend-mode: soft-light;
+        animation: meshSheenFlow 5.8s ease-in-out infinite alternate;
+    }
+
+    .processing-gradient::after {
+        position: absolute;
+        inset: 0;
+        background-image:
+            repeating-radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.22) 0 1px, transparent 1px 4px),
+            repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.12) 0 1px, transparent 1px 3px);
+        background-size: 7px 7px, 5px 5px;
+        content: "";
+        mix-blend-mode: overlay;
+        opacity: 0.2;
+        animation: meshNoiseDrift 1.8s steps(2, end) infinite;
+    }
+
+    .processing-gradient span {
+        position: absolute;
+        width: 82%;
+        height: 76%;
+        border-radius: 42% 58% 48% 52%;
+        filter: blur(42px);
+        mix-blend-mode: screen;
+        opacity: 0.74;
+        animation: meshColorDrift 6s ease-in-out infinite alternate;
+    }
+
+    .processing-gradient span:nth-child(1) {
+        left: -28%;
+        top: -22%;
+        background: var(--fluid-color-1);
+        animation-duration: 5.4s;
+    }
+
+    .processing-gradient span:nth-child(2) {
+        right: -34%;
+        top: -18%;
+        background: var(--fluid-color-2);
+        animation-delay: -1s;
+        animation-duration: 6.1s;
+    }
+
+    .processing-gradient span:nth-child(3) {
+        left: -22%;
+        bottom: -28%;
+        background: var(--fluid-color-3);
+        animation-delay: -2.1s;
+        animation-duration: 5.7s;
+    }
+
+    .processing-gradient span:nth-child(4) {
+        right: -24%;
+        bottom: -24%;
+        background: var(--fluid-color-4);
+        animation-delay: -3.2s;
+        animation-duration: 6.5s;
+    }
+
+    .processing-preview {
+        position: relative;
+        z-index: 1;
+    }
+
+    @keyframes meshGradientFlow {
+        0% {
+            background-position: 0% 0%, 100% 0%, 0% 100%, 100% 100%, 20% 40%, 50% 50%;
+            transform: scale(1) rotate(0deg);
+        }
+        35% {
+            background-position: 32% 18%, 72% 28%, 18% 76%, 82% 64%, 62% 38%, 38% 62%;
+            transform: scale(1.05) rotate(2deg);
+        }
+        70% {
+            background-position: 10% 52%, 94% 16%, 42% 92%, 58% 76%, 38% 72%, 72% 42%;
+            transform: scale(1.08) rotate(-2deg);
+        }
+        100% {
+            background-position: 48% 12%, 56% 44%, 26% 58%, 92% 42%, 72% 46%, 28% 72%;
+            transform: scale(1.04) rotate(3deg);
+        }
+    }
+
+    @keyframes meshColorDrift {
+        0% {
+            transform: translate3d(-18%, -12%, 0) scale(1) rotate(0deg);
+        }
+        45% {
+            transform: translate3d(34%, 24%, 0) scale(1.26) rotate(16deg);
+        }
+        100% {
+            transform: translate3d(18%, -30%, 0) scale(1.14) rotate(-14deg);
+        }
+    }
+
+    @keyframes meshSheenFlow {
+        0% {
+            transform: translate3d(-7%, -4%, 0) scale(1.04);
+            opacity: 0.72;
+        }
+        100% {
+            transform: translate3d(8%, 6%, 0) scale(1.12);
+            opacity: 0.92;
+        }
+    }
+
+    @keyframes meshNoiseDrift {
+        0% {
+            transform: translate3d(0, 0, 0);
+        }
+        100% {
+            transform: translate3d(7px, -5px, 0);
+        }
+    }
+
     .large-upload,
     .large-upload .el-upload,
     .large-upload .el-upload-dragger {
@@ -1548,19 +1788,6 @@
         color: var(--theme-primary);
     }
 
-    .process-bar {
-        display: flex;
-        flex: 0 0 auto;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 9px 18px;
-        border-top: 1px solid var(--theme-primary-border);
-        color: #5d6675;
-        background: #fff;
-        font-size: 13px;
-    }
-
     .result-overlap {
         gap: 18px;
         flex-direction: column;
@@ -1569,10 +1796,9 @@
     }
 
     .preview-tools {
-        position: sticky;
-        top: 0;
         z-index: 4;
         display: flex;
+        flex: 0 0 auto;
         align-items: center;
         justify-content: center;
         gap: 8px;
@@ -1600,6 +1826,7 @@
         flex: 1 1 auto;
         align-items: center;
         justify-content: center;
+        touch-action: none;
         user-select: none;
     }
 
@@ -1642,6 +1869,10 @@
         box-shadow: 0 6px 18px rgba(22, 35, 48, 0.08);
     }
 
+    .preview-overlap-slider .el-slider__runway {
+        margin: 8px 0;
+    }
+
     .app-footer {
         flex: 0 0 44px;
         min-height: 44px;
@@ -1650,12 +1881,48 @@
     }
 
     @media (max-width: 1120px) {
+        html,
+        body,
+        #app {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            min-height: 100%;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .el-container {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            min-height: 100vh;
+            overflow-x: hidden;
+            overflow-y: visible;
+        }
+
+        .app-main {
+            max-width: 100%;
+            overflow-x: hidden;
+            overflow-y: visible;
+        }
+
         .workspace {
             grid-template-columns: 1fr;
+            width: 100%;
+            min-width: 0;
+            height: auto;
+            min-height: 0;
+            max-width: 100%;
         }
 
         .control-panel {
             position: static;
+            min-width: 0;
+            max-width: 100%;
+            max-height: none;
+            overflow-x: hidden;
+            overflow-y: visible;
         }
 
         .control-section {
@@ -1663,7 +1930,23 @@
         }
 
         .stage-panel {
+            min-width: 0;
+            max-width: 100%;
+            height: auto;
             min-height: 0;
+            overflow-x: hidden;
+            overflow-y: visible;
+        }
+
+        .stage-body,
+        .result-stage {
+            max-width: 100%;
+            min-height: min(70vh, 620px);
+            overflow-x: hidden;
+        }
+
+        .result-overlap {
+            min-height: min(82vh, 720px);
         }
     }
 
@@ -1672,15 +1955,47 @@
             padding: 10px;
         }
 
+        .workspace {
+            gap: 10px;
+        }
+
         .control-panel {
             padding: 14px;
         }
 
         .brand-block,
-        .stage-toolbar,
-        .process-bar {
+        .stage-toolbar {
             align-items: flex-start;
             flex-direction: column;
+            min-width: 0;
+        }
+
+        .stage-toolbar > div:first-child {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .stage-title {
+            max-width: 100%;
+            overflow: visible;
+            text-overflow: clip;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .stage-meta,
+        .stage-status {
+            max-width: 100%;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .preview-tools {
+            width: fit-content;
+            max-width: 100%;
+            flex-wrap: wrap;
+            justify-content: flex-start;
         }
 
         .field-row {
@@ -1689,8 +2004,14 @@
         }
 
         .field-row .el-radio-group {
+            max-width: 100%;
             justify-content: flex-start;
             overflow-x: auto;
+        }
+
+        .field-row .el-radio-button__inner {
+            padding: 8px 9px;
+            white-space: nowrap;
         }
 
         .option-title {
@@ -1699,7 +2020,29 @@
 
         .stage-body,
         .result-stage {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 62vh;
             padding: 12px;
+        }
+
+        .stage-body .el-image {
+            max-width: 100%;
+            height: auto !important;
+        }
+
+        .stage-body .el-image__inner {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .result-overlap {
+            min-height: 72vh;
+        }
+
+        .preview-pan-viewport,
+        .preview-overlap-slider {
+            max-width: 100%;
         }
 
         .toolbar-progress-wrap {
