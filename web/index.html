@@ -56,35 +56,51 @@
                         <el-menu-item index="12" v-on:click="setLanguage('en')">English</el-menu-item>
                         <el-menu-item index="14" v-on:click="setLanguage('ja')">日本語</el-menu-item>
                     </el-submenu>
+                    <el-submenu index="15">
+                        <template slot="title">{{t('nav.theme')}}</template>
+                        <el-menu-item index="16" v-on:click="setThemeMode('auto')">{{t('theme.auto')}}</el-menu-item>
+                        <el-menu-item index="17" v-on:click="setThemeMode('light')">{{t('theme.light')}}</el-menu-item>
+                        <el-menu-item index="18" v-on:click="setThemeMode('dark')">{{t('theme.dark')}}</el-menu-item>
+                    </el-submenu>
                 </el-menu>
             </el-header>
 
             <el-main class="app-main">
+                <div class="app-ambient-glow app-ambient-glow-processing" v-if="isProcessing || isResultRevealing"></div>
+                <div class="app-ambient-glow app-ambient-glow-preview" v-if="isProcessDone"></div>
                 <div class="workspace">
                     <aside class="control-panel">
                         <div class="brand-block">
                             <div>
                                 <div class="eyebrow">Real-CUGAN Web</div>
-                                <h1>{{t('app.heading')}}</h1>
+                                <div class="heading-row">
+                                    <h1>{{t('app.heading')}}</h1>
+                                    <el-popover
+                                            v-model="projectInfoVisible"
+                                            placement="right-start"
+                                            trigger="manual"
+                                            popper-class="info-popover"
+                                            width="300">
+                                        <div class="info-popover-content">
+                                            <p>{{t('help.localPrefix')}}<b>{{t('help.localStrong')}}</b>{{t('help.localSuffix')}}</p>
+                                            <p><b>{{t('help.noticeTitle')}}</b>{{t('help.noticeText')}}</p>
+                                        </div>
+                                        <button
+                                                slot="reference"
+                                                type="button"
+                                                class="info-button"
+                                                :aria-label="t('help.projectInfoLabel')"
+                                                v-on:mouseenter="showInfoPopover('project')"
+                                                v-on:mouseleave="hideInfoPopover('project')"
+                                                v-on:focus="showInfoPopover('project')"
+                                                v-on:blur="hideInfoPopover('project')"
+                                                v-on:click.stop="toggleInfoPopover('project')">i</button>
+                                    </el-popover>
+                                </div>
                             </div>
                             <el-tag size="mini" :type="wasmModuleLoaded ? 'success' : 'warning'">
                                 {{wasmModuleLoaded ? t('state.ready') : t('state.loading')}}
                             </el-tag>
-                        </div>
-
-                        <div class="help-note">
-                            <p>
-                                {{t('help.localPrefix')}}<b>{{t('help.localStrong')}}</b>{{t('help.localSuffix')}}
-                            </p>
-                            <p>
-                                <b>{{t('help.noticeTitle')}}</b>{{t('help.noticeText')}}
-                            </p>
-                            <p>
-                                <b>{{t('help.scaleTitle')}}</b>{{t('help.scaleText')}}
-                            </p>
-                            <p>
-                                <b>{{t('help.denoiseTitle')}}</b>{{t('help.denoiseText')}}
-                            </p>
                         </div>
 
                         <div class="control-section">
@@ -101,7 +117,30 @@
                         </div>
 
                         <div class="control-section">
-                            <div class="section-title">{{t('controls.params')}}</div>
+                            <div class="section-title section-title-with-info">
+                                <span>{{t('controls.params')}}</span>
+                                <el-popover
+                                        v-model="paramsInfoVisible"
+                                        placement="right-start"
+                                        trigger="manual"
+                                        popper-class="info-popover"
+                                        width="300">
+                                    <div class="info-popover-content">
+                                        <p><b>{{t('help.scaleTitle')}}</b>{{t('help.scaleText')}}</p>
+                                        <p><b>{{t('help.denoiseTitle')}}</b>{{t('help.denoiseText')}}</p>
+                                    </div>
+                                    <button
+                                            slot="reference"
+                                            type="button"
+                                            class="info-button"
+                                            :aria-label="t('help.paramsInfoLabel')"
+                                            v-on:mouseenter="showInfoPopover('params')"
+                                            v-on:mouseleave="hideInfoPopover('params')"
+                                            v-on:focus="showInfoPopover('params')"
+                                            v-on:blur="hideInfoPopover('params')"
+                                            v-on:click.stop="toggleInfoPopover('params')">i</button>
+                                </el-popover>
+                            </div>
                             <div class="field-row">
                                 <span class="option-title">{{t('controls.model')}}</span>
                                 <el-radio-group v-model="modelTypeRadio" v-on:change="onModelTypeOptionChange" size="small">
@@ -200,7 +239,13 @@
                             </el-image>
                         </div>
 
-                        <div class="result-stage result-overlap" v-if="isProcessDone">
+                        <div class="result-stage result-overlap" :class="{'is-revealing': isResultRevealing}" v-if="isProcessDone">
+                            <div class="result-reveal-gradient" v-if="isResultRevealing">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
                             <div class="preview-pan-viewport"
                                  :class="{'is-draggable': previewZoom > previewZoomMin, 'is-dragging': previewDragging}"
                                  v-on:mousedown="startPreviewPan"
@@ -223,7 +268,12 @@
                                                 :style="{width: getZoomedPreviewSize().outputImgWidth + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
                                         <div
                                                 class="preview-overlap-output"
-                                                :style="{'--preview-output-image': 'url(' + outputImgSrc + ')', '--preview-output-size': getZoomedPreviewSize().outputImgWidth + 'px ' + getZoomedPreviewSize().outputImgHeight + 'px', width: getPreviewSplitLocalX() + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
+                                                :style="{width: getPreviewSplitLocalX() + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
+                                            <img
+                                                    draggable="false"
+                                                    class="preview-overlap-result"
+                                                    :src="outputImgSrc"
+                                                    :style="{width: getZoomedPreviewSize().outputImgWidth + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
                                         </div>
                                     </div>
                                 </div>
@@ -254,7 +304,7 @@
 </script>
 
 <script>
-    const APP_VERSION = '2026.06.05-alpha.24';
+    const APP_VERSION = '2026.06.05-alpha.36';
     const I18N = {
         zh: {
             app: {
@@ -266,6 +316,12 @@
                 about: '关于',
                 originalProject: '原作项目',
                 language: '语言',
+                theme: '主题',
+            },
+            theme: {
+                auto: '跟随系统',
+                light: '浅色',
+                dark: '深色',
             },
             state: {
                 ready: '就绪',
@@ -281,6 +337,8 @@
                 scaleText: '决定输出图片尺寸，推荐 2X；倍率越高处理越久。',
                 denoiseTitle: '降噪：',
                 denoiseText: '原片噪声多或压缩严重时推荐使用；原片质量较好时可选无降噪；担心画风、纹理或颜色改变时可选保守。',
+                projectInfoLabel: '项目说明',
+                paramsInfoLabel: '参数说明',
             },
             controls: {
                 run: '运行',
@@ -337,11 +395,22 @@
                 backendSavedTitle: '设置已保存',
                 backendSavedText: '后端模式会在刷新后生效',
                 reload: '刷新',
+                cancel: '取消',
                 notReadyTitle: '加载未完成',
                 notReadyText: '正在努力加载资源中(约12MB)，请稍后再试',
                 ok: '确定',
+                continue: '继续处理',
+                dontShowAgain: '下次不再提示',
+                sizeRiskTitle: '图片尺寸风险',
+                sizeRiskText: '当前会输出 {width} × {height}，预估至少占用 {memory} MB 内存。这个尺寸可能会导致浏览器卡顿或处理失败，建议降低倍率或换小图。',
+                sizeRiskBlockText: '当前会输出 {width} × {height}，预估至少占用 {memory} MB 内存，已经超过浏览器可稳定处理的范围。继续处理可能导致页面卡死、浏览器崩溃或处理失败。',
                 processErrorTitle: '处理错误',
                 processErrorText: '错误信息: {message}',
+                processErrorGeneric: '处理失败。你可以复位后重新选择图片，或降低倍率后再试。',
+                processErrorMemory: '浏览器内存不足或 WebAssembly 内存越界。建议降低倍率、换小图，或刷新页面后再试。',
+                processErrorModel: '模型文件读取失败，可能是 web 目录构建产物不完整、模型文件缺失，或浏览器还缓存着旧的 .data 包。请确认服务器上传了完整新版 web 文件，并强制刷新页面。',
+                processErrorAsset: '后端资源或模型包加载失败。请确认服务器上的 .js、.wasm、.data 和 worker 文件都来自同一次构建。',
+                processErrorConflict: '当前已有任务正在运行，暂时不能启动新的处理。请稍后再试。',
                 retryReload: '刷新重试',
                 conflictTitle: '调用冲突',
                 conflictText: '请稍后再试',
@@ -365,6 +434,12 @@
                 about: 'About',
                 originalProject: 'Original project',
                 language: 'Language',
+                theme: 'Theme',
+            },
+            theme: {
+                auto: 'System',
+                light: 'Light',
+                dark: 'Dark',
             },
             state: {
                 ready: 'Ready',
@@ -380,6 +455,8 @@
                 scaleText: 'Controls the output size. 2X is recommended. Higher scales take longer to process.',
                 denoiseTitle: 'Denoise: ',
                 denoiseText: 'Use denoise for noisy or heavily compressed images. Choose none for clean originals, or conservative if you want to preserve style, texture, and color.',
+                projectInfoLabel: 'Project info',
+                paramsInfoLabel: 'Parameter info',
             },
             controls: {
                 run: 'Runtime',
@@ -436,11 +513,22 @@
                 backendSavedTitle: 'Setting saved',
                 backendSavedText: 'The backend mode will take effect after refresh.',
                 reload: 'Refresh',
+                cancel: 'Cancel',
                 notReadyTitle: 'Still loading',
                 notReadyText: 'Assets are still loading (about 12 MB). Please try again in a moment.',
                 ok: 'OK',
+                continue: 'Continue',
+                dontShowAgain: 'Do not show again',
+                sizeRiskTitle: 'Image size risk',
+                sizeRiskText: 'This will output {width} × {height} and may use at least {memory} MB of memory. This size can make the browser slow or fail. Lower the scale or use a smaller image if possible.',
+                sizeRiskBlockText: 'This will output {width} × {height} and may use at least {memory} MB of memory, which is above the stable browser range. Continuing may freeze the page, crash the browser, or fail.',
                 processErrorTitle: 'Processing error',
                 processErrorText: 'Error: {message}',
+                processErrorGeneric: 'Processing failed. You can reset the workspace and try again, or lower the scale.',
+                processErrorMemory: 'The browser ran out of memory or WebAssembly hit an out-of-bounds access. Lower the scale, use a smaller image, or refresh the page and try again.',
+                processErrorModel: 'Model loading failed. The web directory may be incomplete, a model file may be missing, or the browser may still cache an old .data package. Upload the full new web output and hard refresh the page.',
+                processErrorAsset: 'Backend assets or the model package failed to load. Make sure the .js, .wasm, .data, and worker files on the server come from the same build.',
+                processErrorConflict: 'Another task is already running, so a new process cannot start yet. Please try again later.',
                 retryReload: 'Refresh and retry',
                 conflictTitle: 'Call conflict',
                 conflictText: 'Please try again later.',
@@ -464,6 +552,12 @@
                 about: '概要',
                 originalProject: '元プロジェクト',
                 language: '言語',
+                theme: 'テーマ',
+            },
+            theme: {
+                auto: 'システム',
+                light: 'ライト',
+                dark: 'ダーク',
             },
             state: {
                 ready: '準備完了',
@@ -479,6 +573,8 @@
                 scaleText: '出力画像のサイズを決めます。2X 推奨です。倍率が高いほど処理に時間がかかります。',
                 denoiseTitle: 'ノイズ除去: ',
                 denoiseText: 'ノイズや圧縮劣化が多い画像におすすめです。元画像がきれいな場合は「なし」、画風・質感・色の変化を抑えたい場合は「控えめ」を選んでください。',
+                projectInfoLabel: 'プロジェクト説明',
+                paramsInfoLabel: 'パラメータ説明',
             },
             controls: {
                 run: '実行',
@@ -535,11 +631,22 @@
                 backendSavedTitle: '設定を保存しました',
                 backendSavedText: 'バックエンド設定は更新後に反映されます。',
                 reload: '更新',
+                cancel: 'キャンセル',
                 notReadyTitle: '読み込み未完了',
                 notReadyText: 'リソースを読み込み中です（約12MB）。少し待ってから再試行してください。',
                 ok: 'OK',
+                continue: '続行',
+                dontShowAgain: '次回から表示しない',
+                sizeRiskTitle: '画像サイズのリスク',
+                sizeRiskText: '出力は {width} × {height} になり、少なくとも {memory} MB のメモリを使う可能性があります。このサイズではブラウザーが重くなったり失敗したりすることがあります。倍率を下げるか、小さい画像を使うことをおすすめします。',
+                sizeRiskBlockText: '出力は {width} × {height} になり、少なくとも {memory} MB のメモリを使う可能性があり、ブラウザーで安定して処理できる範囲を超えています。続行するとページの停止、ブラウザーのクラッシュ、処理失敗が起きる可能性があります。',
                 processErrorTitle: '処理エラー',
                 processErrorText: 'エラー: {message}',
+                processErrorGeneric: '処理に失敗しました。ワークスペースをリセットして再試行するか、倍率を下げてください。',
+                processErrorMemory: 'ブラウザーのメモリ不足、または WebAssembly のメモリアクセス範囲外が発生しました。倍率を下げる、小さい画像を使う、またはページを更新して再試行してください。',
+                processErrorModel: 'モデルの読み込みに失敗しました。web ディレクトリのビルド成果物が不完全、モデルファイルが不足、または古い .data パッケージがブラウザーに残っている可能性があります。完全な新版 web ファイルをアップロードし、強制更新してください。',
+                processErrorAsset: 'バックエンドリソースまたはモデルパッケージの読み込みに失敗しました。サーバー上の .js、.wasm、.data、worker ファイルが同じビルドのものか確認してください。',
+                processErrorConflict: '別の処理が実行中のため、新しい処理を開始できません。少し待ってから再試行してください。',
                 retryReload: '更新して再試行',
                 conflictTitle: '呼び出しの競合',
                 conflictText: 'しばらくしてから再試行してください。',
@@ -565,6 +672,11 @@
             return {
                 activeIndex: '1',
                 language: 'zh',
+                themeMode: 'auto',
+                projectInfoVisible: false,
+                projectInfoPinned: false,
+                paramsInfoVisible: false,
+                paramsInfoPinned: false,
                 modelTypeRadio: 'se',
                 scaleRadio: 2,
                 denoiseRadio: 3,
@@ -583,12 +695,15 @@
                 previewDragStartY: 0,
                 previewDragOriginX: 0,
                 previewDragOriginY: 0,
+                ambientUpdateTimer: null,
                 uploadImgSrc: '',
                 uploadPreviewWidth: 0,
                 uploadPreviewHeight: 0,
                 uploadPreviewName: '',
                 isProcessing: false,
                 isProcessDone: false,
+                isResultRevealing: false,
+                resultRevealTimer: null,
                 progressRate: 0,
                 procTotalCost: 0,
                 procRemainingTime: 0,
@@ -602,10 +717,13 @@
                 outputModelType: 'se',
                 windowWidth: 0,
                 outputImgSrc: '',
+                outputObjectUrl: '',
+                extractedThemeColors: null,
                 // emscripten
                 wasmModuleLoaded: false,
                 wasmBackend: '',
                 appVersion: APP_VERSION,
+                processFailureDialogOpen: false,
             };
         },
 
@@ -625,6 +743,7 @@
             let denoise = this.getPreference('denoise');
             let modelType = this.getPreference('modelType');
             let backendMode = this.getPreference('backendMode');
+            let themeMode = this.getPreference('themeMode');
             if (scale) {
                 this.scaleRadio = scale * 1;
             }
@@ -638,6 +757,26 @@
             if (backendMode) {
                 this.backendMode = backendMode;
             }
+            if (themeMode === 'auto' || themeMode === 'light' || themeMode === 'dark') {
+                this.themeMode = themeMode;
+            }
+            this.applyThemeMode();
+            if (window.matchMedia) {
+                let darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                let onSystemThemeChange = () => {
+                    if (this.themeMode === 'auto') {
+                        this.applyThemeMode();
+                        if (this.extractedThemeColors) {
+                            this.applyExtractedThemeColors(this.extractedThemeColors);
+                        }
+                    }
+                };
+                if (darkQuery.addEventListener) {
+                    darkQuery.addEventListener('change', onSystemThemeChange);
+                } else if (darkQuery.addListener) {
+                    darkQuery.addListener(onSystemThemeChange);
+                }
+            }
 
             // init emscripten
             Module = {
@@ -650,16 +789,7 @@
                 },
                 printErr: (text) => {
                     console.error(text);
-                    if ((text + '').includes("memory access out of bounds")) {
-                        this.handleOOM();
-                    } else {
-                        this.$alert(this.t('dialog.processErrorText', {message: text}), this.t('dialog.processErrorTitle'), {
-                            confirmButtonText: this.t('dialog.retryReload'),
-                            callback: action => {
-                                window.location.reload();
-                            }
-                        });
-                    }
+                    this.handleProcessFailure(text);
                 },
             };
             this.checkWasmSupportAndLoad();
@@ -714,6 +844,71 @@
                 this.savePreference('language', language);
                 this.applyLanguage();
                 this.syncProgressTipLanguage();
+            },
+
+            showInfoPopover(type) {
+                if (type === 'project') {
+                    this.paramsInfoVisible = false;
+                    this.paramsInfoPinned = false;
+                    this.projectInfoVisible = true;
+                } else {
+                    this.projectInfoVisible = false;
+                    this.projectInfoPinned = false;
+                    this.paramsInfoVisible = true;
+                }
+            },
+
+            hideInfoPopover(type) {
+                if (type === 'project' && !this.projectInfoPinned) {
+                    this.projectInfoVisible = false;
+                }
+                if (type === 'params' && !this.paramsInfoPinned) {
+                    this.paramsInfoVisible = false;
+                }
+            },
+
+            toggleInfoPopover(type) {
+                if (type === 'project') {
+                    let nextVisible = !(this.projectInfoVisible && this.projectInfoPinned);
+                    this.projectInfoVisible = nextVisible;
+                    this.projectInfoPinned = nextVisible;
+                    this.paramsInfoVisible = false;
+                    this.paramsInfoPinned = false;
+                } else {
+                    let nextVisible = !(this.paramsInfoVisible && this.paramsInfoPinned);
+                    this.paramsInfoVisible = nextVisible;
+                    this.paramsInfoPinned = nextVisible;
+                    this.projectInfoVisible = false;
+                    this.projectInfoPinned = false;
+                }
+            },
+
+            getEffectiveTheme() {
+                if (this.themeMode === 'dark' || this.themeMode === 'light') {
+                    return this.themeMode;
+                }
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    return 'dark';
+                }
+                return 'light';
+            },
+
+            applyThemeMode() {
+                let effectiveTheme = this.getEffectiveTheme();
+                document.documentElement.setAttribute('data-theme', effectiveTheme);
+                document.documentElement.setAttribute('data-theme-mode', this.themeMode);
+            },
+
+            setThemeMode(themeMode) {
+                if (themeMode !== 'auto' && themeMode !== 'light' && themeMode !== 'dark') {
+                    return;
+                }
+                this.themeMode = themeMode;
+                this.savePreference('themeMode', themeMode);
+                this.applyThemeMode();
+                if (this.extractedThemeColors) {
+                    this.applyExtractedThemeColors(this.extractedThemeColors);
+                }
             },
 
             syncProgressTipLanguage() {
@@ -931,23 +1126,29 @@
 
             applyImageTheme(imageData) {
                 let colors = this.extractThemeColors(imageData, 4);
+                this.extractedThemeColors = colors;
+                this.applyExtractedThemeColors(colors);
+            },
+
+            applyExtractedThemeColors(colors) {
                 let color = colors[0];
                 let hsl = this.rgbToHsl(color.r, color.g, color.b);
-                let primary = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 42, 78), this.clampColorValue(hsl.l, 34, 52));
-                let soft = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 32, 70), 94);
-                let border = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 24, 62), 78);
-                let textStrong = this.hslToRgb(hsl.h, 28, 20);
+                let isDarkTheme = this.getEffectiveTheme() === 'dark';
+                let primary = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 42, 78), isDarkTheme ? this.clampColorValue(hsl.l + 4, 42, 56) : this.clampColorValue(hsl.l, 34, 52));
+                let soft = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 24, 58), isDarkTheme ? 14 : 94);
+                let border = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 20, 52), isDarkTheme ? 28 : 78);
+                let textStrong = isDarkTheme ? this.hslToRgb(hsl.h, 24, 92) : this.hslToRgb(hsl.h, 28, 20);
                 let root = document.documentElement;
                 root.style.setProperty('--theme-primary', this.rgbCss(primary));
                 root.style.setProperty('--theme-primary-soft', this.rgbCss(soft));
                 root.style.setProperty('--theme-primary-border', this.rgbCss(border));
-                root.style.setProperty('--theme-surface-tint', 'rgba(' + primary.r + ', ' + primary.g + ', ' + primary.b + ', 0.08)');
+                root.style.setProperty('--theme-surface-tint', 'rgba(' + primary.r + ', ' + primary.g + ', ' + primary.b + ', ' + (isDarkTheme ? '0.14' : '0.08') + ')');
                 root.style.setProperty('--theme-text-strong', this.rgbCss(textStrong));
-                root.style.setProperty('--theme-on-primary', hsl.l > 58 ? '#111827' : '#ffffff');
+                root.style.setProperty('--theme-on-primary', isDarkTheme ? '#08111f' : (hsl.l > 58 ? '#111827' : '#ffffff'));
                 colors.forEach((themeColor, index) => {
                     let colorHsl = this.rgbToHsl(themeColor.r, themeColor.g, themeColor.b);
-                    let fluid = this.hslToRgb(colorHsl.h, this.clampColorValue(colorHsl.s, 45, 82), this.clampColorValue(colorHsl.l, 46, 68));
-                    root.style.setProperty('--fluid-color-' + (index + 1), 'rgba(' + fluid.r + ', ' + fluid.g + ', ' + fluid.b + ', 0.72)');
+                    let fluid = this.hslToRgb(colorHsl.h, this.clampColorValue(colorHsl.s, 45, 82), isDarkTheme ? this.clampColorValue(colorHsl.l - 8, 28, 50) : this.clampColorValue(colorHsl.l, 46, 68));
+                    root.style.setProperty('--fluid-color-' + (index + 1), 'rgba(' + fluid.r + ', ' + fluid.g + ', ' + fluid.b + ', ' + (isDarkTheme ? '0.66' : '0.72') + ')');
                 });
             },
 
@@ -964,6 +1165,7 @@
                     '--fluid-color-3',
                     '--fluid-color-4',
                 ].forEach((name) => document.documentElement.style.removeProperty(name));
+                this.extractedThemeColors = null;
             },
 
             isNotReady() {
@@ -998,7 +1200,7 @@
                         this.uploadPreviewName = file.name;
                         let uploadImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                         this.applyImageTheme(uploadImageData);
-                        this.process(uploadImageData, canvas.width, canvas.height);
+                        this.preflightProcess(uploadImageData, canvas.width, canvas.height);
                     }
                     img.src = event.target.result;
                     this.uploadImgSrc = event.target.result;
@@ -1006,10 +1208,89 @@
                 reader.readAsDataURL(file.raw);
             },
 
+            preflightProcess(uploadImageData, w, h) {
+                let risk = this.getProcessingRisk(w, h, this.scaleRadio);
+                if (risk.level === 'ok' || this.getPreference('skipSizeRiskWarning') === '1') {
+                    this.process(uploadImageData, w, h);
+                    return;
+                }
+                let skipWarning = false;
+                this.$confirm(this.getSizeRiskMessageHtml(risk), this.t('dialog.sizeRiskTitle'), {
+                        confirmButtonText: this.t('dialog.continue'),
+                        cancelButtonText: this.t('dialog.cancel'),
+                        type: 'warning',
+                        dangerouslyUseHTMLString: true,
+                        beforeClose: (action, instance, done) => {
+                            let checkbox = document.getElementById('size-risk-skip-checkbox');
+                            skipWarning = !!(checkbox && checkbox.checked);
+                            done();
+                        },
+                }).then(() => {
+                    if (skipWarning) {
+                        this.savePreference('skipSizeRiskWarning', '1');
+                    }
+                    this.process(uploadImageData, w, h);
+                }).catch(() => {
+                    if (skipWarning) {
+                        this.savePreference('skipSizeRiskWarning', '1');
+                    }
+                });
+            },
+
+            escapeHtml(value) {
+                return (value + '').replace(/[&<>"']/g, (char) => {
+                    return {
+                        '&': '&amp;',
+                        '<': '&lt;',
+                        '>': '&gt;',
+                        '"': '&quot;',
+                        "'": '&#39;',
+                    }[char];
+                });
+            },
+
+            getSizeRiskMessageHtml(risk) {
+                let message = risk.level === 'block'
+                    ? this.t('dialog.sizeRiskBlockText', risk)
+                    : this.t('dialog.sizeRiskText', risk);
+                return '<div class="size-risk-dialog-text">'
+                    + '<p>' + this.escapeHtml(message) + '</p>'
+                    + '<label class="size-risk-skip"><input id="size-risk-skip-checkbox" type="checkbox"> '
+                    + this.escapeHtml(this.t('dialog.dontShowAgain')) + '</label>'
+                    + '</div>';
+            },
+
+            getProcessingRisk(w, h, scale) {
+                let outputWidth = w * scale;
+                let outputHeight = h * scale;
+                let inputPixels = w * h;
+                let outputPixels = outputWidth * outputHeight;
+                let isMobileViewport = this.windowWidth <= 768;
+                let modelOverheadBytes = 180 * 1024 * 1024;
+                let estimatedBytes = modelOverheadBytes + inputPixels * 4 * 2 + outputPixels * 4 * 3;
+                let warnBytes = (isMobileViewport ? 420 : 900) * 1024 * 1024;
+                let blockBytes = (isMobileViewport ? 900 : 1800) * 1024 * 1024;
+                let warnPixels = isMobileViewport ? 24000000 : 80000000;
+                let blockPixels = isMobileViewport ? 60000000 : 160000000;
+                let level = 'ok';
+                if (estimatedBytes >= blockBytes || outputPixels >= blockPixels) {
+                    level = 'block';
+                } else if (estimatedBytes >= warnBytes || outputPixels >= warnPixels) {
+                    level = 'warn';
+                }
+                return {
+                    level: level,
+                    width: outputWidth,
+                    height: outputHeight,
+                    memory: Math.ceil(estimatedBytes / 1024 / 1024),
+                };
+            },
+
             process(uploadImageData, w, h) {
                 let outputCanvas = document.getElementById('canvas-output');
                 let outputCtx = outputCanvas.getContext('2d');
                 this.progressTip = this.t('progress.starting');
+                this.processFailureDialogOpen = false;
                 this.isProcessing = true;
                 this.isProcessDone = false;
                 this.previewOverlapRate = 50;
@@ -1031,16 +1312,24 @@
                 let canvasOutput = document.getElementById('canvas-output');
                 let ctxOutput = canvasOutput.getContext('2d');
 
-                srcInteractedData = _malloc(uploadImageData.data.length);
-                HEAPU8.set(uploadImageData.data, srcInteractedData);
-                let imageDataOutput = ctxOutput.getImageData(0, 0, canvasOutput.width, canvasOutput.height);
-                dstInteractedData = _malloc(imageDataOutput.data.length);
+                try {
+                    srcInteractedData = _malloc(uploadImageData.data.length);
+                    if (!srcInteractedData) {
+                        throw new Error('malloc failed for input image');
+                    }
+                    HEAPU8.set(uploadImageData.data, srcInteractedData);
+                    let imageDataOutput = ctxOutput.getImageData(0, 0, canvasOutput.width, canvasOutput.height);
+                    dstInteractedData = _malloc(imageDataOutput.data.length);
+                    if (!dstInteractedData) {
+                        throw new Error('malloc failed for output image');
+                    }
 
-                let retCode = _process_image(0, srcInteractedData, dstInteractedData, w, h, this.outputScale, this.outputDenoise, this.getModelTypeCode(this.outputModelType));
-                if (retCode !== 0) {
-                    this.$alert(this.t('dialog.conflictText'), this.t('dialog.conflictTitle'), {
-                        confirmButtonText: this.t('dialog.ok'),
-                    });
+                    let retCode = _process_image(0, srcInteractedData, dstInteractedData, w, h, this.outputScale, this.outputDenoise, this.getModelTypeCode(this.outputModelType));
+                    if (retCode !== 0) {
+                        this.handleProcessFailure('process_image returned ' + retCode);
+                    }
+                } catch (error) {
+                    this.handleProcessFailure(error);
                 }
             },
 
@@ -1164,7 +1453,9 @@
 
             setPreviewZoom(nextZoom) {
                 this.previewZoom = Math.max(this.previewZoomMin, Math.min(this.previewZoomMax, nextZoom));
-                this.$nextTick(this.clampPreviewPan);
+                this.$nextTick(() => {
+                    this.clampPreviewPan();
+                });
             },
 
             onPreviewWheel(event) {
@@ -1195,6 +1486,92 @@
                 let bounds = this.getPreviewPanBounds();
                 this.previewPanX = Math.max(-bounds.maxX, Math.min(bounds.maxX, this.previewPanX));
                 this.previewPanY = Math.max(-bounds.maxY, Math.min(bounds.maxY, this.previewPanY));
+            },
+
+            averageImageDataEdge(imageData, edge) {
+                let data = imageData.data;
+                let width = imageData.width;
+                let height = imageData.height;
+                let r = 0;
+                let g = 0;
+                let b = 0;
+                let count = 0;
+                let sampleStep = Math.max(1, Math.floor((edge === 'top' || edge === 'bottom' ? width : height) / 80));
+                if (edge === 'top' || edge === 'bottom') {
+                    let y = edge === 'top' ? 0 : height - 1;
+                    for (let x = 0; x < width; x += sampleStep) {
+                        let idx = (y * width + x) * 4;
+                        r += data[idx];
+                        g += data[idx + 1];
+                        b += data[idx + 2];
+                        count++;
+                    }
+                } else {
+                    let x = edge === 'left' ? 0 : width - 1;
+                    for (let y = 0; y < height; y += sampleStep) {
+                        let idx = (y * width + x) * 4;
+                        r += data[idx];
+                        g += data[idx + 1];
+                        b += data[idx + 2];
+                        count++;
+                    }
+                }
+                if (!count) {
+                    return 'rgba(64, 158, 255, 0.24)';
+                }
+                let alpha = this.getEffectiveTheme() === 'dark' ? 0.62 : 0.28;
+                return 'rgba(' + Math.round(r / count) + ', ' + Math.round(g / count) + ', ' + Math.round(b / count) + ', ' + alpha + ')';
+            },
+
+            scheduleAmbientGlowUpdate() {
+                if (!this.isProcessDone) {
+                    return;
+                }
+                if (this.ambientUpdateTimer) {
+                    clearTimeout(this.ambientUpdateTimer);
+                }
+                this.ambientUpdateTimer = setTimeout(() => {
+                    this.updatePreviewAmbientGlow();
+                }, 120);
+            },
+
+            updatePreviewAmbientGlow() {
+                this.ambientUpdateTimer = null;
+                let glow = document.querySelector('.app-ambient-glow-preview');
+                let canvasOutput = document.getElementById('canvas-output');
+                let viewport = document.querySelector('.preview-pan-viewport');
+                if (!glow || !canvasOutput || !viewport || !canvasOutput.width || !canvasOutput.height) {
+                    return;
+                }
+                let size = this.getZoomedPreviewSize();
+                let viewportWidth = viewport.clientWidth;
+                let viewportHeight = viewport.clientHeight;
+                let imageLeft = (viewportWidth - size.outputImgWidth) / 2 + this.previewPanX;
+                let imageTop = (viewportHeight - size.outputImgHeight) / 2 + this.previewPanY;
+                let visibleLeft = Math.max(0, -imageLeft);
+                let visibleTop = Math.max(0, -imageTop);
+                let visibleRight = Math.min(size.outputImgWidth, viewportWidth - imageLeft);
+                let visibleBottom = Math.min(size.outputImgHeight, viewportHeight - imageTop);
+                let scaleToCanvasX = canvasOutput.width / Math.max(1, size.outputImgWidth);
+                let scaleToCanvasY = canvasOutput.height / Math.max(1, size.outputImgHeight);
+                let sx = Math.max(0, Math.floor(visibleLeft * scaleToCanvasX));
+                let sy = Math.max(0, Math.floor(visibleTop * scaleToCanvasY));
+                let sw = Math.max(1, Math.min(canvasOutput.width - sx, Math.ceil((visibleRight - visibleLeft) * scaleToCanvasX)));
+                let sh = Math.max(1, Math.min(canvasOutput.height - sy, Math.ceil((visibleBottom - visibleTop) * scaleToCanvasY)));
+                if (sw <= 0 || sh <= 0) {
+                    return;
+                }
+                let sampleCanvas = document.createElement('canvas');
+                let sampleSize = 48;
+                sampleCanvas.width = sampleSize;
+                sampleCanvas.height = sampleSize;
+                let sampleCtx = sampleCanvas.getContext('2d');
+                sampleCtx.drawImage(canvasOutput, sx, sy, sw, sh, 0, 0, sampleSize, sampleSize);
+                let imageData = sampleCtx.getImageData(0, 0, sampleSize, sampleSize);
+                glow.style.setProperty('--ambient-top', this.averageImageDataEdge(imageData, 'top'));
+                glow.style.setProperty('--ambient-right', this.averageImageDataEdge(imageData, 'right'));
+                glow.style.setProperty('--ambient-bottom', this.averageImageDataEdge(imageData, 'bottom'));
+                glow.style.setProperty('--ambient-left', this.averageImageDataEdge(imageData, 'left'));
             },
 
             getPanEventPoint(event) {
@@ -1326,6 +1703,10 @@
             },
 
             onProcessEnd(cost) {
+                if (!dstInteractedData) {
+                    this.handleProcessFailure('missing output buffer');
+                    return;
+                }
                 let canvasOutput = document.getElementById('canvas-output');
                 let ctxOutput = canvasOutput.getContext('2d');
                 let imageDataOutput = ctxOutput.getImageData(0, 0, canvasOutput.width, canvasOutput.height);
@@ -1334,16 +1715,25 @@
                 imageDataOutput.data.set(result);
                 ctxOutput.putImageData(imageDataOutput, 0, 0);
                 console.log("output size: ", result.length);
-                this.outputImgSrc = canvasOutput.toDataURL();
+                if (this.outputObjectUrl) {
+                    URL.revokeObjectURL(this.outputObjectUrl);
+                    this.outputObjectUrl = '';
+                }
+                canvasOutput.toBlob((blob) => {
+                    if (blob) {
+                        this.outputObjectUrl = URL.createObjectURL(blob);
+                        this.outputImgSrc = this.outputObjectUrl;
+                    } else {
+                        this.outputImgSrc = canvasOutput.toDataURL();
+                    }
+                    this.isProcessing = false;
+                    this.isProcessDone = true;
+                    this.beginResultReveal();
+                    this.syncPreviewViewport();
+                    this.scheduleAmbientGlowUpdate();
+                }, 'image/png');
 
-                _free(srcInteractedData);
-                _free(dstInteractedData);
-                srcInteractedData = null;
-                dstInteractedData = null;
-
-                this.isProcessing = false;
-                this.isProcessDone = true;
-                this.syncPreviewViewport();
+                this.releaseWasmBuffers();
 
                 let costNum = Math.round(cost / 1000);
                 if (cost < 1000) {
@@ -1355,6 +1745,99 @@
                     title: this.t('notify.success'),
                     message: this.progressTip,
                     type: 'success'
+                });
+            },
+
+            releaseWasmBuffers() {
+                if (srcInteractedData) {
+                    _free(srcInteractedData);
+                    srcInteractedData = null;
+                }
+                if (dstInteractedData) {
+                    _free(dstInteractedData);
+                    dstInteractedData = null;
+                }
+            },
+
+            clearOutputPreviewUrl() {
+                if (this.outputObjectUrl) {
+                    URL.revokeObjectURL(this.outputObjectUrl);
+                    this.outputObjectUrl = '';
+                }
+                this.outputImgSrc = '';
+            },
+
+            beginResultReveal() {
+                if (this.resultRevealTimer) {
+                    clearTimeout(this.resultRevealTimer);
+                    this.resultRevealTimer = null;
+                }
+                this.isResultRevealing = true;
+                this.resultRevealTimer = setTimeout(() => {
+                    this.isResultRevealing = false;
+                    this.resultRevealTimer = null;
+                }, 1450);
+            },
+
+            clearResultReveal() {
+                if (this.resultRevealTimer) {
+                    clearTimeout(this.resultRevealTimer);
+                    this.resultRevealTimer = null;
+                }
+                this.isResultRevealing = false;
+            },
+
+            restoreAfterProcessFailure() {
+                this.clearResultReveal();
+                this.releaseWasmBuffers();
+                this.isProcessing = false;
+                this.isProcessDone = false;
+                this.progressRate = 0;
+                this.procTotalCost = 0;
+                this.procRemainingTime = 0;
+                this.procFinalCostSeconds = null;
+                this.progressTip = '';
+                this.clearOutputPreviewUrl();
+                this.outputPreviewWidth = 0;
+                this.outputPreviewHeight = 0;
+                let outputCanvas = document.getElementById('canvas-output');
+                if (outputCanvas) {
+                    outputCanvas.width = 0;
+                    outputCanvas.height = 0;
+                }
+            },
+
+            getActionableProcessError(error) {
+                let raw = error && error.message ? error.message : (error + '');
+                let lower = raw.toLowerCase();
+                let message = this.t('dialog.processErrorGeneric');
+                if (lower.includes('memory access out of bounds') || lower.includes('out of memory') || lower.includes('malloc failed')) {
+                    message = this.t('dialog.processErrorMemory');
+                } else if (lower.includes('parse magic failed') || lower.includes('load_param') || lower.includes('.param')) {
+                    message = this.t('dialog.processErrorModel');
+                } else if (lower.includes('not found') || lower.includes('.data') || lower.includes('.wasm') || lower.includes('worker')) {
+                    message = this.t('dialog.processErrorAsset');
+                } else if (lower.includes('process_image returned -1') || lower.includes('process_image returned')) {
+                    message = this.t('dialog.processErrorConflict');
+                }
+                return {
+                    raw: raw,
+                    message: message,
+                };
+            },
+
+            handleProcessFailure(error) {
+                let mapped = this.getActionableProcessError(error);
+                this.restoreAfterProcessFailure();
+                if (this.processFailureDialogOpen) {
+                    return;
+                }
+                this.processFailureDialogOpen = true;
+                this.$alert(this.t('dialog.processErrorText', {message: mapped.message + '\n\n' + mapped.raw}), this.t('dialog.processErrorTitle'), {
+                    confirmButtonText: this.t('dialog.ok'),
+                    callback: () => {
+                        this.processFailureDialogOpen = false;
+                    },
                 });
             },
 
@@ -1421,11 +1904,13 @@
             },
 
             resetWorkspace() {
+                this.clearResultReveal();
+                this.releaseWasmBuffers();
                 this.uploadImgSrc = '';
                 this.uploadPreviewWidth = 0;
                 this.uploadPreviewHeight = 0;
                 this.uploadPreviewName = '';
-                this.outputImgSrc = '';
+                this.clearOutputPreviewUrl();
                 this.outputPreviewWidth = 0;
                 this.outputPreviewHeight = 0;
                 this.outputScale = 0;
@@ -1433,11 +1918,13 @@
                 this.outputModelType = 'se';
                 this.isProcessing = false;
                 this.isProcessDone = false;
+                this.isResultRevealing = false;
                 this.progressRate = 0;
                 this.procTotalCost = 0;
                 this.procRemainingTime = 0;
                 this.procFinalCostSeconds = null;
                 this.progressTip = '';
+                this.processFailureDialogOpen = false;
                 this.previewOverlapRate = 50;
                 this.previewZoom = this.previewZoomMin;
                 this.previewViewportWidth = 0;
@@ -1456,12 +1943,7 @@
             },
 
             handleOOM() {
-                this.$alert(this.t('dialog.oomText'), this.t('dialog.oomTitle'), {
-                    confirmButtonText: this.t('dialog.reload'),
-                    callback: action => {
-                        window.location.reload();
-                    }
-                });
+                this.handleProcessFailure('memory access out of bounds');
             },
 
             runTestCase() {
@@ -1481,7 +1963,7 @@
                     this.uploadPreviewName = filename;
                     let uploadImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     this.applyImageTheme(uploadImageData);
-                    this.process(uploadImageData, canvas.width, canvas.height);
+                    this.preflightProcess(uploadImageData, canvas.width, canvas.height);
                 }
                 img.src = filename;
                 this.uploadImgSrc = img.src;
@@ -1494,16 +1976,59 @@
 
 <style>
     :root {
+        color-scheme: light;
         --theme-primary: #409EFF;
         --theme-on-primary: #ffffff;
         --theme-primary-soft: #eef6ff;
         --theme-primary-border: #b8d9ff;
         --theme-surface-tint: rgba(64, 158, 255, 0.08);
         --theme-text-strong: #202733;
+        --app-bg: #f4f6f8;
+        --surface-bg: #ffffff;
+        --surface-bg-muted: #f8fafc;
+        --surface-bg-elevated: #ffffff;
+        --text-normal: #333333;
+        --text-muted: #5d6675;
+        --text-subtle: #8b95a5;
+        --checker-base: var(--theme-primary-soft);
+        --checker-mark: #eef2f6;
+        --image-checker-base: #ffffff;
+        --image-checker-mark: #e8e8e8;
+        --floating-bg: rgba(255, 255, 255, 0.92);
+        --upload-bg: rgba(255, 255, 255, 0.82);
+        --panel-shadow: 0 8px 24px rgba(22, 35, 48, 0.06);
+        --image-shadow: 0 10px 28px rgba(22, 35, 48, 0.08);
+        --floating-shadow: 0 6px 18px rgba(22, 35, 48, 0.08);
         --fluid-color-1: rgba(64, 158, 255, 0.72);
         --fluid-color-2: rgba(103, 194, 58, 0.68);
         --fluid-color-3: rgba(230, 162, 60, 0.66);
         --fluid-color-4: rgba(245, 108, 108, 0.62);
+    }
+
+    :root[data-theme="dark"] {
+        color-scheme: dark;
+        --theme-primary: #83bdff;
+        --theme-on-primary: #07111f;
+        --theme-primary-soft: #12263a;
+        --theme-primary-border: #2d4963;
+        --theme-surface-tint: rgba(131, 189, 255, 0.14);
+        --theme-text-strong: #e6edf6;
+        --app-bg: #0f141b;
+        --surface-bg: #151b23;
+        --surface-bg-muted: #111821;
+        --surface-bg-elevated: #1b2430;
+        --text-normal: #d8e0ea;
+        --text-muted: #b5c0ce;
+        --text-subtle: #8996a8;
+        --checker-base: #101923;
+        --checker-mark: #1b2734;
+        --image-checker-base: #101820;
+        --image-checker-mark: #1f2b38;
+        --floating-bg: rgba(21, 27, 35, 0.92);
+        --upload-bg: rgba(21, 27, 35, 0.86);
+        --panel-shadow: 0 14px 32px rgba(0, 0, 0, 0.34);
+        --image-shadow: 0 14px 34px rgba(0, 0, 0, 0.36);
+        --floating-shadow: 0 10px 26px rgba(0, 0, 0, 0.32);
     }
 
     html,
@@ -1517,7 +2042,8 @@
     body {
         margin: 0;
         border: 0;
-        background-color: #E9EEF3;
+        background-color: var(--app-bg);
+        color: var(--text-normal);
         font-family: PingFang SC, Microsoft YaHei, 微软雅黑, Arial, Hiragino Sans GB, Heiti SC, Droid Sans,
             WenQuanYi Micro Hei, sans-serif !important;
         -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
@@ -1525,8 +2051,8 @@
 
     .el-header,
     .el-footer {
-        background-color: #fff;
-        color: #333;
+        background-color: var(--surface-bg);
+        color: var(--text-normal);
         text-align: center;
     }
 
@@ -1538,9 +2064,62 @@
         border-bottom: 0;
     }
 
+    .app-header .el-menu,
+    .app-header .el-menu-item,
+    .app-header .el-submenu__title {
+        background: var(--surface-bg);
+        color: var(--text-normal);
+    }
+
+    .app-header .el-menu-item.is-active,
+    .app-header .el-submenu.is-active .el-submenu__title {
+        border-bottom-color: var(--theme-primary);
+        color: var(--theme-text-strong);
+    }
+
+    .app-header .el-menu-item:hover,
+    .app-header .el-menu-item:focus,
+    .app-header .el-submenu__title:hover {
+        background: var(--theme-primary-soft);
+        color: var(--theme-primary);
+    }
+
+    .app-header a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .el-dropdown-menu,
+    .el-menu--popup,
+    .el-message-box {
+        border-color: var(--theme-primary-border);
+        background: var(--surface-bg-elevated);
+        color: var(--text-normal);
+    }
+
+    .el-message-box__title,
+    .el-message-box__content {
+        color: var(--text-normal);
+    }
+
+    .el-message-box__message {
+        color: var(--text-muted);
+    }
+
+    .el-menu--popup .el-menu-item {
+        background: var(--surface-bg-elevated);
+        color: var(--text-normal);
+    }
+
+    .el-menu--popup .el-menu-item:hover,
+    .el-menu--popup .el-menu-item:focus {
+        background: var(--theme-primary-soft);
+        color: var(--theme-primary);
+    }
+
     .el-main {
-        background-color: #E9EEF3;
-        color: #333;
+        background-color: var(--app-bg);
+        color: var(--text-normal);
         text-align: center;
     }
 
@@ -1555,7 +2134,7 @@
     }
 
     .main-content {
-        background-color: white;
+        background-color: var(--surface-bg);
         padding: 28px 32px 32px;
         max-width: 980px;
     }
@@ -1598,8 +2177,8 @@
         align-self: flex-start;
         margin-top: 12px;
         padding: 14px 16px;
-        border: 1px solid #EBEEF5;
-        background: #FAFAFA;
+        border: 1px solid var(--theme-primary-border);
+        background: var(--surface-bg-muted);
         border-radius: 6px;
     }
 
@@ -1613,12 +2192,12 @@
     }
 
     .status-label {
-        color: #606266;
+        color: var(--text-muted);
     }
 
     .status-value {
         min-width: 0;
-        color: #909399;
+        color: var(--text-subtle);
         text-align: right;
         word-break: break-all;
     }
@@ -1647,7 +2226,7 @@
         gap: 18px;
         min-height: 44px;
         font-size: 12px;
-        color: #909399;
+        color: var(--text-subtle);
     }
 
     .preview-overlap-origin {
@@ -1662,16 +2241,15 @@
         top: 0;
         overflow: hidden;
         z-index: 1;
-        background-color: #ffffff;
-        background-image:
-            var(--preview-output-image),
-            linear-gradient(45deg, #e8e8e8 25%, transparent 25%),
-            linear-gradient(-45deg, #e8e8e8 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, #e8e8e8 75%),
-            linear-gradient(-45deg, transparent 75%, #e8e8e8 75%);
-        background-position: 0 0, 0 0, 0 8px, 8px -8px, -8px 0;
-        background-repeat: no-repeat, repeat, repeat, repeat, repeat;
-        background-size: var(--preview-output-size), 16px 16px, 16px 16px, 16px 16px, 16px 16px;
+    }
+
+    .preview-overlap-result {
+        position: absolute;
+        left: 0;
+        top: 0;
+        display: block;
+        max-width: none;
+        object-fit: fill;
     }
 
     .preview-split-indicator {
@@ -1699,6 +2277,20 @@
         display: none;
     }
 
+    .size-risk-dialog-text p {
+        margin: 0 0 14px;
+        line-height: 1.7;
+    }
+
+    .size-risk-skip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-subtle);
+        font-size: 13px;
+        line-height: 1.4;
+    }
+
     .el-button--primary {
         border-color: var(--theme-primary);
         background-color: var(--theme-primary);
@@ -1720,6 +2312,65 @@
         background: var(--theme-primary-soft);
     }
 
+    .el-button,
+    .el-radio-button__inner {
+        border-color: var(--theme-primary-border);
+        background: var(--surface-bg-elevated);
+        color: var(--text-normal);
+    }
+
+    .el-button:hover,
+    .el-button:focus,
+    .el-radio-button__inner:hover {
+        border-color: var(--theme-primary);
+        color: var(--theme-primary);
+    }
+
+    .el-button.is-disabled,
+    .el-button.is-disabled:hover,
+    .el-button.is-disabled:focus,
+    .el-button.is-disabled:active,
+    .el-button--plain.is-disabled,
+    .el-button--plain.is-disabled:hover,
+    .el-button--plain.is-disabled:focus,
+    .el-button--plain.is-disabled:active {
+        border-color: var(--theme-primary-border);
+        background: var(--surface-bg-muted);
+        color: var(--text-subtle);
+        opacity: 0.66;
+    }
+
+    .preview-tools .el-button,
+    .preview-tools .el-button:focus,
+    .preview-tools .el-button:active {
+        border-color: var(--theme-primary-border);
+        background: var(--surface-bg-elevated);
+        color: var(--text-normal);
+    }
+
+    .preview-tools .el-button:hover {
+        border-color: var(--theme-primary);
+        background: var(--theme-primary-soft);
+        color: var(--theme-primary);
+    }
+
+    .preview-tools .el-button.is-disabled,
+    .preview-tools .el-button.is-disabled:hover,
+    .preview-tools .el-button.is-disabled:focus,
+    .preview-tools .el-button.is-disabled:active {
+        border-color: var(--theme-primary-border);
+        background: var(--surface-bg-muted);
+        color: var(--text-subtle);
+        opacity: 0.62;
+    }
+
+    .el-radio-button__orig-radio:disabled + .el-radio-button__inner {
+        border-color: var(--theme-primary-border);
+        background: var(--surface-bg-muted);
+        color: var(--text-subtle);
+        opacity: 0.58;
+    }
+
     .el-radio-button__orig-radio:checked + .el-radio-button__inner {
         border-color: var(--theme-primary);
         background-color: var(--theme-primary);
@@ -1736,6 +2387,15 @@
     .el-progress-bar__inner,
     .el-slider__bar {
         background-color: var(--theme-primary);
+    }
+
+    .el-progress-bar__outer,
+    .el-slider__runway {
+        background-color: var(--theme-primary-soft);
+    }
+
+    .el-progress__text {
+        color: var(--theme-text-strong);
     }
 
     .el-tag--success {
@@ -1778,7 +2438,7 @@
 
     @media (max-width: 479px) {
         .main-content {
-            background-color: white;
+            background-color: var(--surface-bg);
             padding: 16px;
         }
 
@@ -1812,15 +2472,19 @@
     }
 
     .app-main {
+        position: relative;
+        isolation: isolate;
         flex: 1 1 auto;
         min-height: 0;
         padding: 18px;
         overflow: hidden;
-        background: #f4f6f8;
+        background: var(--app-bg);
         text-align: left;
     }
 
     .workspace {
+        position: relative;
+        z-index: 1;
         display: grid;
         grid-template-columns: 340px minmax(0, 1fr);
         gap: 18px;
@@ -1835,9 +2499,9 @@
     .control-panel,
     .stage-panel {
         border: 1px solid var(--theme-primary-border);
-        background: #fff;
+        background: var(--surface-bg);
         border-radius: 8px;
-        box-shadow: 0 8px 24px rgba(22, 35, 48, 0.06);
+        box-shadow: var(--panel-shadow);
     }
 
     .control-panel {
@@ -1866,31 +2530,74 @@
         letter-spacing: 0;
     }
 
+    .heading-row,
+    .section-title-with-info {
+        display: inline-flex;
+        position: relative;
+        align-items: center;
+        gap: 8px;
+    }
+
     .eyebrow {
-        color: #8b95a5;
+        color: var(--text-subtle);
         font-size: 12px;
         font-weight: 700;
         line-height: 1.2;
         text-transform: uppercase;
     }
 
-    .help-note {
-        margin: 16px 0 2px;
-        padding: 12px 14px;
+    .info-button {
+        display: inline-flex;
+        width: 18px;
+        height: 18px;
         border: 1px solid var(--theme-primary-border);
-        background: var(--theme-primary-soft);
-        border-radius: 6px;
-        color: #5d6675;
+        background: var(--surface-bg-elevated);
+        border-radius: 50%;
+        color: var(--theme-primary);
+        align-items: center;
+        justify-content: center;
         font-size: 12px;
-        line-height: 1.55;
+        font-weight: 800;
+        line-height: 1;
+        cursor: pointer;
     }
 
-    .help-note p {
-        margin: 0 0 8px;
+    .info-button:hover,
+    .info-button:focus {
+        border-color: var(--theme-primary);
+        background: var(--theme-primary-soft);
+        outline: none;
     }
 
-    .help-note p:last-child {
-        margin-bottom: 0;
+    .info-popover.el-popover {
+        z-index: 3000;
+        border-color: var(--theme-primary-border);
+        background: var(--surface-bg-elevated);
+        box-shadow: var(--floating-shadow);
+        color: var(--text-muted);
+    }
+
+    .info-popover .popper__arrow,
+    .info-popover .popper__arrow::after {
+        border-right-color: var(--theme-primary-border);
+    }
+
+    .info-popover[x-placement^="right"] .popper__arrow::after {
+        border-right-color: var(--surface-bg-elevated);
+    }
+
+    .info-popover-content {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.6;
+        text-align: left;
+    }
+
+    .info-popover-content p {
+        margin: 0;
     }
 
     .control-section {
@@ -1939,7 +2646,7 @@
 
     .option-title {
         flex: 0 0 58px;
-        color: #5d6675;
+        color: var(--text-muted);
         font-size: 13px;
         font-weight: 700;
     }
@@ -1972,7 +2679,7 @@
         min-height: 68px;
         padding: 14px 18px;
         border-bottom: 1px solid var(--theme-primary-border);
-        background: #fff;
+        background: var(--surface-bg);
     }
 
     .stage-title {
@@ -1988,14 +2695,14 @@
 
     .stage-meta {
         margin-top: 5px;
-        color: #8b95a5;
+        color: var(--text-subtle);
         font-size: 12px;
         line-height: 1.3;
     }
 
     .stage-status {
         margin-top: 7px;
-        color: #5d6675;
+        color: var(--text-muted);
         font-size: 13px;
         line-height: 1.35;
     }
@@ -2010,7 +2717,7 @@
 
     .toolbar-progress-meta {
         margin-top: 5px;
-        color: #8b95a5;
+        color: var(--text-subtle);
         font-size: 12px;
         line-height: 1.3;
         text-align: right;
@@ -2018,37 +2725,89 @@
 
     .stage-body,
     .result-stage {
+        position: relative;
         display: flex;
         flex: 1 1 auto;
         min-height: 0;
         overflow: auto;
         padding: 22px;
         background:
-            linear-gradient(45deg, #eef2f6 25%, transparent 25%),
-            linear-gradient(-45deg, #eef2f6 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, #eef2f6 75%),
-            linear-gradient(-45deg, transparent 75%, #eef2f6 75%);
-        background-color: var(--theme-primary-soft);
+            linear-gradient(45deg, var(--checker-mark) 25%, transparent 25%),
+            linear-gradient(-45deg, var(--checker-mark) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, var(--checker-mark) 75%),
+            linear-gradient(-45deg, transparent 75%, var(--checker-mark) 75%);
+        background-color: var(--checker-base);
         background-position: 0 0, 0 10px, 10px -10px, -10px 0;
         background-size: 20px 20px;
         align-items: center;
         justify-content: center;
     }
 
+    .app-ambient-glow {
+        position: absolute;
+        inset: -80px;
+        z-index: 0;
+        overflow: hidden;
+        pointer-events: none;
+        filter: blur(42px) saturate(1.18);
+        opacity: 0.62;
+    }
+
+    .app-ambient-glow::before,
+    .app-ambient-glow::after {
+        position: absolute;
+        inset: 0;
+        content: "";
+    }
+
+    .app-ambient-glow-processing {
+        background:
+            radial-gradient(ellipse at 15% 18%, var(--fluid-color-1) 0%, transparent 46%),
+            radial-gradient(ellipse at 84% 20%, var(--fluid-color-2) 0%, transparent 44%),
+            radial-gradient(ellipse at 22% 86%, var(--fluid-color-3) 0%, transparent 46%),
+            radial-gradient(ellipse at 86% 82%, var(--fluid-color-4) 0%, transparent 44%);
+        animation: ambientProcessingPulse 5.2s ease-in-out infinite alternate;
+    }
+
+    .app-ambient-glow-preview {
+        --ambient-top: var(--fluid-color-1);
+        --ambient-right: var(--fluid-color-2);
+        --ambient-bottom: var(--fluid-color-3);
+        --ambient-left: var(--fluid-color-4);
+        background:
+            radial-gradient(ellipse at 50% 7%, var(--ambient-top) 0%, transparent 42%),
+            radial-gradient(ellipse at 96% 50%, var(--ambient-right) 0%, transparent 44%),
+            radial-gradient(ellipse at 50% 95%, var(--ambient-bottom) 0%, transparent 42%),
+            radial-gradient(ellipse at 7% 50%, var(--ambient-left) 0%, transparent 44%);
+        opacity: 0.68;
+        transition: background 180ms ease, opacity 180ms ease;
+    }
+
+    :root[data-theme="dark"] .app-ambient-glow {
+        filter: blur(48px) saturate(1.18) brightness(1.08);
+        opacity: 0.9;
+    }
+
+    :root[data-theme="dark"] .app-ambient-glow-preview {
+        opacity: 0.98;
+    }
+
     .stage-body .el-image,
     .result-stage .el-image {
+        position: relative;
+        z-index: 1;
         overflow: hidden;
         border: 1px solid var(--theme-primary-border);
-        background-color: #ffffff;
+        background-color: var(--image-checker-base);
         background-image:
-            linear-gradient(45deg, #e8e8e8 25%, transparent 25%),
-            linear-gradient(-45deg, #e8e8e8 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, #e8e8e8 75%),
-            linear-gradient(-45deg, transparent 75%, #e8e8e8 75%);
+            linear-gradient(45deg, var(--image-checker-mark) 25%, transparent 25%),
+            linear-gradient(-45deg, var(--image-checker-mark) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, var(--image-checker-mark) 75%),
+            linear-gradient(-45deg, transparent 75%, var(--image-checker-mark) 75%);
         background-size: 16px 16px;
         background-position: 0 0, 0 8px, 8px -8px, -8px 0;
         border-radius: 6px;
-        box-shadow: 0 10px 28px rgba(22, 35, 48, 0.08);
+        box-shadow: var(--image-shadow);
     }
 
     .stage-body .el-image__inner,
@@ -2064,7 +2823,7 @@
     }
 
     .processing-stage.is-processing {
-        background: #f8fafc;
+        background: var(--surface-bg-muted);
     }
 
     .processing-gradient {
@@ -2085,6 +2844,11 @@
         opacity: 1;
         pointer-events: none;
         animation: meshGradientFlow 7s ease-in-out infinite alternate;
+    }
+
+    :root[data-theme="dark"] .processing-gradient {
+        filter: saturate(1.08) contrast(1.02) brightness(0.72);
+        opacity: 0.92;
     }
 
     .processing-gradient::before {
@@ -2122,6 +2886,12 @@
         mix-blend-mode: screen;
         opacity: 0.74;
         animation: meshColorDrift 6s ease-in-out infinite alternate;
+    }
+
+    :root[data-theme="dark"] .processing-gradient span {
+        filter: blur(46px);
+        mix-blend-mode: lighten;
+        opacity: 0.56;
     }
 
     .processing-gradient span:nth-child(1) {
@@ -2179,6 +2949,54 @@
         }
     }
 
+    @keyframes ambientProcessingPulse {
+        0% {
+            transform: translate3d(-3%, -2%, 0) scale(1);
+            opacity: 0.58;
+        }
+        50% {
+            transform: translate3d(4%, 3%, 0) scale(1.08);
+            opacity: 0.84;
+        }
+        100% {
+            transform: translate3d(2%, -4%, 0) scale(1.04);
+            opacity: 0.68;
+        }
+    }
+
+    @keyframes resultPreviewFadeIn {
+        0% {
+            opacity: 0;
+            filter: blur(10px) saturate(0.92);
+        }
+        45% {
+            opacity: 0.24;
+            filter: blur(6px) saturate(0.98);
+        }
+        100% {
+            opacity: 1;
+            filter: blur(0) saturate(1);
+        }
+    }
+
+    @keyframes resultRevealFadeOut {
+        0% {
+            opacity: 1;
+            filter: blur(8px) saturate(1.24) contrast(1.08);
+            transform: scale(1);
+        }
+        55% {
+            opacity: 0.58;
+            filter: blur(28px) saturate(1.14) contrast(1.02);
+            transform: scale(1.04);
+        }
+        100% {
+            opacity: 0;
+            filter: blur(54px) saturate(0.98) contrast(0.96);
+            transform: scale(1.08);
+        }
+    }
+
     @keyframes meshColorDrift {
         0% {
             transform: translate3d(-18%, -12%, 0) scale(1) rotate(0deg);
@@ -2221,7 +3039,7 @@
         display: flex;
         min-height: 330px;
         border: 1px dashed var(--theme-primary-border);
-        background: rgba(255, 255, 255, 0.82);
+        background: var(--upload-bg);
         flex-direction: column;
         align-items: center;
         justify-content: center;
@@ -2233,13 +3051,81 @@
     }
 
     .result-overlap {
+        isolation: isolate;
         gap: 18px;
         flex-direction: column;
         overflow: hidden;
         justify-content: flex-start;
     }
 
+    .result-stage.is-revealing .preview-pan-viewport {
+        opacity: 0;
+        animation: resultPreviewFadeIn 1.35s ease forwards;
+    }
+
+    .result-reveal-gradient {
+        position: absolute;
+        inset: -12%;
+        z-index: 5;
+        overflow: hidden;
+        background:
+            radial-gradient(ellipse at 16% 20%, var(--fluid-color-1) 0%, transparent 44%),
+            radial-gradient(ellipse at 78% 18%, var(--fluid-color-2) 0%, transparent 46%),
+            radial-gradient(ellipse at 18% 86%, var(--fluid-color-3) 0%, transparent 46%),
+            radial-gradient(ellipse at 88% 82%, var(--fluid-color-4) 0%, transparent 42%),
+            linear-gradient(28deg, var(--fluid-color-3) 0%, var(--fluid-color-1) 42%, var(--fluid-color-2) 72%, var(--fluid-color-4) 100%);
+        background-position: 0% 0%, 100% 0%, 0% 100%, 100% 100%, 50% 50%;
+        background-size: 140% 140%, 150% 150%, 145% 145%, 150% 150%, 130% 130%;
+        pointer-events: none;
+        animation: resultRevealFadeOut 1.45s ease forwards;
+    }
+
+    .result-reveal-gradient span {
+        position: absolute;
+        width: 82%;
+        height: 76%;
+        border-radius: 42% 58% 48% 52%;
+        filter: blur(38px);
+        mix-blend-mode: screen;
+        opacity: 0.68;
+        animation: meshColorDrift 1.45s ease-in-out forwards;
+    }
+
+    :root[data-theme="dark"] .result-reveal-gradient {
+        filter: saturate(1.1) brightness(0.96);
+    }
+
+    :root[data-theme="dark"] .result-reveal-gradient span {
+        mix-blend-mode: lighten;
+        opacity: 0.58;
+    }
+
+    .result-reveal-gradient span:nth-child(1) {
+        left: -28%;
+        top: -22%;
+        background: var(--fluid-color-1);
+    }
+
+    .result-reveal-gradient span:nth-child(2) {
+        right: -34%;
+        top: -18%;
+        background: var(--fluid-color-2);
+    }
+
+    .result-reveal-gradient span:nth-child(3) {
+        left: -22%;
+        bottom: -28%;
+        background: var(--fluid-color-3);
+    }
+
+    .result-reveal-gradient span:nth-child(4) {
+        right: -24%;
+        bottom: -24%;
+        background: var(--fluid-color-4);
+    }
+
     .preview-tools {
+        position: relative;
         z-index: 4;
         display: flex;
         flex: 0 0 auto;
@@ -2248,9 +3134,9 @@
         gap: 8px;
         padding: 8px 10px;
         border: 1px solid var(--theme-primary-border);
-        background: rgba(255, 255, 255, 0.92);
+        background: var(--floating-bg);
         border-radius: 6px;
-        box-shadow: 0 6px 18px rgba(22, 35, 48, 0.08);
+        box-shadow: var(--floating-shadow);
     }
 
     .preview-tools span {
@@ -2263,6 +3149,7 @@
 
     .preview-pan-viewport {
         position: relative;
+        z-index: 2;
         display: flex;
         width: 100%;
         min-height: 0;
@@ -2294,16 +3181,16 @@
         position: relative;
         overflow: hidden;
         border: 1px solid var(--theme-primary-border);
-        background-color: #ffffff;
+        background-color: var(--image-checker-base);
         background-image:
-            linear-gradient(45deg, #e8e8e8 25%, transparent 25%),
-            linear-gradient(-45deg, #e8e8e8 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, #e8e8e8 75%),
-            linear-gradient(-45deg, transparent 75%, #e8e8e8 75%);
+            linear-gradient(45deg, var(--image-checker-mark) 25%, transparent 25%),
+            linear-gradient(-45deg, var(--image-checker-mark) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, var(--image-checker-mark) 75%),
+            linear-gradient(-45deg, transparent 75%, var(--image-checker-mark) 75%);
         background-size: 16px 16px;
         background-position: 0 0, 0 8px, 8px -8px, -8px 0;
         border-radius: 6px;
-        box-shadow: 0 10px 28px rgba(22, 35, 48, 0.08);
+        box-shadow: var(--image-shadow);
     }
 
     .preview-overlap-slider {
@@ -2315,9 +3202,9 @@
         width: auto;
         padding: 8px 12px;
         border: 1px solid var(--theme-primary-border);
-        background: rgba(255, 255, 255, 0.9);
+        background: var(--floating-bg);
         border-radius: 6px;
-        box-shadow: 0 6px 18px rgba(22, 35, 48, 0.08);
+        box-shadow: var(--floating-shadow);
     }
 
     .preview-overlap-slider .el-slider__runway {
@@ -2328,7 +3215,7 @@
         flex: 0 0 44px;
         min-height: 44px;
         border-top: 1px solid var(--theme-primary-border);
-        background: #fff;
+        background: var(--surface-bg);
     }
 
     @media (max-width: 1120px) {
