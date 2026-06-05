@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -213,7 +213,7 @@
                                                 :style="{width: getZoomedPreviewSize().outputImgWidth + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
                                         <div
                                                 class="preview-overlap-output"
-                                                :style="{backgroundImage: 'url(' + outputImgSrc + ')', width: getPreviewSplitLocalX() + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px', backgroundSize: getZoomedPreviewSize().outputImgWidth + 'px ' + getZoomedPreviewSize().outputImgHeight + 'px'}">
+                                                :style="{'--preview-output-image': 'url(' + outputImgSrc + ')', '--preview-output-size': getZoomedPreviewSize().outputImgWidth + 'px ' + getZoomedPreviewSize().outputImgHeight + 'px', width: getPreviewSplitLocalX() + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
                                         </div>
                                     </div>
                                 </div>
@@ -244,7 +244,7 @@
 </script>
 
 <script>
-    const APP_VERSION = '2026.06.05-ncnn20220729.17';
+    const APP_VERSION = '2026.06.05-alpha.18';
     const I18N = {
         zh: {
             app: {
@@ -1590,9 +1590,16 @@
         top: 0;
         overflow: hidden;
         z-index: 1;
-        background-repeat: no-repeat;
-        background-clip: content-box;
-        background-color: #E9EEF3;
+        background-color: #ffffff;
+        background-image:
+            var(--preview-output-image),
+            linear-gradient(45deg, #e8e8e8 25%, transparent 25%),
+            linear-gradient(-45deg, #e8e8e8 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, #e8e8e8 75%),
+            linear-gradient(-45deg, transparent 75%, #e8e8e8 75%);
+        background-position: 0 0, 0 0, 0 8px, 8px -8px, -8px 0;
+        background-repeat: no-repeat, repeat, repeat, repeat, repeat;
+        background-size: var(--preview-output-size), 16px 16px, 16px 16px, 16px 16px, 16px 16px;
     }
 
     .preview-split-indicator {
@@ -1960,7 +1967,14 @@
     .result-stage .el-image {
         overflow: hidden;
         border: 1px solid var(--theme-primary-border);
-        background: #fff;
+        background-color: #ffffff;
+        background-image:
+            linear-gradient(45deg, #e8e8e8 25%, transparent 25%),
+            linear-gradient(-45deg, #e8e8e8 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, #e8e8e8 75%),
+            linear-gradient(-45deg, transparent 75%, #e8e8e8 75%);
+        background-size: 16px 16px;
+        background-position: 0 0, 0 8px, 8px -8px, -8px 0;
         border-radius: 6px;
         box-shadow: 0 10px 28px rgba(22, 35, 48, 0.08);
     }
@@ -2208,7 +2222,14 @@
         position: relative;
         overflow: hidden;
         border: 1px solid var(--theme-primary-border);
-        background-color: #fff;
+        background-color: #ffffff;
+        background-image:
+            linear-gradient(45deg, #e8e8e8 25%, transparent 25%),
+            linear-gradient(-45deg, #e8e8e8 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, #e8e8e8 75%),
+            linear-gradient(-45deg, transparent 75%, #e8e8e8 75%);
+        background-size: 16px 16px;
+        background-position: 0 0, 0 8px, 8px -8px, -8px 0;
         border-radius: 6px;
         box-shadow: 0 10px 28px rgba(22, 35, 48, 0.08);
     }
