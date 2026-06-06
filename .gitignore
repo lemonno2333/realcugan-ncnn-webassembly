@@ -11,6 +11,7 @@ cmake-build-debug/
 /ncnn
 /fmt
 /third_party/emsdk
+/.tools/
 /web/realcugan-ncnn-webassembly*
 /web/up2x*
 /web/up3x*

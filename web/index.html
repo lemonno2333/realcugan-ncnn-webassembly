@@ -168,7 +168,7 @@
                             <el-button type="plain" size="small" :loading="wasmLoading" v-if="!isProcessing && uploadPreviewWidth === 0" v-on:click="runTestCase">{{t('actions.sample')}}</el-button>
                             <el-button type="plain" size="small" v-if="!isProcessing && uploadPreviewWidth !== 0" v-on:click="resetWorkspace">{{t('actions.reset')}}</el-button>
                             <el-button type="primary" size="small" v-if="isProcessDone" v-on:click="saveOutput">{{t('actions.save')}}</el-button>
-                            <el-button type="plain" size="small" v-if="isProcessing && !isProcessDone" v-on:click="stopProcess">{{t('actions.cancel')}}</el-button>
+                            <el-button type="plain" size="small" :loading="isCancelling" :disabled="isCancelling" v-if="isProcessing && !isProcessDone" v-on:click="stopProcess">{{isCancelling ? t('actions.cancelling') : t('actions.cancel')}}</el-button>
                         </div>
                     </aside>
 
@@ -307,7 +307,7 @@
 </script>
 
 <script>
-    const APP_VERSION = '2026.06.06-alpha.42';
+    const APP_VERSION = '2026.06.06-alpha.45';
     const I18N = {
         zh: {
             app: {
@@ -371,6 +371,7 @@
                 reset: '复位',
                 save: '保存图片',
                 cancel: '取消处理',
+                cancelling: '正在取消',
             },
             stage: {
                 workspace: '工作区',
@@ -381,6 +382,7 @@
             progress: {
                 starting: '启动中，预计10秒内完成耗时估算...',
                 processing: '本地CPU努力处理中......',
+                cancelling: '正在等待当前图块处理结束......',
                 done: '处理完成！耗时: {seconds}秒',
                 remaining: '剩余 {seconds} 秒',
             },
@@ -414,6 +416,7 @@
                 processErrorModel: '模型文件读取失败，可能是 web 目录构建产物不完整、模型文件缺失，或浏览器还缓存着旧的 .data 包。请确认服务器上传了完整新版 web 文件，并强制刷新页面。',
                 processErrorAsset: '后端资源或模型包加载失败。请确认服务器上的 .js、.wasm、.data 和 worker 文件都来自同一次构建。',
                 processErrorConflict: '当前已有任务正在运行，暂时不能启动新的处理。请稍后再试。',
+                processErrorInput: '图片尺寸、处理参数或内存缓冲区无效，任务已在处理前安全停止。请复位后重新选择图片。',
                 retryReload: '刷新重试',
                 conflictTitle: '调用冲突',
                 conflictText: '请稍后再试',
@@ -489,6 +492,7 @@
                 reset: 'Reset',
                 save: 'Save image',
                 cancel: 'Cancel',
+                cancelling: 'Cancelling',
             },
             stage: {
                 workspace: 'Workspace',
@@ -499,6 +503,7 @@
             progress: {
                 starting: 'Starting. Time estimate should be ready within 10 seconds...',
                 processing: 'Processing locally on CPU...',
+                cancelling: 'Waiting for the current tile to finish...',
                 done: 'Done. Time: {seconds}s',
                 remaining: '{seconds}s remaining',
             },
@@ -532,6 +537,7 @@
                 processErrorModel: 'Model loading failed. The web directory may be incomplete, a model file may be missing, or the browser may still cache an old .data package. Upload the full new web output and hard refresh the page.',
                 processErrorAsset: 'Backend assets or the model package failed to load. Make sure the .js, .wasm, .data, and worker files on the server come from the same build.',
                 processErrorConflict: 'Another task is already running, so a new process cannot start yet. Please try again later.',
+                processErrorInput: 'The image dimensions, processing options, or memory buffers are invalid. The task stopped safely before processing. Reset and select the image again.',
                 retryReload: 'Refresh and retry',
                 conflictTitle: 'Call conflict',
                 conflictText: 'Please try again later.',
@@ -607,6 +613,7 @@
                 reset: 'リセット',
                 save: '画像を保存',
                 cancel: 'キャンセル',
+                cancelling: 'キャンセル中',
             },
             stage: {
                 workspace: 'ワークスペース',
@@ -617,6 +624,7 @@
             progress: {
                 starting: '起動中です。約10秒以内に残り時間を見積もります...',
                 processing: 'ローカル CPU で処理中...',
+                cancelling: '現在のタイル処理が終わるまで待機中...',
                 done: '処理完了！所要時間: {seconds}秒',
                 remaining: '残り {seconds} 秒',
             },
@@ -650,6 +658,7 @@
                 processErrorModel: 'モデルの読み込みに失敗しました。web ディレクトリのビルド成果物が不完全、モデルファイルが不足、または古い .data パッケージがブラウザーに残っている可能性があります。完全な新版 web ファイルをアップロードし、強制更新してください。',
                 processErrorAsset: 'バックエンドリソースまたはモデルパッケージの読み込みに失敗しました。サーバー上の .js、.wasm、.data、worker ファイルが同じビルドのものか確認してください。',
                 processErrorConflict: '別の処理が実行中のため、新しい処理を開始できません。少し待ってから再試行してください。',
+                processErrorInput: '画像サイズ、処理設定、またはメモリバッファーが無効です。処理開始前に安全に停止しました。リセットして画像を選び直してください。',
                 retryReload: '更新して再試行',
                 conflictTitle: '呼び出しの競合',
                 conflictText: 'しばらくしてから再試行してください。',
@@ -700,10 +709,12 @@
                 previewDragOriginY: 0,
                 ambientUpdateTimer: null,
                 uploadImgSrc: '',
+                uploadObjectUrl: '',
                 uploadPreviewWidth: 0,
                 uploadPreviewHeight: 0,
                 uploadPreviewName: '',
                 isProcessing: false,
+                isCancelling: false,
                 isProcessDone: false,
                 isResultRevealing: false,
                 resultRevealTimer: null,
@@ -795,7 +806,14 @@
                 },
                 printErr: (text) => {
                     console.error(text);
-                    this.handleProcessFailure(text);
+                    let lower = (text || '').toLowerCase();
+                    if (this.isProcessing && (
+                        lower.includes('memory access out of bounds') ||
+                        lower.includes('out of memory') ||
+                        lower.includes('aborted(')
+                    )) {
+                        this.handleProcessFailure(text);
+                    }
                 },
                 setStatus: (text) => {
                     let match = (text || '').match(/Downloading data\.\.\. \((\d+)\/(\d+)\)/);
@@ -1218,30 +1236,46 @@
             readUploadedFile(file) {
                 let canvas = document.getElementById('canvas-upload');
                 let ctx = canvas.getContext('2d');
-                let reader = new FileReader();
-                reader.onload = (event) => {
-                    let img = new Image();
-                    img.onload = () => {
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        ctx.drawImage(img, 0, 0);
-                        this.uploadPreviewWidth = img.width;
-                        this.uploadPreviewHeight = img.height;
-                        this.uploadPreviewName = file.name;
-                        let uploadImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        this.applyImageTheme(uploadImageData);
-                        this.preflightProcess(uploadImageData, canvas.width, canvas.height);
-                    }
-                    img.src = event.target.result;
-                    this.uploadImgSrc = event.target.result;
-                }
-                reader.readAsDataURL(file.raw);
+                this.clearUploadPreviewUrl();
+                this.uploadObjectUrl = URL.createObjectURL(file.raw);
+                this.uploadImgSrc = this.uploadObjectUrl;
+                let img = new Image();
+                img.onload = () => {
+                    canvas.width = img.naturalWidth || img.width;
+                    canvas.height = img.naturalHeight || img.height;
+                    ctx.drawImage(img, 0, 0);
+                    this.uploadPreviewWidth = canvas.width;
+                    this.uploadPreviewHeight = canvas.height;
+                    this.uploadPreviewName = file.name;
+                    this.applyImageThemeFromCanvas(canvas);
+                    this.preflightProcess(canvas, canvas.width, canvas.height);
+                };
+                img.onerror = () => {
+                    this.clearUploadPreviewUrl();
+                    this.handleProcessFailure('failed to decode input image');
+                };
+                img.src = this.uploadObjectUrl;
             },
 
-            preflightProcess(uploadImageData, w, h) {
+            applyImageThemeFromCanvas(sourceCanvas) {
+                const maxSampleSize = 96;
+                const scale = Math.min(1, maxSampleSize / Math.max(sourceCanvas.width, sourceCanvas.height));
+                const sampleWidth = Math.max(1, Math.round(sourceCanvas.width * scale));
+                const sampleHeight = Math.max(1, Math.round(sourceCanvas.height * scale));
+                const sampleCanvas = document.createElement('canvas');
+                sampleCanvas.width = sampleWidth;
+                sampleCanvas.height = sampleHeight;
+                const sampleContext = sampleCanvas.getContext('2d', {willReadFrequently: true});
+                sampleContext.drawImage(sourceCanvas, 0, 0, sampleWidth, sampleHeight);
+                this.applyImageTheme(sampleContext.getImageData(0, 0, sampleWidth, sampleHeight));
+                sampleCanvas.width = 0;
+                sampleCanvas.height = 0;
+            },
+
+            preflightProcess(sourceCanvas, w, h) {
                 let risk = this.getProcessingRisk(w, h, this.scaleRadio);
                 if (risk.level === 'ok' || this.getPreference('skipSizeRiskWarning') === '1') {
-                    this.process(uploadImageData, w, h);
+                    this.process(sourceCanvas, w, h);
                     return;
                 }
                 let skipWarning = false;
@@ -1259,7 +1293,7 @@
                     if (skipWarning) {
                         this.savePreference('skipSizeRiskWarning', '1');
                     }
-                    this.process(uploadImageData, w, h);
+                    this.process(sourceCanvas, w, h);
                 }).catch(() => {
                     if (skipWarning) {
                         this.savePreference('skipSizeRiskWarning', '1');
@@ -1296,16 +1330,36 @@
                 let inputPixels = w * h;
                 let outputPixels = outputWidth * outputHeight;
                 let isMobileViewport = this.windowWidth <= 768;
-                let modelOverheadBytes = 180 * 1024 * 1024;
-                let estimatedBytes = modelOverheadBytes + inputPixels * 4 * 2 + outputPixels * 4 * 3;
-                let warnBytes = (isMobileViewport ? 420 : 900) * 1024 * 1024;
-                let blockBytes = (isMobileViewport ? 900 : 1800) * 1024 * 1024;
-                let warnPixels = isMobileViewport ? 24000000 : 80000000;
-                let blockPixels = isMobileViewport ? 60000000 : 160000000;
+                let gibibyte = 1024 * 1024 * 1024;
+                let measuredBackendWorkingSet = (scale === 4 ? 1150 : (scale === 3 ? 1050 : 950)) * 1024 * 1024;
+                let inputBytes = inputPixels * 4;
+                let outputBytes = outputPixels * 4;
+                let transparentAlphaAllowance = inputPixels;
+                let estimatedBytes = measuredBackendWorkingSet
+                    + inputBytes * 2
+                    + outputBytes * 2
+                    + transparentAlphaAllowance;
+                let reportedDeviceMemory = Number(navigator.deviceMemory) || (isMobileViewport ? 4 : 8);
+                let deviceMemoryGiB = Math.max(2, Math.min(8, reportedDeviceMemory));
+                let practicalBudgetBytes = deviceMemoryGiB * gibibyte * (isMobileViewport ? 0.24 : 0.30);
+                let warnBytes = Math.min(
+                    (isMobileViewport ? 1200 : 1800) * 1024 * 1024,
+                    Math.max(
+                        (isMobileViewport ? 700 : 1100) * 1024 * 1024,
+                        practicalBudgetBytes * 0.72
+                    )
+                );
+                let blockBytes = Math.min(
+                    (isMobileViewport ? 1600 : 2600) * 1024 * 1024,
+                    Math.max(
+                        (isMobileViewport ? 1100 : 1700) * 1024 * 1024,
+                        practicalBudgetBytes
+                    )
+                );
                 let level = 'ok';
-                if (estimatedBytes >= blockBytes || outputPixels >= blockPixels) {
+                if (estimatedBytes >= blockBytes) {
                     level = 'block';
-                } else if (estimatedBytes >= warnBytes || outputPixels >= warnPixels) {
+                } else if (estimatedBytes >= warnBytes) {
                     level = 'warn';
                 }
                 return {
@@ -1316,12 +1370,12 @@
                 };
             },
 
-            process(uploadImageData, w, h) {
+            process(sourceCanvas, w, h) {
                 let outputCanvas = document.getElementById('canvas-output');
-                let outputCtx = outputCanvas.getContext('2d');
                 this.progressTip = this.t('progress.starting');
                 this.processFailureDialogOpen = false;
                 this.isProcessing = true;
+                this.isCancelling = false;
                 this.isProcessDone = false;
                 this.previewOverlapRate = 50;
                 this.previewZoom = this.previewZoomMin;
@@ -1336,27 +1390,45 @@
                 this.outputModelType = this.modelTypeRadio;
                 this.outputPreviewWidth = this.uploadPreviewWidth * this.outputScale;
                 this.outputPreviewHeight = this.uploadPreviewHeight * this.outputScale;
-                outputCanvas.width = this.outputPreviewWidth;
-                outputCanvas.height = this.outputPreviewHeight;
-
-                let canvasOutput = document.getElementById('canvas-output');
-                let ctxOutput = canvasOutput.getContext('2d');
+                outputCanvas.width = 0;
+                outputCanvas.height = 0;
 
                 try {
+                    let sourceContext = sourceCanvas.getContext('2d', {willReadFrequently: true});
+                    let uploadImageData = sourceContext.getImageData(0, 0, w, h);
                     srcInteractedData = _malloc(uploadImageData.data.length);
                     if (!srcInteractedData) {
                         throw new Error('malloc failed for input image');
                     }
                     HEAPU8.set(uploadImageData.data, srcInteractedData);
-                    let imageDataOutput = ctxOutput.getImageData(0, 0, canvasOutput.width, canvasOutput.height);
-                    dstInteractedData = _malloc(imageDataOutput.data.length);
+                    let inputByteLength = uploadImageData.data.length;
+                    let outputByteLength = this.outputPreviewWidth * this.outputPreviewHeight * 4;
+                    uploadImageData = null;
+                    sourceCanvas.width = 0;
+                    sourceCanvas.height = 0;
+
+                    dstInteractedData = _malloc(outputByteLength);
                     if (!dstInteractedData) {
                         throw new Error('malloc failed for output image');
                     }
 
-                    let retCode = _process_image(0, srcInteractedData, dstInteractedData, w, h, this.outputScale, this.outputDenoise, this.getModelTypeCode(this.outputModelType));
+                    let retCode = _process_image(
+                        0,
+                        srcInteractedData,
+                        inputByteLength,
+                        dstInteractedData,
+                        outputByteLength,
+                        w,
+                        h,
+                        this.outputScale,
+                        this.outputDenoise,
+                        this.getModelTypeCode(this.outputModelType)
+                    );
                     if (retCode !== 0) {
-                        this.handleProcessFailure('process_image returned ' + retCode);
+                        this.handleBackendProcessError({
+                            code: retCode,
+                            message: 'process_image_rejected',
+                        });
                     }
                 } catch (error) {
                     this.handleProcessFailure(error);
@@ -1765,18 +1837,30 @@
             },
 
             onProcessEnd(cost) {
+                this.isCancelling = false;
                 if (!dstInteractedData) {
                     this.handleProcessFailure('missing output buffer');
                     return;
                 }
                 let canvasOutput = document.getElementById('canvas-output');
+                canvasOutput.width = this.outputPreviewWidth;
+                canvasOutput.height = this.outputPreviewHeight;
                 let ctxOutput = canvasOutput.getContext('2d');
-                let imageDataOutput = ctxOutput.getImageData(0, 0, canvasOutput.width, canvasOutput.height);
-
-                let result = HEAPU8.subarray(dstInteractedData, dstInteractedData + imageDataOutput.data.length);
-                imageDataOutput.data.set(result);
+                let outputByteLength = canvasOutput.width * canvasOutput.height * 4;
+                let result = new Uint8ClampedArray(HEAPU8.buffer, dstInteractedData, outputByteLength);
+                let imageDataOutput;
+                try {
+                    imageDataOutput = new ImageData(result, canvasOutput.width, canvasOutput.height);
+                } catch (error) {
+                    // Some browsers reject ImageData views backed by SharedArrayBuffer.
+                    imageDataOutput = new ImageData(
+                        new Uint8ClampedArray(result),
+                        canvasOutput.width,
+                        canvasOutput.height
+                    );
+                }
                 ctxOutput.putImageData(imageDataOutput, 0, 0);
-                console.log("output size: ", result.length);
+                console.log("output size: ", outputByteLength);
                 if (this.outputObjectUrl) {
                     URL.revokeObjectURL(this.outputObjectUrl);
                     this.outputObjectUrl = '';
@@ -1786,7 +1870,8 @@
                         this.outputObjectUrl = URL.createObjectURL(blob);
                         this.outputImgSrc = this.outputObjectUrl;
                     } else {
-                        this.outputImgSrc = canvasOutput.toDataURL();
+                        this.handleProcessFailure('failed to encode output image');
+                        return;
                     }
                     this.isProcessing = false;
                     this.isProcessDone = true;
@@ -1829,6 +1914,14 @@
                 this.outputImgSrc = '';
             },
 
+            clearUploadPreviewUrl() {
+                if (this.uploadObjectUrl) {
+                    URL.revokeObjectURL(this.uploadObjectUrl);
+                    this.uploadObjectUrl = '';
+                }
+                this.uploadImgSrc = '';
+            },
+
             beginResultReveal() {
                 if (this.resultRevealTimer) {
                     clearTimeout(this.resultRevealTimer);
@@ -1853,6 +1946,7 @@
                 this.clearResultReveal();
                 this.releaseWasmBuffers();
                 this.isProcessing = false;
+                this.isCancelling = false;
                 this.isProcessDone = false;
                 this.progressRate = 0;
                 this.procTotalCost = 0;
@@ -1888,14 +1982,39 @@
                 };
             },
 
+            handleBackendProcessError(error) {
+                let code = Number(error && error.code);
+                let message = this.t('dialog.processErrorGeneric');
+                if (code === -1) {
+                    message = this.t('dialog.processErrorConflict');
+                } else if (code === -7) {
+                    message = this.t('dialog.processErrorMemory');
+                } else if (code === -8 || code === -9) {
+                    message = this.t('dialog.processErrorModel');
+                } else if (code >= -6 && code <= -2) {
+                    message = this.t('dialog.processErrorInput');
+                }
+                let detail = 'backend code ' + code;
+                if (error && error.message) {
+                    detail += ': ' + error.message;
+                }
+                this.handleProcessFailure({
+                    message: message + '\n\n' + detail,
+                    isMappedBackendError: true,
+                });
+            },
+
             handleProcessFailure(error) {
-                let mapped = this.getActionableProcessError(error);
+                let mapped = error && error.isMappedBackendError
+                    ? {message: error.message, raw: ''}
+                    : this.getActionableProcessError(error);
                 this.restoreAfterProcessFailure();
                 if (this.processFailureDialogOpen) {
                     return;
                 }
                 this.processFailureDialogOpen = true;
-                this.$alert(this.t('dialog.processErrorText', {message: mapped.message + '\n\n' + mapped.raw}), this.t('dialog.processErrorTitle'), {
+                let detail = mapped.raw ? mapped.message + '\n\n' + mapped.raw : mapped.message;
+                this.$alert(this.t('dialog.processErrorText', {message: detail}), this.t('dialog.processErrorTitle'), {
                     confirmButtonText: this.t('dialog.ok'),
                     callback: () => {
                         this.processFailureDialogOpen = false;
@@ -1904,6 +2023,9 @@
             },
 
             onProcessProgressChange(totalCost, tileCost, progressRate, remainingTime) {
+                if (this.isCancelling) {
+                    return;
+                }
                 this.progressTip = this.t('progress.processing');
                 this.progressRate = Math.ceil(progressRate * 100);
                 this.procTotalCost = totalCost;
@@ -1920,6 +2042,13 @@
                             break;
                         case "PROC_PROGRESS":
                             this.onProcessProgressChange(data.total_cost, data.tile_cost, data.progress_rate, data.remaining_time);
+                            break;
+                        case "PROC_CANCELLED":
+                            this.onProcessCancelled();
+                            break;
+                        case "PROC_ERROR":
+                            this.handleBackendProcessError(data);
+                            break;
                     }
                 } catch (e) {
                     console.error("wasmCallback parse error:", e);
@@ -1927,10 +2056,12 @@
             },
 
             saveOutput() {
-                let canvasOutput = document.getElementById('canvas-output');
-                let dataURL = canvasOutput.toDataURL("image/png").replace("image/png", "image/octet-stream");
                 var a = document.getElementById("download-link");
-                a.href = dataURL;
+                if (!this.outputObjectUrl) {
+                    this.handleProcessFailure('missing output download blob');
+                    return;
+                }
+                a.href = this.outputObjectUrl;
                 let filename = "realcugan-output";
                 if (this.uploadPreviewName && this.uploadPreviewName.length > 0) {
                     filename = this.uploadPreviewName.replace(/\.[^/.]+$/, "");
@@ -1962,13 +2093,28 @@
             },
 
             stopProcess() {
-                window.location.reload();
+                if (!this.isProcessing || this.isCancelling) {
+                    return;
+                }
+                if (typeof _cancel_process !== 'function') {
+                    this.$alert(this.t('dialog.processErrorAsset'), this.t('dialog.processErrorTitle'), {
+                        confirmButtonText: this.t('dialog.ok'),
+                    });
+                    return;
+                }
+                this.isCancelling = true;
+                this.progressTip = this.t('progress.cancelling');
+                _cancel_process();
+            },
+
+            onProcessCancelled() {
+                this.resetWorkspace();
             },
 
             resetWorkspace() {
                 this.clearResultReveal();
                 this.releaseWasmBuffers();
-                this.uploadImgSrc = '';
+                this.clearUploadPreviewUrl();
                 this.uploadPreviewWidth = 0;
                 this.uploadPreviewHeight = 0;
                 this.uploadPreviewName = '';
@@ -1979,6 +2125,7 @@
                 this.outputDenoise = 0;
                 this.outputModelType = 'se';
                 this.isProcessing = false;
+                this.isCancelling = false;
                 this.isProcessDone = false;
                 this.isResultRevealing = false;
                 this.progressRate = 0;
@@ -2026,9 +2173,8 @@
                     this.uploadPreviewWidth = img.width;
                     this.uploadPreviewHeight = img.height;
                     this.uploadPreviewName = filename;
-                    let uploadImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    this.applyImageTheme(uploadImageData);
-                    this.preflightProcess(uploadImageData, canvas.width, canvas.height);
+                    this.applyImageThemeFromCanvas(canvas);
+                    this.preflightProcess(canvas, canvas.width, canvas.height);
                 }
                 img.src = filename;
                 this.uploadImgSrc = img.src;

@@ -80,6 +80,18 @@ Use ncnn `20220729` for this model set. Newer ncnn versions may compile but can
 produce corrupted output such as colored stripes or noisy blocks with these old
 Real-CUGAN params.
 
+# Performance measurements
+
+After building, measure representative peak-memory workloads with:
+
+```shell
+node tests/measure-peak-memory.cjs --backend basic
+```
+
+The script also supports `--backend simd`, `--backend simd-threads`, and
+`--json`. See `docs/performance-memory.md` for the current 1080p, 1440p, and 4K
+buffer baseline and measurement notes.
+
 # Credits
 
 This fork is based on the original

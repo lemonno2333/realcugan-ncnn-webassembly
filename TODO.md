@@ -1,110 +1,103 @@
 # TODO
 
-This fork is now maintained as a browser-based Real-CUGAN WebAssembly project.
-The roadmap below tracks repository maintenance, user-facing features, model
-coverage, build reliability, and release quality.
+This roadmap focuses on WebAssembly backend performance, memory usage,
+stability, cancellation, and build quality.
 
-## Completed
+## Priority 1: Safety And Correctness
 
-- [x] Keep the existing ncnn Real-CUGAN models instead of converting or
-  regenerating model files from scratch.
-- [x] Build three WebAssembly backends from the same C++ code:
-  `simd-threads`, `simd`, and `basic`.
-- [x] Support CPU fallback when pthreads or SharedArrayBuffer are unavailable.
-- [x] Select the fastest supported backend automatically in the browser.
-- [x] Pin `ncnn` to `20220729` to avoid corrupted output seen with newer
-  versions.
-- [x] Preserve PNG alpha by processing RGB and upscaling alpha separately.
-- [x] Show app version and selected backend in the footer.
-- [x] Version `.js`, `.wasm`, `.worker.js`, and `.data` asset URLs to avoid
-  stale WebAssembly package caches.
-- [x] Remove Emscripten preload IndexedDB cache to prevent model package
-  mismatches after updates.
-- [x] Add SE and Pro model selection.
-- [x] Add the full upstream SE model set currently used by this fork:
-  2X conservative/no-denoise/denoise1x/denoise2x/denoise3x,
-  3X conservative/no-denoise/denoise3x, and
-  4X conservative/no-denoise/denoise3x.
-- [x] Add available Pro 2X and 3X conservative/no-denoise/denoise3x models.
-- [x] Redesign the web UI for a larger workspace and modern controls.
-- [x] Keep original helper text for user guidance.
-- [x] Move repository links into the About section and point the primary GitHub
-  link to `lemonno2333/realcugan-ncnn-webassembly`.
-- [x] Add Chinese, English, and Japanese UI languages.
-- [x] Add Material Design Monet-inspired theme color extraction from uploaded
-  images.
-- [x] Add animated mesh-gradient processing state based on image dominant
-  colors.
-- [x] Replace side-by-side preview modes with one overlay comparison mode.
-- [x] Add viewport-relative comparison slider, bounded zoom, wheel zoom, and
-  drag-to-pan preview behavior.
-- [x] Add Ambilight-style ambient glow for processing and result previews.
-- [x] Improve mobile layout so pages can scroll vertically while staying within
-  viewport width.
-- [x] Add reset behavior for processing another image after upload.
-- [x] Update README and README_CN for the current fork.
-- [x] Commit and push the current maintained state to `origin/main`.
+- [x] Check and propagate the return values from `ncnn::Net::load_param()` and
+  `ncnn::Net::load_model()`.
+- [x] Return structured model-loading errors to the web UI instead of
+  continuing with an invalid or missing model.
+- [x] Validate input width, height, scale, model type, denoise level, and
+  buffer pointers before processing.
+- [x] Use `size_t` or checked 64-bit arithmetic for pixel counts and buffer
+  sizes to prevent integer overflow on very large images.
+- [x] Add exception handling around model loading, allocation, and inference
+  so the worker always returns to a reusable state.
+- [x] Replace the global raw task pointer with an explicit
+  `Idle / Running / Cancelling` task state.
+- [x] Use RAII containers and smart pointers for task and alpha buffers to
+  guarantee cleanup on every return path.
 
-## Next: Release And Deployment Quality
+## Priority 2: Peak Memory Reduction
 
-- [ ] Add a release checklist for bumping `APP_VERSION`, rebuilding all
-  backends, checking `.data` size changes, and uploading the full `web`
-  artifact.
-- [ ] Add Nginx/Baota deployment notes for COOP/COEP headers, MIME types, cache
-  control, and large `.data` files.
-- [ ] Add troubleshooting docs for SharedArrayBuffer fallback, model 404s,
-  stale `.data` caches, `parse magic failed`, memory errors, and oversized
-  images.
-- [ ] Document which model combinations are available for SE and Pro.
-- [ ] Add a short browser support table for desktop and mobile.
+- [x] Measure and document peak memory for representative 2X, 3X, and 4X
+  workloads, including 1080p, 1440p, and 4K inputs.
+- [x] Remove the full-size intermediate RGB output image where possible.
+- [x] Write completed tiles directly into the final RGBA output buffer.
+- [x] Avoid allocating a full upscaled alpha buffer.
+- [x] Add a fast path for fully opaque images that skips alpha extraction and
+  upscaling.
+- [x] For transparent images, upscale and merge alpha per tile.
+- [x] Reduce duplicate full-image copies between Canvas `ImageData`, the
+  JavaScript heap, and WebAssembly memory.
+- [x] Revisit the frontend memory-risk estimator after measuring the optimized
+  backend.
 
-## Runtime Stability
+## Priority 3: Worker Architecture
 
-- [x] Add preflight output size and memory risk estimation before processing.
-- [ ] Add input size warnings before processing very large images.
-- [ ] Add conservative mobile defaults for large images or low-memory devices.
-- [x] Improve memory cleanup after failed, canceled, or out-of-memory runs.
-- [x] Restore the UI to a reusable state after processing failures.
-- [x] Map common backend errors to actionable user guidance.
-- [ ] Consider exposing tile-size presets if memory pressure remains an issue.
+- [ ] Move the SIMD fallback backend into a dedicated Web Worker.
+- [ ] Move the basic fallback backend into a dedicated Web Worker.
+- [ ] Keep rendering, controls, animations, and cancellation responsive while
+  fallback processing is active.
+- [ ] Define one message protocol for start, progress, cancel, complete, and
+  error events across all backends.
+- [ ] Ensure cancel/reset never reloads the page or discards an already loaded
+  model.
+- [ ] Verify that a second task can start immediately after cancellation on
+  every backend.
 
-## Testing
+## Priority 4: Adaptive Runtime Settings
 
-- [ ] Add a small regression image set for output sanity checks.
-- [ ] Add a browser smoke test that loads each backend and verifies the package
-  can read representative model files.
-- [ ] Add UI smoke tests for language switching, model option constraints,
-  upload/reset, zoom/pan, and overlay slider sync.
-- [ ] Add a build check that fails if source model files change but generated
-  `web/*.data` artifacts are stale in release artifacts.
+- [ ] Cap inference threads instead of always using every logical CPU core.
+- [ ] Benchmark desktop thread limits of 4, 6, and 8.
+- [ ] Benchmark mobile thread limits of 2 and 4.
+- [ ] Select a conservative default from hardware concurrency and device
+  memory signals.
+- [ ] Add adaptive tile sizes such as 128, 160, and 200.
+- [ ] Prefer smaller tiles on memory-constrained devices and when low cancel
+  latency is important.
+- [ ] Benchmark tile-size effects on speed, peak memory, output consistency,
+  and cancellation latency.
 
-## Frontend Maintenance
+## Priority 5: Model Loading
 
-- [x] Add light/dark/auto theme mode.
-- [ ] Review mobile touch interactions on iOS Safari and Android Chrome.
-- [ ] Add accessible labels/tooltips for icon-only or compact controls.
-- [ ] Improve keyboard support for zoom controls and the overlay slider.
-- [ ] Audit text wrapping for long filenames across all supported languages.
-- [ ] Keep the visual theme responsive without letting extracted colors reduce
-  contrast.
+- [ ] Stop bundling every model into one approximately 42.5 MB `.data` file.
+- [ ] Load only the selected model's `.param` and `.bin` files.
+- [ ] Cache model files through normal browser HTTP caching.
+- [ ] Reuse a loaded model while scale, denoise, and model type remain
+  unchanged.
+- [ ] Load a new model only when the selected combination changes.
+- [ ] Show separate progress states for runtime loading and model loading.
+- [ ] Verify model-file integrity and report missing combinations clearly.
 
-## Model And Backend Maintenance
+## Performance Cleanup
 
-- [ ] Track upstream `realcugan-ncnn-vulkan` model changes and record when this
-  fork syncs them.
-- [ ] Decide whether `models-nose` should be supported in the web UI.
-- [ ] Investigate whether 1X processing should be exposed as a practical model
-  mode or kept out of the UI.
-- [ ] Keep Pro support limited to model combinations that actually exist in the
-  bundled files.
-- [ ] Re-evaluate newer `ncnn` versions only with regression images before
-  changing the pinned revision.
+- [ ] Throttle progress callbacks to approximately one update every
+  100-200 ms.
+- [ ] Replace formatted stdout JSON callbacks with a lower-overhead direct
+  callback or message path.
+- [x] Remove unused synchronization members and inactive runtime fields.
+- [x] Remove duplicate includes and stale implementation code.
+- [ ] Benchmark `-flto` for runtime speed and artifact size.
+- [ ] Benchmark Emscripten `emmalloc` against the current allocator.
+- [ ] Review `ALLOW_MEMORY_GROWTH` settings and establish sensible initial and
+  maximum memory values for threaded and fallback builds.
+- [ ] Confirm that performance build flags do not change output pixels.
 
-## Repository Hygiene
+## Testing And Acceptance
 
-- [ ] Add `.gitattributes` for stable line endings and binary model handling.
-- [ ] Document how generated `web/realcugan-ncnn-webassembly-*` files should be
-  handled in releases versus source commits.
-- [ ] Add issue templates for bug reports, model/output problems, and deployment
-  problems.
-- [ ] Add a changelog or release notes file for user-visible updates.
+- [ ] Add a backend smoke test for every supported model, scale, and denoise
+  combination.
+- [ ] Add tests for missing, corrupted, and mismatched model files.
+- [x] Add tests for invalid dimensions and arithmetic overflow.
+- [ ] Add cancellation tests before inference, during a tile, and between
+  tiles.
+- [x] Add a cancel-then-process-again regression test.
+- [ ] Add repeated-task tests to detect memory growth and stale task state.
+- [ ] Compare output hashes or image metrics before and after each backend
+  optimization.
+- [ ] Test `simd-threads`, `simd`, and `basic` on desktop and mobile browsers.
+- [ ] Record processing time, peak memory, cancellation latency, and artifact
+  size for each release candidate.
