@@ -36,34 +36,30 @@
 <script type="text/x-template" id="form">
     <div>
         <el-container>
-            <el-header class="app-header">
-                <el-menu :default-active="'1'" class="el-menu-demo" mode="horizontal">
-                    <el-menu-item index="1">{{t('nav.title')}}</el-menu-item>
-                    <el-submenu index="5">
-                        <template slot="title">{{t('nav.about')}}</template>
-                        <el-menu-item index="6"><a href="https://github.com/lemonno2333/realcugan-ncnn-webassembly" target="_blank">GitHub</a></el-menu-item>
-                        <el-menu-item index="7"><a href="https://github.com/hanFengSan/realcugan-ncnn-webassembly" target="_blank">{{t('nav.originalProject')}}</a></el-menu-item>
-                        <el-menu-item index="8"><a href="https://github.com/bilibili/ailab/tree/main/Real-CUGAN"
-                                                   target="_blank">Real-CUGAN</a></el-menu-item>
-                        <el-menu-item index="9"><a href="https://github.com/Tencent/ncnn" target="_blank">ncnn</a>
-                        </el-menu-item>
-                        <el-menu-item index="13"><a href="https://github.com/emscripten-core/emscripten" target="_blank">emscripten</a>
-                        </el-menu-item>
-                    </el-submenu>
-                    <el-submenu index="10">
-                        <template slot="title">{{t('nav.language')}}</template>
-                        <el-menu-item index="11" v-on:click="setLanguage('zh')">中文</el-menu-item>
-                        <el-menu-item index="12" v-on:click="setLanguage('en')">English</el-menu-item>
-                        <el-menu-item index="14" v-on:click="setLanguage('ja')">日本語</el-menu-item>
-                    </el-submenu>
-                    <el-submenu index="15">
-                        <template slot="title">{{t('nav.theme')}}</template>
-                        <el-menu-item index="16" v-on:click="setThemeMode('auto')">{{t('theme.auto')}}</el-menu-item>
-                        <el-menu-item index="17" v-on:click="setThemeMode('light')">{{t('theme.light')}}</el-menu-item>
-                        <el-menu-item index="18" v-on:click="setThemeMode('dark')">{{t('theme.dark')}}</el-menu-item>
-                    </el-submenu>
-                </el-menu>
-            </el-header>
+            <div class="floating-preferences">
+                <el-dropdown trigger="click" v-on:command="setLanguage">
+                    <button type="button" class="floating-preference-button icon-only-button" :aria-label="t('nav.language') + ': ' + getLanguageLabel()" :title="t('nav.language') + ': ' + getLanguageLabel()">
+                        <svg viewBox="0 0 24 24" width="1.2em" height="1.2em" aria-hidden="true">
+                            <path fill="currentColor" d="m18.5 10l4.4 11h-2.155l-1.201-3h-4.09l-1.199 3h-2.154L16.5 10zM10 2v2h6v2h-1.968a18.2 18.2 0 0 1-3.62 6.301a15 15 0 0 0 2.335 1.707l-.75 1.878A17 17 0 0 1 9 13.725a16.7 16.7 0 0 1-6.201 3.548l-.536-1.929a14.7 14.7 0 0 0 5.327-3.042A18 18 0 0 1 4.767 8h2.24A16 16 0 0 0 9 10.877a16.2 16.2 0 0 0 2.91-4.876L2 6V4h6V2zm7.5 10.885L16.253 16h2.492z"></path>
+                        </svg>
+                    </button>
+                    <el-dropdown-menu slot="dropdown">
+                        <el-dropdown-item command="zh">中文</el-dropdown-item>
+                        <el-dropdown-item command="en">English</el-dropdown-item>
+                        <el-dropdown-item command="ja">日本語</el-dropdown-item>
+                    </el-dropdown-menu>
+                </el-dropdown>
+                <el-dropdown trigger="click" v-on:command="setThemeMode">
+                    <button type="button" class="floating-preference-button icon-only-button" :aria-label="t('nav.theme') + ': ' + getThemeModeLabel()" :title="t('nav.theme') + ': ' + getThemeModeLabel()">
+                        <i :class="getThemeIconClass()"></i>
+                    </button>
+                    <el-dropdown-menu slot="dropdown">
+                        <el-dropdown-item command="auto">{{t('theme.auto')}}</el-dropdown-item>
+                        <el-dropdown-item command="light">{{t('theme.light')}}</el-dropdown-item>
+                        <el-dropdown-item command="dark">{{t('theme.dark')}}</el-dropdown-item>
+                    </el-dropdown-menu>
+                </el-dropdown>
+            </div>
 
             <el-main class="app-main">
                 <div class="app-ambient-glow app-ambient-glow-processing" v-if="isProcessing || isResultRevealing"></div>
@@ -98,8 +94,8 @@
                                     </el-popover>
                                 </div>
                             </div>
-                            <el-tag size="mini" :type="wasmModuleLoaded ? 'success' : 'warning'">
-                                {{wasmModuleLoaded ? t('state.ready') : t('state.loading')}}
+                            <el-tag size="mini" :type="wasmModuleLoaded ? 'success' : (wasmLoading ? 'warning' : 'info')">
+                                {{wasmModuleLoaded ? t('state.ready') : (wasmLoading ? t('state.loading') : t('state.onDemand'))}}
                             </el-tag>
                         </div>
 
@@ -169,7 +165,7 @@
                         </div>
 
                         <div class="control-section action-section">
-                            <el-button type="plain" size="small" v-if="!isProcessing && uploadPreviewWidth === 0" v-on:click="runTestCase">{{t('actions.sample')}}</el-button>
+                            <el-button type="plain" size="small" :loading="wasmLoading" v-if="!isProcessing && uploadPreviewWidth === 0" v-on:click="runTestCase">{{t('actions.sample')}}</el-button>
                             <el-button type="plain" size="small" v-if="!isProcessing && uploadPreviewWidth !== 0" v-on:click="resetWorkspace">{{t('actions.reset')}}</el-button>
                             <el-button type="primary" size="small" v-if="isProcessDone" v-on:click="saveOutput">{{t('actions.save')}}</el-button>
                             <el-button type="plain" size="small" v-if="isProcessing && !isProcessDone" v-on:click="stopProcess">{{t('actions.cancel')}}</el-button>
@@ -184,7 +180,7 @@
                                     {{uploadPreviewWidth}} × {{uploadPreviewHeight}} -> {{outputPreviewWidth || uploadPreviewWidth * scaleRadio}} × {{outputPreviewHeight || uploadPreviewHeight * scaleRadio}}
                                 </div>
                                 <div class="stage-meta" v-else>
-                                    {{wasmModuleLoaded ? t('stage.waiting') : t('stage.loadingAssets')}}
+                                    {{wasmLoading ? t('stage.loadingAssetsProgress', {percent: wasmLoadingProgress}) : t('stage.waiting')}}
                                 </div>
                                 <div class="stage-status" v-if="isProcessing || isProcessDone">
                                     {{progressTip}}
@@ -206,9 +202,11 @@
 
                         <div class="stage-body" v-if="uploadPreviewWidth === 0 && !isProcessDone">
                             <el-upload
+                                    ref="imageUpload"
                                     class="large-upload"
                                     drag
                                     :auto-upload="false"
+                                    :disabled="wasmLoading"
                                     accept="image/png,image/jpeg,image/webp,image/bmp"
                                     :on-change="onUploadChange"
                                     action="https://jsonplaceholder.typicode.com/posts/">
@@ -298,13 +296,18 @@
             <el-footer class="app-footer">
                 <span>{{t('footer.version')}}: {{appVersion}}</span>
                 <span>{{t('footer.backend')}}: {{wasmBackend || t('backend.detecting')}}</span>
+                <a href="https://github.com/lemonno2333/realcugan-ncnn-webassembly" target="_blank">GitHub</a>
+                <a href="https://github.com/hanFengSan/realcugan-ncnn-webassembly" target="_blank">{{t('nav.originalProject')}}</a>
+                <a href="https://github.com/bilibili/ailab/tree/main/Real-CUGAN" target="_blank">Real-CUGAN</a>
+                <a href="https://github.com/Tencent/ncnn" target="_blank">ncnn</a>
+                <a href="https://github.com/emscripten-core/emscripten" target="_blank">emscripten</a>
             </el-footer>
         </el-container>
     </div>
 </script>
 
 <script>
-    const APP_VERSION = '2026.06.05-alpha.36';
+    const APP_VERSION = '2026.06.06-alpha.42';
     const I18N = {
         zh: {
             app: {
@@ -326,6 +329,7 @@
             state: {
                 ready: '就绪',
                 loading: '加载中',
+                onDemand: '按需加载',
             },
             help: {
                 localPrefix: '本项目基于 Web Assembly 技术，',
@@ -356,7 +360,7 @@
                 auto: '自动',
                 threads: '多线程',
                 basic: '兼容',
-                detecting: '检测中',
+                detecting: '按需加载',
             },
             denoise: {
                 conservative: '保守',
@@ -372,6 +376,7 @@
                 workspace: '工作区',
                 waiting: '等待图片',
                 loadingAssets: '资源加载中',
+                loadingAssetsProgress: '正在加载处理资源 {percent}%',
             },
             progress: {
                 starting: '启动中，预计10秒内完成耗时估算...',
@@ -396,8 +401,6 @@
                 backendSavedText: '后端模式会在刷新后生效',
                 reload: '刷新',
                 cancel: '取消',
-                notReadyTitle: '加载未完成',
-                notReadyText: '正在努力加载资源中(约12MB)，请稍后再试',
                 ok: '确定',
                 continue: '继续处理',
                 dontShowAgain: '下次不再提示',
@@ -444,6 +447,7 @@
             state: {
                 ready: 'Ready',
                 loading: 'Loading',
+                onDemand: 'On demand',
             },
             help: {
                 localPrefix: 'Powered by WebAssembly. ',
@@ -474,7 +478,7 @@
                 auto: 'Auto',
                 threads: 'Threads',
                 basic: 'Basic',
-                detecting: 'Detecting',
+                detecting: 'On demand',
             },
             denoise: {
                 conservative: 'Conservative',
@@ -490,6 +494,7 @@
                 workspace: 'Workspace',
                 waiting: 'Waiting for image',
                 loadingAssets: 'Loading assets',
+                loadingAssetsProgress: 'Loading processing assets {percent}%',
             },
             progress: {
                 starting: 'Starting. Time estimate should be ready within 10 seconds...',
@@ -514,8 +519,6 @@
                 backendSavedText: 'The backend mode will take effect after refresh.',
                 reload: 'Refresh',
                 cancel: 'Cancel',
-                notReadyTitle: 'Still loading',
-                notReadyText: 'Assets are still loading (about 12 MB). Please try again in a moment.',
                 ok: 'OK',
                 continue: 'Continue',
                 dontShowAgain: 'Do not show again',
@@ -562,6 +565,7 @@
             state: {
                 ready: '準備完了',
                 loading: '読み込み中',
+                onDemand: 'オンデマンド',
             },
             help: {
                 localPrefix: 'このプロジェクトは WebAssembly を利用しています。',
@@ -592,7 +596,7 @@
                 auto: '自動',
                 threads: 'マルチスレッド',
                 basic: '互換',
-                detecting: '検出中',
+                detecting: 'オンデマンド',
             },
             denoise: {
                 conservative: '控えめ',
@@ -608,6 +612,7 @@
                 workspace: 'ワークスペース',
                 waiting: '画像待機中',
                 loadingAssets: 'リソース読み込み中',
+                loadingAssetsProgress: '処理リソースを読み込み中 {percent}%',
             },
             progress: {
                 starting: '起動中です。約10秒以内に残り時間を見積もります...',
@@ -632,8 +637,6 @@
                 backendSavedText: 'バックエンド設定は更新後に反映されます。',
                 reload: '更新',
                 cancel: 'キャンセル',
-                notReadyTitle: '読み込み未完了',
-                notReadyText: 'リソースを読み込み中です（約12MB）。少し待ってから再試行してください。',
                 ok: 'OK',
                 continue: '続行',
                 dontShowAgain: '次回から表示しない',
@@ -721,6 +724,9 @@
                 extractedThemeColors: null,
                 // emscripten
                 wasmModuleLoaded: false,
+                wasmLoading: false,
+                wasmLoadingProgress: 0,
+                wasmLoadPromise: null,
                 wasmBackend: '',
                 appVersion: APP_VERSION,
                 processFailureDialogOpen: false,
@@ -791,8 +797,14 @@
                     console.error(text);
                     this.handleProcessFailure(text);
                 },
+                setStatus: (text) => {
+                    let match = (text || '').match(/Downloading data\.\.\. \((\d+)\/(\d+)\)/);
+                    if (match && Number(match[2]) > 0) {
+                        let dataProgress = Number(match[1]) / Number(match[2]);
+                        this.wasmLoadingProgress = Math.min(99, Math.max(5, Math.round(5 + dataProgress * 94)));
+                    }
+                },
             };
-            this.checkWasmSupportAndLoad();
         },
 
         methods: {
@@ -844,6 +856,16 @@
                 this.savePreference('language', language);
                 this.applyLanguage();
                 this.syncProgressTipLanguage();
+            },
+
+            getLanguageLabel() {
+                if (this.language === 'zh') {
+                    return '中文';
+                }
+                if (this.language === 'ja') {
+                    return '日本語';
+                }
+                return 'English';
             },
 
             showInfoPopover(type) {
@@ -909,6 +931,14 @@
                 if (this.extractedThemeColors) {
                     this.applyExtractedThemeColors(this.extractedThemeColors);
                 }
+            },
+
+            getThemeModeLabel() {
+                return this.t('theme.' + this.themeMode);
+            },
+
+            getThemeIconClass() {
+                return this.getEffectiveTheme() === 'dark' ? 'el-icon-moon' : 'el-icon-sunny';
             },
 
             syncProgressTipLanguage() {
@@ -1168,24 +1198,24 @@
                 this.extractedThemeColors = null;
             },
 
-            isNotReady() {
-                if (!this.wasmModuleLoaded) {
-                    this.$alert(this.t('dialog.notReadyText'), this.t('dialog.notReadyTitle'), {
-                        confirmButtonText: this.t('dialog.ok'),
-                    });
-                    return true;
-                }
-                return false;
-            },
-
             getModelTypeCode(modelType) {
                 return modelType === 'pro' ? 1 : 0;
             },
 
             onUploadChange(file, fileList) {
-                if (this.isNotReady()) {
+                if (!file || !file.raw) {
                     return;
                 }
+                this.ensureWasmLoaded()
+                    .then(() => this.readUploadedFile(file))
+                    .catch(() => {
+                        if (this.$refs.imageUpload) {
+                            this.$refs.imageUpload.clearFiles();
+                        }
+                    });
+            },
+
+            readUploadedFile(file) {
                 let canvas = document.getElementById('canvas-upload');
                 let ctx = canvas.getContext('2d');
                 let reader = new FileReader();
@@ -1622,13 +1652,43 @@
                 return path + '?v=' + encodeURIComponent(this.appVersion);
             },
 
+            ensureWasmLoaded() {
+                if (this.wasmModuleLoaded) {
+                    return Promise.resolve();
+                }
+                if (this.wasmLoadPromise) {
+                    return this.wasmLoadPromise;
+                }
+
+                this.wasmLoading = true;
+                this.wasmLoadingProgress = 1;
+                this.wasmLoadPromise = this.checkWasmSupportAndLoad()
+                    .then(() => {
+                        this.wasmModuleLoaded = true;
+                        this.wasmLoadingProgress = 100;
+                    })
+                    .catch((error) => {
+                        this.wasmLoadPromise = null;
+                        throw error;
+                    })
+                    .then((result) => {
+                        this.wasmLoading = false;
+                        return result;
+                    }, (error) => {
+                        this.wasmLoading = false;
+                        this.wasmLoadingProgress = 0;
+                        throw error;
+                    });
+                return this.wasmLoadPromise;
+            },
+
             checkWasmSupportAndLoad() {
-                Promise.all([
+                return Promise.all([
                     wasmFeatureDetect.simd().catch(() => false),
                     wasmFeatureDetect.threads().catch(() => false),
                 ]).then(([hasSIMD, hasThreads]) => {
                     let backends = this.getBackendCandidates(hasSIMD, hasThreads);
-                    this.loadWasmBackend(backends);
+                    return this.loadWasmBackend(backends);
                 });
             },
 
@@ -1656,8 +1716,9 @@
                 let backend = backends[0];
                 this.wasmBackend = backend;
                 console.log('selected wasm backend:', backend);
+                this.wasmLoadingProgress = Math.max(this.wasmLoadingProgress, 3);
 
-                fetch(this.versionedUrl("realcugan-ncnn-webassembly-" + backend + ".wasm"))
+                return fetch(this.versionedUrl("realcugan-ncnn-webassembly-" + backend + ".wasm"))
                     .then((response) => {
                         if (!response.ok) {
                             throw new Error('WASM resource not found: ' + backend);
@@ -1675,7 +1736,7 @@
                             };
                             Module.onRuntimeInitialized = () => {
                                 console.log("wasm module loaded:", backend);
-                                this.wasmModuleLoaded = true;
+                                this.wasmLoadingProgress = 100;
                                 resolve();
                             }
 
@@ -1683,6 +1744,7 @@
                             script.src = this.versionedUrl("realcugan-ncnn-webassembly-" + backend + ".js");
                             script.onload = () => {
                                 console.log('Emscripten loaded:', backend);
+                                this.wasmLoadingProgress = Math.max(this.wasmLoadingProgress, 5);
                             }
                             script.onerror = () => {
                                 reject(new Error('JS resource not found: ' + backend));
@@ -1693,12 +1755,12 @@
                     .catch((error) => {
                         console.error(error);
                         if (backends.length > 1) {
-                            this.loadWasmBackend(backends.slice(1));
-                            return;
+                            return this.loadWasmBackend(backends.slice(1));
                         }
                         this.$alert(this.t('dialog.resourceErrorText', {backend: backend}), this.t('dialog.resourceErrorTitle'), {
                             confirmButtonText: this.t('dialog.ok'),
                         });
+                        throw error;
                     });
             },
 
@@ -1947,9 +2009,12 @@
             },
 
             runTestCase() {
-                if (this.isNotReady()) {
-                    return;
-                }
+                this.ensureWasmLoaded()
+                    .then(() => this.loadTestCase())
+                    .catch(() => {});
+            },
+
+            loadTestCase() {
                 let filename = 'test-img.jpg';
                 let canvas = document.getElementById('canvas-upload');
                 let ctx = canvas.getContext('2d');
@@ -2049,44 +2114,10 @@
         -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
     }
 
-    .el-header,
     .el-footer {
         background-color: var(--surface-bg);
         color: var(--text-normal);
         text-align: center;
-    }
-
-    .app-header {
-        padding: 0 24px;
-    }
-
-    .el-menu-demo {
-        border-bottom: 0;
-    }
-
-    .app-header .el-menu,
-    .app-header .el-menu-item,
-    .app-header .el-submenu__title {
-        background: var(--surface-bg);
-        color: var(--text-normal);
-    }
-
-    .app-header .el-menu-item.is-active,
-    .app-header .el-submenu.is-active .el-submenu__title {
-        border-bottom-color: var(--theme-primary);
-        color: var(--theme-text-strong);
-    }
-
-    .app-header .el-menu-item:hover,
-    .app-header .el-menu-item:focus,
-    .app-header .el-submenu__title:hover {
-        background: var(--theme-primary-soft);
-        color: var(--theme-primary);
-    }
-
-    .app-header a {
-        color: inherit;
-        text-decoration: none;
     }
 
     .el-dropdown-menu,
@@ -2113,6 +2144,62 @@
 
     .el-menu--popup .el-menu-item:hover,
     .el-menu--popup .el-menu-item:focus {
+        background: var(--theme-primary-soft);
+        color: var(--theme-primary);
+    }
+
+    .floating-preferences {
+        position: fixed;
+        top: 14px;
+        right: 18px;
+        z-index: 60;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .floating-preference-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border: 1px solid var(--theme-primary-border);
+        background: var(--floating-bg);
+        border-radius: 6px;
+        box-shadow: var(--floating-shadow);
+        color: var(--theme-text-strong);
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
+        backdrop-filter: blur(10px);
+    }
+
+    .floating-preference-button i,
+    .floating-preference-button svg {
+        display: block;
+        flex: 0 0 auto;
+        width: 17px;
+        height: 17px;
+        font-size: 17px;
+        line-height: 1;
+    }
+
+    .floating-preference-button:hover,
+    .floating-preference-button:focus {
+        border-color: var(--theme-primary);
+        color: var(--theme-primary);
+        outline: none;
+    }
+
+    .el-dropdown-menu__item {
+        color: var(--text-normal);
+    }
+
+    .el-dropdown-menu__item:hover,
+    .el-dropdown-menu__item:focus {
         background: var(--theme-primary-soft);
         color: var(--theme-primary);
     }
@@ -2223,10 +2310,21 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        gap: 18px;
+        gap: 14px;
         min-height: 44px;
         font-size: 12px;
         color: var(--text-subtle);
+        flex-wrap: wrap;
+    }
+
+    .app-footer a {
+        color: var(--text-subtle);
+        text-decoration: none;
+    }
+
+    .app-footer a:hover,
+    .app-footer a:focus {
+        color: var(--theme-primary);
     }
 
     .preview-overlap-origin {
@@ -2405,10 +2503,6 @@
     }
 
     @media (max-width: 768px) {
-        .app-header {
-            padding: 0 8px;
-        }
-
         .intro-row {
             flex-direction: column;
             gap: 12px;
@@ -2437,6 +2531,18 @@
     }
 
     @media (max-width: 479px) {
+        .floating-preferences {
+            top: 8px;
+            right: 8px;
+            left: 8px;
+            justify-content: flex-end;
+        }
+
+        .floating-preference-button {
+            width: 34px;
+            min-width: 34px;
+        }
+
         .main-content {
             background-color: var(--surface-bg);
             padding: 16px;
@@ -2464,11 +2570,6 @@
         height: 100vh;
         min-height: 0;
         overflow: hidden;
-    }
-
-    .app-header {
-        flex: 0 0 60px;
-        border-bottom: 1px solid var(--theme-primary-border);
     }
 
     .app-main {
@@ -2506,7 +2607,7 @@
 
     .control-panel {
         position: sticky;
-        top: 78px;
+        top: 18px;
         align-self: start;
         max-height: 100%;
         overflow: auto;
@@ -3241,6 +3342,7 @@
 
         .app-main {
             max-width: 100%;
+            padding-top: 50px;
             overflow-x: hidden;
             overflow-y: visible;
         }
@@ -3291,6 +3393,28 @@
     @media (max-width: 640px) {
         .app-main {
             padding: 10px;
+        }
+
+        .app-footer {
+            flex: 0 0 auto;
+            flex-direction: column;
+            width: 100%;
+            max-width: 100%;
+            height: auto !important;
+            min-height: 44px;
+            box-sizing: border-box;
+            gap: 4px;
+            padding: 10px 12px;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+
+        .app-footer > span,
+        .app-footer > a {
+            max-width: 100%;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
 
         .workspace {
