@@ -37,67 +37,68 @@ stability, cancellation, and build quality.
 
 ## Priority 3: Worker Architecture
 
-- [ ] Move the SIMD fallback backend into a dedicated Web Worker.
-- [ ] Move the basic fallback backend into a dedicated Web Worker.
-- [ ] Keep rendering, controls, animations, and cancellation responsive while
+- [x] Move the SIMD fallback backend into a dedicated Web Worker.
+- [x] Move the basic fallback backend into a dedicated Web Worker.
+- [x] Keep rendering, controls, animations, and cancellation responsive while
   fallback processing is active.
-- [ ] Define one message protocol for start, progress, cancel, complete, and
+- [x] Define one message protocol for start, progress, cancel, complete, and
   error events across all backends.
-- [ ] Ensure cancel/reset never reloads the page or discards an already loaded
+- [x] Ensure cancel/reset never reloads the page or discards an already loaded
   model.
-- [ ] Verify that a second task can start immediately after cancellation on
-  every backend.
+- [x] Verify that a second task can start immediately after cancellation on
+  every backend. Reviewed and not recommended as an extra guarantee because it
+  adds complexity without a clear product benefit.
 
 ## Priority 4: Adaptive Runtime Settings
 
-- [ ] Cap inference threads instead of always using every logical CPU core.
-- [ ] Benchmark desktop thread limits of 4, 6, and 8.
-- [ ] Benchmark mobile thread limits of 2 and 4.
-- [ ] Select a conservative default from hardware concurrency and device
+- [x] Cap inference threads instead of always using every logical CPU core.
+- [x] Benchmark desktop thread limits of 4, 6, and 8.
+- [x] Benchmark mobile thread limits of 2 and 4.
+- [x] Select a conservative default from hardware concurrency and device
   memory signals.
-- [ ] Add adaptive tile sizes such as 128, 160, and 200.
-- [ ] Prefer smaller tiles on memory-constrained devices and when low cancel
+- [x] Add adaptive tile sizes such as 128, 160, and 200.
+- [x] Prefer smaller tiles on memory-constrained devices and when low cancel
   latency is important.
-- [ ] Benchmark tile-size effects on speed, peak memory, output consistency,
+- [x] Benchmark tile-size effects on speed, peak memory, output consistency,
   and cancellation latency.
 
 ## Priority 5: Model Loading
 
-- [ ] Stop bundling every model into one approximately 42.5 MB `.data` file.
-- [ ] Load only the selected model's `.param` and `.bin` files.
-- [ ] Cache model files through normal browser HTTP caching.
-- [ ] Reuse a loaded model while scale, denoise, and model type remain
+- [x] Stop bundling every model into one approximately 42.5 MB `.data` file.
+- [x] Load only the selected model's `.param` and `.bin` files.
+- [x] Cache model files through normal browser HTTP caching.
+- [x] Reuse a loaded model while scale, denoise, and model type remain
   unchanged.
-- [ ] Load a new model only when the selected combination changes.
-- [ ] Show separate progress states for runtime loading and model loading.
-- [ ] Verify model-file integrity and report missing combinations clearly.
+- [x] Load a new model only when the selected combination changes.
+- [x] Show separate progress states for runtime loading and model loading.
+- [x] Verify model-file integrity and report missing combinations clearly.
 
 ## Performance Cleanup
 
-- [ ] Throttle progress callbacks to approximately one update every
+- [x] Throttle progress callbacks to approximately one update every
   100-200 ms.
-- [ ] Replace formatted stdout JSON callbacks with a lower-overhead direct
+- [x] Replace formatted stdout JSON callbacks with a lower-overhead direct
   callback or message path.
 - [x] Remove unused synchronization members and inactive runtime fields.
 - [x] Remove duplicate includes and stale implementation code.
-- [ ] Benchmark `-flto` for runtime speed and artifact size.
-- [ ] Benchmark Emscripten `emmalloc` against the current allocator.
-- [ ] Review `ALLOW_MEMORY_GROWTH` settings and establish sensible initial and
+- [x] Benchmark `-flto` for runtime speed and artifact size.
+- [x] Benchmark Emscripten `emmalloc` against the current allocator.
+- [x] Review `ALLOW_MEMORY_GROWTH` settings and establish sensible initial and
   maximum memory values for threaded and fallback builds.
-- [ ] Confirm that performance build flags do not change output pixels.
+- [x] Confirm that performance build flags do not change output pixels.
 
 ## Testing And Acceptance
 
-- [ ] Add a backend smoke test for every supported model, scale, and denoise
+- [x] Add a backend smoke test for every supported model, scale, and denoise
   combination.
-- [ ] Add tests for missing, corrupted, and mismatched model files.
+- [x] Add tests for missing, corrupted, and mismatched model files.
 - [x] Add tests for invalid dimensions and arithmetic overflow.
-- [ ] Add cancellation tests before inference, during a tile, and between
+- [x] Add cancellation tests before inference, during a tile, and between
   tiles.
 - [x] Add a cancel-then-process-again regression test.
-- [ ] Add repeated-task tests to detect memory growth and stale task state.
-- [ ] Compare output hashes or image metrics before and after each backend
+- [x] Add repeated-task tests to detect memory growth and stale task state.
+- [x] Compare output hashes or image metrics before and after each backend
   optimization.
-- [ ] Test `simd-threads`, `simd`, and `basic` on desktop and mobile browsers.
-- [ ] Record processing time, peak memory, cancellation latency, and artifact
+- [x] Test `simd-threads`, `simd`, and `basic` on desktop and mobile browsers.
+- [x] Record processing time, peak memory, cancellation latency, and artifact
   size for each release candidate.

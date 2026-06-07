@@ -13,7 +13,7 @@ endif()
 if (NOT LOCAL_DEBUG)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s FORCE_FILESYSTEM=1 -sALLOW_MEMORY_GROWTH -sEXIT_RUNTIME=1 -sDISABLE_EXCEPTION_CATCHING=0")
 
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sEXPORTED_FUNCTIONS=['_process_image','_cancel_process','_get_task_state','_free'] --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/models@.")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sEXPORTED_FUNCTIONS=['_process_image','_cancel_process','_get_task_state','_free'] -sEXPORTED_RUNTIME_METHODS=['FS_createDataFile','FS_createPath','FS_unlink']")
 
     set(CMAKE_CXX_FLAGS_RELEASE "-O3 -fexceptions")
 endif()
@@ -26,9 +26,9 @@ endif()
 
 if(${WASM_FEATURE} MATCHES "threads")
     add_compile_definitions(REALCUGAN_USE_PTHREADS=1)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=navigator.hardwareConcurrency -matomics -mbulk-memory")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=navigator.hardwareConcurrency -matomics -mbulk-memory")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=navigator.hardwareConcurrency -matomics -mbulk-memory")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread -s USE_PTHREADS=1 -matomics -mbulk-memory")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -s USE_PTHREADS=1 -matomics -mbulk-memory")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=8 -matomics -mbulk-memory")
 endif()
 
 add_subdirectory(fmt)

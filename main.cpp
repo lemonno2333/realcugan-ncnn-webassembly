@@ -6,13 +6,13 @@
 #include <memory>
 #include <new>
 #include <string>
+#include <emscripten.h>
 
 #ifdef REALCUGAN_USE_PTHREADS
 #include <thread>
 #endif
 
 #include <cpu.h>
-#include "fmt/format.h"
 #include "realcugan.h"
 
 enum ProcessError {
@@ -46,6 +46,8 @@ struct Task {
     int scale;
     int noise;
     int model_type;
+    int thread_count;
+    int tile_size;
 };
 
 struct TaskResult {
@@ -88,6 +90,13 @@ static bool is_supported_options(int scale, int noise, int model_type) {
     return false;
 }
 
+static bool is_supported_runtime_options(int thread_count, int tile_size) {
+    if (thread_count < 1 || thread_count > 8) {
+        return false;
+    }
+    return tile_size == 128 || tile_size == 160 || tile_size == 200;
+}
+
 static void remove_alpha_channel(unsigned char *image_data, size_t pixel_count) {
     for (size_t i = 0; i < pixel_count; i++) {
         image_data[i * 3] = image_data[i * 4];
@@ -113,21 +122,27 @@ static bool has_transparent_alpha(const unsigned char *rgba_data, size_t pixel_c
 }
 
 static void process_image_success_callback(int image_id, long cost) {
-    std::cout << fmt::format(
-            R"($CALLBACK$ {{"eventType":"PROC_END","image_id":{},"cost":{}}})",
-            image_id, cost) << std::endl;
+    MAIN_THREAD_EM_ASM({
+        if (Module.onBackendComplete) {
+            Module.onBackendComplete($0, $1);
+        }
+    }, image_id, cost);
 }
 
 static void process_image_cancelled_callback(int image_id) {
-    std::cout << fmt::format(
-            R"($CALLBACK$ {{"eventType":"PROC_CANCELLED","image_id":{}}})",
-            image_id) << std::endl;
+    MAIN_THREAD_EM_ASM({
+        if (Module.onBackendCancelled) {
+            Module.onBackendCancelled($0);
+        }
+    }, image_id);
 }
 
 static void process_image_error_callback(int image_id, int code, const char *message) {
-    std::cout << fmt::format(
-            R"($CALLBACK$ {{"eventType":"PROC_ERROR","image_id":{},"code":{},"message":"{}"}})",
-            image_id, code, message) << std::endl;
+    MAIN_THREAD_EM_ASM({
+        if (Module.onBackendError) {
+            Module.onBackendError($0, $1, UTF8ToString($2));
+        }
+    }, image_id, code, message);
 }
 
 static TaskResult run_task(Task *task) {
@@ -141,6 +156,7 @@ static TaskResult run_task(Task *task) {
                 return {PROCESS_ALLOCATION_FAILED, 0, "runtime_allocation_failed"};
             }
         }
+        realcugan->configure_runtime(task->thread_count, task->tile_size);
 
         if (!realcugan->is_loaded(task->scale, task->noise, task->model_type)) {
             const int load_result = realcugan->load(task->scale, task->noise, task->model_type);
@@ -153,6 +169,7 @@ static TaskResult run_task(Task *task) {
             if (load_result != REALCUGAN_LOAD_OK) {
                 return {PROCESS_INTERNAL_ERROR, 0, "model_load_failed"};
             }
+            realcugan->configure_runtime(task->thread_count, task->tile_size);
         }
 
         ncnn::Mat input(task->input_w, task->input_h, task->input_image_data, static_cast<size_t>(3), 3);
@@ -219,14 +236,16 @@ extern "C" {
 
 int process_image(int image_id, unsigned char *input_image_data, uint32_t input_buffer_size,
                   unsigned char *output_image_data, uint32_t output_buffer_size,
-                  int input_w, int input_h, int scale, int noise, int model_type) {
+                  int input_w, int input_h, int scale, int noise, int model_type,
+                  int thread_count, int tile_size) {
     if (!input_image_data || !output_image_data) {
         return PROCESS_INVALID_POINTER;
     }
     if (input_w <= 0 || input_h <= 0) {
         return PROCESS_INVALID_DIMENSIONS;
     }
-    if (!is_supported_options(scale, noise, model_type)) {
+    if (!is_supported_options(scale, noise, model_type) ||
+        !is_supported_runtime_options(thread_count, tile_size)) {
         return PROCESS_INVALID_OPTIONS;
     }
     if (input_w > std::numeric_limits<int>::max() / scale ||
@@ -289,6 +308,8 @@ int process_image(int image_id, unsigned char *input_image_data, uint32_t input_
     task->scale = scale;
     task->noise = noise;
     task->model_type = model_type;
+    task->thread_count = thread_count;
+    task->tile_size = tile_size;
     cancel_requested.store(false);
     proc_img_task = std::move(task);
 

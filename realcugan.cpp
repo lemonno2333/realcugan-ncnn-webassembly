@@ -1,30 +1,64 @@
 #include "realcugan.h"
+#include <algorithm>
+#include <chrono>
 #include <cfloat>
 #include <cpu.h>
 #include <iostream>
 #include <thread>
 #include <string>
+#include <emscripten.h>
 #include "fmt/format.h"
 
+static int clamp_runtime_thread_count(int requested) {
+    const int cpu_count = std::max(1, ncnn::get_big_cpu_count());
+    if (requested <= 0) {
+        requested = std::min(cpu_count, 4);
+    }
+    return std::max(1, std::min(requested, cpu_count));
+}
+
+static int clamp_runtime_tile_size(int requested) {
+    if (requested <= 128) {
+        return 128;
+    }
+    if (requested <= 160) {
+        return 160;
+    }
+    return 200;
+}
+
 RealCUGAN::RealCUGAN() : noise(-999), scale(0), model_type(-1), prepadding(0) {
+    const int default_threads = clamp_runtime_thread_count(4);
     std::cout << "cpu count: " << ncnn::get_big_cpu_count() << std::endl;
     ncnn::set_cpu_powersave(2);
-    ncnn::set_omp_num_threads(ncnn::get_big_cpu_count());
+    ncnn::set_omp_num_threads(default_threads);
 
     ncnnNet.opt = ncnn::Option();
-    ncnnNet.opt.num_threads = ncnn::get_big_cpu_count();
+    ncnnNet.opt.num_threads = default_threads;
+    thread_count = default_threads;
 }
 
 void progress_callback(long total_cost, long tile_cost, float progress_rate)
 {
-    // callback by stdout =_=
     long remaining_time = 0;
     if (progress_rate != 0) {
         remaining_time = float(total_cost) / progress_rate - (float)total_cost;
     }
-    std::string script = fmt::format(R"($CALLBACK$ {{"eventType":"PROC_PROGRESS","total_cost":{},"tile_cost":{},"progress_rate":{},"remaining_time":{}}})",
-                                     total_cost, tile_cost, progress_rate, remaining_time);
-    std::cout << script << std::endl;
+    MAIN_THREAD_EM_ASM({
+        if (Module.onBackendProgress) {
+            Module.onBackendProgress($0, $1, $2, $3);
+        }
+    }, total_cost, tile_cost, progress_rate, remaining_time);
+}
+
+static bool should_emit_progress(long total_cost, float progress_rate, long *last_emit_cost)
+{
+    constexpr long progress_callback_interval_ms = 150;
+    if (progress_rate >= 1.f || total_cost - *last_emit_cost >= progress_callback_interval_ms) {
+        *last_emit_cost = total_cost;
+        return true;
+    }
+    return false;
 }
 
 static unsigned char float_to_u8(float value) {
@@ -110,6 +144,13 @@ bool RealCUGAN::is_loaded(int scaleOption, int noiseOption, int modelType) const
     return scale == scaleOption && noise == noiseOption && model_type == modelType;
 }
 
+void RealCUGAN::configure_runtime(int threadCount, int tileSize) {
+    thread_count = clamp_runtime_thread_count(threadCount);
+    tilesize = clamp_runtime_tile_size(tileSize);
+    ncnn::set_omp_num_threads(thread_count);
+    ncnnNet.opt.num_threads = thread_count;
+}
+
 // CPU only
 int RealCUGAN::process(const ncnn::Mat &inimage, unsigned char *outimage_rgba,
                        const unsigned char *alpha_data,
@@ -125,9 +166,10 @@ int RealCUGAN::process(const ncnn::Mat &inimage, unsigned char *outimage_rgba,
 
     ncnn::Option opt = ncnnNet.opt;
 
-    // each tile 200x200
+    // Process tile by tile so runtime settings can trade speed, memory, and cancel latency.
     const int xtiles = (w + TILE_SIZE_X - 1) / TILE_SIZE_X;
     const int ytiles = (h + TILE_SIZE_Y - 1) / TILE_SIZE_Y;
+    long last_progress_emit_cost = 0;
 
     for (int yi = 0; yi < ytiles; yi++) {
         if (cancel_requested && cancel_requested->load()) {
@@ -208,6 +250,7 @@ int RealCUGAN::process(const ncnn::Mat &inimage, unsigned char *outimage_rgba,
                 ncnn::Mat out_tile;
                 {
                     ncnn::Extractor ex = ncnnNet.create_extractor();
+                    ex.set_num_threads(thread_count);
 
                     if (ex.input("in0", in_tile) != 0) {
                         return REALCUGAN_PROCESS_FAILED;
@@ -274,7 +317,9 @@ int RealCUGAN::process(const ncnn::Mat &inimage, unsigned char *outimage_rgba,
             auto tile_cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - tileBegin).count();
             auto total_cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
             float progress_rate = (float) (xtiles * yi + xi + 1) / (float) (xtiles * ytiles);
-            progress_callback(total_cost, tile_cost, progress_rate);
+            if (should_emit_progress(total_cost, progress_rate, &last_progress_emit_cost)) {
+                progress_callback(total_cost, tile_cost, progress_rate);
+            }
         }
     }
 

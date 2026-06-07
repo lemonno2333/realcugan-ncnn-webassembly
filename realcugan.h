@@ -22,6 +22,7 @@ public:
 
     int load(int scale, int noise, int model_type);
     bool is_loaded(int scale, int noise, int model_type) const;
+    void configure_runtime(int thread_count, int tile_size);
 
     int process(const ncnn::Mat &inimage, unsigned char *outimage_rgba,
                 const unsigned char *alpha_data,
@@ -32,6 +33,7 @@ public:
     int model_type;
     int prepadding;
     int tilesize = 200;
+    int thread_count = 4;
     int syncgap = 0;
     bool tta_mode = false;
 

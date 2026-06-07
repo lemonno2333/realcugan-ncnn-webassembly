@@ -62,7 +62,8 @@ WASM_FEATURES="simd simd-threads" sh build.sh
 ```
 
 公网部署时请在构建后完整复制 `web/` 目录，前端需要其中生成的 `.wasm`、`.js`、
-`.data` 和 worker 文件。仍建议配置 COOP/COEP 响应头，这样支持线程的浏览器可以
+worker 文件以及 `web/models/` 模型文件。模型会按当前选择通过普通 HTTP 缓存按需加载，
+不再打包进一个 `.data` 文件。仍建议配置 COOP/COEP 响应头，这样支持线程的浏览器可以
 使用最快的 `simd-threads` 后端；如果没有这些响应头，页面会尝试使用较慢的单线程后端。
 
 注意：请固定使用 ncnn `20220729`。较新的 ncnn 版本可能能编译通过，但会导致旧

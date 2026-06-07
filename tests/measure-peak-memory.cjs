@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const {spawnSync} = require('node:child_process');
+const fs = require('node:fs');
 const path = require('node:path');
 
 const SIZE_PRESETS = {
@@ -22,6 +23,8 @@ function parseArgs(argv) {
         width: 0,
         height: 0,
         scale: 0,
+        threads: 1,
+        tileSize: 160,
         json: false,
         transparent: false
     };
@@ -54,6 +57,10 @@ function parseArgs(argv) {
             options.height = Number(next());
         } else if (arg === '--scale') {
             options.scale = Number(next());
+        } else if (arg === '--threads') {
+            options.threads = Number(next());
+        } else if (arg === '--tile-size') {
+            options.tileSize = Number(next());
         } else if (arg === '--json') {
             options.json = true;
         } else if (arg === '--transparent') {
@@ -79,6 +86,8 @@ Options:
   --scales <list>        Comma-separated upscale factors: 2,3,4.
   --denoise <value>      Denoise model option. Default: 0.
   --model-type <value>   Model set, 0 for SE and 1 for Pro. Default: 0.
+  --threads <value>      Runtime inference thread count. Default: 1.
+  --tile-size <value>    Runtime tile size: 128, 160, or 200. Default: 160.
   --transparent          Use a non-opaque alpha pattern and include input alpha
                          storage in the buffer floor.
   --json                 Print raw JSON instead of a Markdown table.
@@ -147,6 +156,48 @@ function allocateImage(Module, width, height, scale, transparent) {
     return {input, inputSize, output, outputSize};
 }
 
+function ensureModelDirectory(Module, modelPath) {
+    const slashIndex = modelPath.lastIndexOf('/');
+    if (slashIndex <= 0) {
+        return '/';
+    }
+    const dir = modelPath.slice(0, slashIndex);
+    try {
+        Module.FS_createPath('/', dir, true, true);
+    } catch (error) {
+        // Directory already exists.
+    }
+    return '/' + dir;
+}
+
+function writeModelFile(Module, webRoot, modelPath) {
+    const source = path.join(webRoot, 'models', modelPath);
+    const bytes = fs.readFileSync(source);
+    const dir = ensureModelDirectory(Module, modelPath);
+    const name = modelPath.slice(modelPath.lastIndexOf('/') + 1);
+    const fsPath = '/' + modelPath;
+    try {
+        Module.FS_unlink(fsPath);
+    } catch (error) {
+        // File is not present yet.
+    }
+    Module.FS_createDataFile(dir, name, bytes, true, true, true);
+}
+
+function loadModel(Module, webRoot, scale, denoise, modelType) {
+    const prefix = modelType === 1 ? 'models-pro/' : '';
+    let suffix;
+    if (denoise === -1) {
+        suffix = `up${scale}x-conservative`;
+    } else if (denoise === 0) {
+        suffix = `up${scale}x-no-denoise`;
+    } else {
+        suffix = `up${scale}x-denoise${denoise}x`;
+    }
+    writeModelFile(Module, webRoot, `${prefix}${suffix}.param`);
+    writeModelFile(Module, webRoot, `${prefix}${suffix}.bin`);
+}
+
 async function runChild(options) {
     const callbacks = [];
     const webRoot = path.resolve(__dirname, '..', 'web');
@@ -164,20 +215,48 @@ async function runChild(options) {
 
     global.navigator = {hardwareConcurrency: 4};
     process.chdir(webRoot);
-    console.log = (...args) => {
-        const text = args.join(' ');
-        if (text.startsWith('$CALLBACK$ ')) {
-            callbacks.push(JSON.parse(text.slice(11)));
-            sample();
-        }
-    };
 
     Module = require(modulePath);
+    Module.onBackendProgress = (totalCost, tileCost, progressRate, remainingTime) => {
+        callbacks.push({
+            eventType: 'PROC_PROGRESS',
+            total_cost: totalCost,
+            tile_cost: tileCost,
+            progress_rate: progressRate,
+            remaining_time: remainingTime
+        });
+        sample();
+    };
+    Module.onBackendComplete = (imageId, cost) => {
+        callbacks.push({
+            eventType: 'PROC_END',
+            image_id: imageId,
+            cost
+        });
+        sample();
+    };
+    Module.onBackendCancelled = (imageId) => {
+        callbacks.push({
+            eventType: 'PROC_CANCELLED',
+            image_id: imageId
+        });
+        sample();
+    };
+    Module.onBackendError = (imageId, code, message) => {
+        callbacks.push({
+            eventType: 'PROC_ERROR',
+            image_id: imageId,
+            code,
+            message
+        });
+        sample();
+    };
     const sampler = setInterval(sample, 25);
     sampler.unref();
 
     try {
         await waitFor(() => Module.calledRun, 10000, 'WASM initialization');
+        loadModel(Module, webRoot, options.scale, options.denoise, options.modelType);
         sample();
 
         const image = allocateImage(Module, options.width, options.height, options.scale,
@@ -187,7 +266,7 @@ async function runChild(options) {
         const startedAt = Date.now();
         const retCode = Module._process_image(1, image.input, image.inputSize, image.output,
             image.outputSize, options.width, options.height, options.scale,
-            options.denoise, options.modelType);
+            options.denoise, options.modelType, options.threads, options.tileSize);
         assert.equal(retCode, 0, `process_image returned ${retCode}`);
 
         const result = options.backend.includes('threads')
@@ -213,6 +292,8 @@ async function runChild(options) {
             width: options.width,
             height: options.height,
             scale: options.scale,
+            threads: options.threads,
+            tileSize: options.tileSize,
             transparent: options.transparent,
             denoise: options.denoise,
             modelType: options.modelType,
@@ -256,7 +337,9 @@ function runParent(options) {
                 '--height', String(size.height),
                 '--scale', String(scale),
                 '--denoise', String(options.denoise),
-                '--model-type', String(options.modelType)
+                '--model-type', String(options.modelType),
+                '--threads', String(options.threads),
+                '--tile-size', String(options.tileSize)
             ];
             if (options.transparent) {
                 args.push('--transparent');
@@ -282,10 +365,10 @@ function runParent(options) {
         return;
     }
 
-    console.log(`| Backend | Input | Scale | Alpha | Buffer floor | Backend working set | Avoided RGB | Avoided input alpha | Avoided upscaled alpha | Peak RSS | Peak WASM heap | Time |`);
-    console.log(`| --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |`);
+    console.log(`| Backend | Input | Scale | Threads | Tile | Alpha | Buffer floor | Backend working set | Avoided RGB | Avoided input alpha | Avoided upscaled alpha | Peak RSS | Peak WASM heap | Time |`);
+    console.log(`| --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |`);
     for (const row of rows) {
-        console.log(`| ${row.backend} | ${row.width}x${row.height} (${row.size}) | ${row.scale}x | ${row.transparent ? 'transparent' : 'opaque'} | ${formatMiB(row.bufferFloorBytes)} | ${formatMiB(row.backendWorkingSetBytes)} | ${formatMiB(row.avoidedBackendRgbBytes)} | ${row.transparent ? '0.0 MiB' : formatMiB(row.avoidedInputAlphaBytes)} | ${formatMiB(row.avoidedUpscaledAlphaBytes)} | ${formatMiB(row.peakRssBytes)} | ${formatMiB(row.peakWasmHeapBytes)} | ${(row.elapsedMs / 1000).toFixed(1)}s |`);
+        console.log(`| ${row.backend} | ${row.width}x${row.height} (${row.size}) | ${row.scale}x | ${row.threads} | ${row.tileSize} | ${row.transparent ? 'transparent' : 'opaque'} | ${formatMiB(row.bufferFloorBytes)} | ${formatMiB(row.backendWorkingSetBytes)} | ${formatMiB(row.avoidedBackendRgbBytes)} | ${row.transparent ? '0.0 MiB' : formatMiB(row.avoidedInputAlphaBytes)} | ${formatMiB(row.avoidedUpscaledAlphaBytes)} | ${formatMiB(row.peakRssBytes)} | ${formatMiB(row.peakWasmHeapBytes)} | ${(row.elapsedMs / 1000).toFixed(1)}s |`);
     }
 }
 

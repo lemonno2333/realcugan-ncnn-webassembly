@@ -71,10 +71,12 @@ WASM_FEATURES="simd simd-threads" sh build.sh
 ```
 
 For public deployment, copy the whole `web/` directory after running the build.
-The generated `.wasm`, `.js`, `.data`, and worker files are required by the
-frontend. COOP/COEP headers are still recommended so browsers that support
-threads can use the faster `simd-threads` backend. Without those headers, the
-page attempts to use a slower single-threaded backend.
+The generated `.wasm`, `.js`, worker files, and `web/models/` model files are
+required by the frontend. Model files are fetched on demand through normal HTTP
+caching instead of being bundled into one `.data` package. COOP/COEP headers are
+still recommended so browsers that support threads can use the faster
+`simd-threads` backend. Without those headers, the page attempts to use a slower
+single-threaded backend.
 
 Use ncnn `20220729` for this model set. Newer ncnn versions may compile but can
 produce corrupted output such as colored stripes or noisy blocks with these old
@@ -91,6 +93,14 @@ node tests/measure-peak-memory.cjs --backend basic
 The script also supports `--backend simd`, `--backend simd-threads`, and
 `--json`. See `docs/performance-memory.md` for the current 1080p, 1440p, and 4K
 buffer baseline and measurement notes.
+
+Runtime thread and tile-size sweeps can be measured with:
+
+```shell
+node tests/benchmark-runtime-settings.cjs --backend simd-threads
+```
+
+See `docs/runtime-settings.md` for the adaptive defaults and benchmark matrix.
 
 # Credits
 
