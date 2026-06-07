@@ -24,6 +24,21 @@ The web UI has also been updated for local image inspection:
 - mobile-friendly scrolling layout with touch panning for zoomed previews;
 - reset button for clearing the current image and processing another one.
 
+Backend optimization work in this fork includes:
+
+- dedicated fallback Web Workers for the `basic` and `simd` backends, so the UI
+  remains responsive when threaded WASM is unavailable;
+- on-demand model loading from `web/models/` with normal HTTP caching instead of
+  one large Emscripten `.data` bundle;
+- adaptive runtime settings for inference threads and tile size, selected from
+  backend capability, hardware concurrency, device memory, and viewport size;
+- lower peak-memory processing by writing completed tiles directly into the
+  final RGBA output and avoiding full-size intermediate buffers where possible;
+- lower-overhead direct backend callbacks for progress, completion,
+  cancellation, and errors instead of formatted stdout JSON events;
+- benchmarked `-flto` and `emmalloc` builds; neither is enabled by default
+  because the measured trade-offs were not favorable.
+
 [Real-CUGAN](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) is an AI super resolution model for anime images, trained in a million scale anime dataset, using the same architecture as Waifu2x-CUNet. It supports 2x\3x\4x super resolving. The bundled SE models match the upstream `models-se` set: 2x supports conservative, no denoise, and denoise1x/2x/3x; 3x and 4x support conservative, no denoise, and denoise3x.
 
 The code implementation deeply refers to [realcugan-ncnn-vulkan](https://github.com/nihui/realcugan-ncnn-vulkan) and [ncnn-webassembly-nanodet](https://github.com/nihui/ncnn-webassembly-nanodet).
@@ -78,6 +93,19 @@ still recommended so browsers that support threads can use the faster
 `simd-threads` backend. Without those headers, the page attempts to use a slower
 single-threaded backend.
 
+Before publishing, run:
+
+```shell
+npm run check:deploy
+```
+
+See `docs/deployment.md` for recommended COOP/COEP headers, `.wasm` MIME type,
+cache headers, and Nginx/Apache examples.
+
+When publishing rebuilt runtime, worker, or model assets, bump `APP_VERSION` in
+`web/index.html` so browsers fetch the new `?v=` asset URLs instead of reusing
+stale cached files.
+
 Use ncnn `20220729` for this model set. Newer ncnn versions may compile but can
 produce corrupted output such as colored stripes or noisy blocks with these old
 Real-CUGAN params.
@@ -101,6 +129,20 @@ node tests/benchmark-runtime-settings.cjs --backend simd-threads
 ```
 
 See `docs/runtime-settings.md` for the adaptive defaults and benchmark matrix.
+
+Additional implementation and benchmark notes:
+
+- `docs/worker-architecture.md`: worker message protocol and cancellation behavior.
+- `docs/performance-memory.md`: peak-memory measurement notes.
+- `docs/performance-cleanup.md`: `-flto` and `emmalloc` benchmark results.
+
+Quick smoke checks:
+
+```shell
+node tests/backend-smoke.cjs basic
+node tests/backend-smoke.cjs simd
+node tests/backend-smoke.cjs simd-threads
+```
 
 # Credits
 

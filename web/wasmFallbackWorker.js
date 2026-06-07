@@ -1,4 +1,4 @@
-let Module = null;
+var Module = null;
 let loadedBackend = '';
 let appVersion = '';
 let loading = false;
@@ -30,20 +30,30 @@ function releaseActiveTask() {
     activeTask = null;
 }
 
-async function fetchModelAsset(path, expectedBytes, progress, backend) {
+function postModelLoading(modelFiles, backend, progress, file) {
+    post('model-loading', {
+        backend,
+        progress,
+        model: modelFiles && modelFiles.label ? modelFiles.label : '',
+        file: file || ''
+    });
+}
+
+async function fetchModelAsset(path, expectedBytes, progress, backend, modelFiles) {
+    postModelLoading(modelFiles, backend, Math.max(0, progress - 10), path);
     const response = await fetch(versionedUrl('models/' + path));
     if (!response.ok) {
         throw new Error('model_file_not_found: ' + path);
     }
     const contentLength = Number(response.headers.get('content-length')) || 0;
     if (contentLength && expectedBytes && contentLength !== expectedBytes) {
-        throw new Error('model_file_size_mismatch: ' + path);
+        throw new Error('model_file_size_mismatch: ' + path + ' expected=' + expectedBytes + ' actual=' + contentLength);
     }
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (expectedBytes && bytes.length !== expectedBytes) {
-        throw new Error('model_file_size_mismatch: ' + path);
+        throw new Error('model_file_size_mismatch: ' + path + ' expected=' + expectedBytes + ' actual=' + bytes.length);
     }
-    post('model-loading', {backend, progress});
+    postModelLoading(modelFiles, backend, progress, path);
     return bytes;
 }
 
@@ -87,7 +97,22 @@ function unloadPreviousModelFiles(nextFiles) {
     });
 }
 
-async function ensureModelLoaded(modelFiles, backend) {
+function getProvidedModelBytes(modelFiles, modelAssets) {
+    if (!modelAssets || !modelAssets.paramBuffer || !modelAssets.binBuffer) {
+        return null;
+    }
+    const paramBytes = new Uint8Array(modelAssets.paramBuffer);
+    const binBytes = new Uint8Array(modelAssets.binBuffer);
+    if (modelFiles.paramBytes && paramBytes.length !== modelFiles.paramBytes) {
+        throw new Error('model_file_size_mismatch: ' + modelFiles.param + ' expected=' + modelFiles.paramBytes + ' actual=' + paramBytes.length);
+    }
+    if (modelFiles.binBytes && binBytes.length !== modelFiles.binBytes) {
+        throw new Error('model_file_size_mismatch: ' + modelFiles.bin + ' expected=' + modelFiles.binBytes + ' actual=' + binBytes.length);
+    }
+    return {paramBytes, binBytes};
+}
+
+async function ensureModelLoaded(modelFiles, backend, modelAssets) {
     if (!modelFiles || !modelFiles.key || !modelFiles.param || !modelFiles.bin) {
         throw new Error('model_manifest_missing');
     }
@@ -97,16 +122,27 @@ async function ensureModelLoaded(modelFiles, backend) {
         return;
     }
 
-    post('model-loading', {backend, progress: 0});
-    const paramBytes = await fetchModelAsset(modelFiles.param, modelFiles.paramBytes, 35, backend);
-    const binBytes = await fetchModelAsset(modelFiles.bin, modelFiles.binBytes, 90, backend);
+    postModelLoading(modelFiles, backend, 0, modelFiles.param);
+    const providedBytes = getProvidedModelBytes(modelFiles, modelAssets);
+    const paramBytes = providedBytes
+        ? providedBytes.paramBytes
+        : await fetchModelAsset(modelFiles.param, modelFiles.paramBytes, 35, backend, modelFiles);
+    if (providedBytes) {
+        postModelLoading(modelFiles, backend, 35, modelFiles.param);
+    }
+    const binBytes = providedBytes
+        ? providedBytes.binBytes
+        : await fetchModelAsset(modelFiles.bin, modelFiles.binBytes, 90, backend, modelFiles);
+    if (providedBytes) {
+        postModelLoading(modelFiles, backend, 90, modelFiles.bin);
+    }
     writeModelFile(modelFiles.param, paramBytes);
     writeModelFile(modelFiles.bin, binBytes);
     unloadPreviousModelFiles(modelFiles);
     loadedModelFiles[modelFiles.param] = true;
     loadedModelFiles[modelFiles.bin] = true;
     loadedModelKey = modelFiles.key;
-    post('model-loading', {backend, progress: 100});
+    postModelLoading(modelFiles, backend, 100, modelFiles.bin);
 }
 
 function finishActiveTask(retCode) {
@@ -199,7 +235,7 @@ async function loadBackend(backend, version) {
         const wasmBinary = await wasmResponse.arrayBuffer();
         post('loading', {progress: 40, backend});
 
-        self.Module = {
+        Module = {
             wasmBinary,
             print: (text) => {
                 if (text) {
@@ -255,7 +291,6 @@ async function loadBackend(backend, version) {
                 return prefix + path;
             },
             onRuntimeInitialized: () => {
-                Module = self.Module;
                 loadedBackend = backend;
                 loadedModelKey = '';
                 loadedModelFiles = {};
@@ -297,7 +332,7 @@ async function startTask(message) {
     finalEvent = null;
 
     try {
-        await ensureModelLoaded(message.modelFiles, message.backend);
+        await ensureModelLoaded(message.modelFiles, message.backend, message.modelAssets);
         const inputBytes = new Uint8Array(message.inputBuffer);
         const inputPtr = Module._malloc(inputBytes.length);
         const outputPtr = Module._malloc(message.outputByteLength);

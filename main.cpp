@@ -91,7 +91,7 @@ static bool is_supported_options(int scale, int noise, int model_type) {
 }
 
 static bool is_supported_runtime_options(int thread_count, int tile_size) {
-    if (thread_count < 1 || thread_count > 8) {
+    if (thread_count < 1 || thread_count > 4) {
         return false;
     }
     return tile_size == 128 || tile_size == 160 || tile_size == 200;

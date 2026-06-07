@@ -28,7 +28,7 @@ if(${WASM_FEATURE} MATCHES "threads")
     add_compile_definitions(REALCUGAN_USE_PTHREADS=1)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread -s USE_PTHREADS=1 -matomics -mbulk-memory")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -s USE_PTHREADS=1 -matomics -mbulk-memory")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=8 -matomics -mbulk-memory")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4 -matomics -mbulk-memory")
 endif()
 
 add_subdirectory(fmt)

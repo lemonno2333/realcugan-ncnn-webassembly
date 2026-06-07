@@ -102,3 +102,79 @@ stability, cancellation, and build quality.
 - [x] Test `simd-threads`, `simd`, and `basic` on desktop and mobile browsers.
 - [x] Record processing time, peak memory, cancellation latency, and artifact
   size for each release candidate.
+
+## Frontend Optimization Roadmap
+
+### Priority 1: Model Loading UX
+
+- [x] Show the selected model name and file pair while model assets are loading.
+- [x] Report the exact missing or mismatched `.param` / `.bin` file in user-facing
+  model-load errors.
+- [x] Add optional default-model preloading after the runtime backend is ready.
+- [x] Reduce visible loading noise when selected model files are already cached
+  or already loaded in the active backend.
+- [ ] Add model asset hash verification or a generated manifest checksum in
+  addition to byte-size checks.
+
+### Priority 2: Process State And Error UX
+
+- [ ] Consolidate upload, runtime loading, model loading, processing,
+  cancelling, done, and error state into an explicit frontend state machine.
+- [ ] Make stale worker/main-thread results consistently ignored by `imageId`
+  across every completion, cancellation, and error path.
+- [ ] Improve fallback messaging when `simd-threads` is unavailable because
+  `SharedArrayBuffer`, COOP, or COEP requirements are not met.
+- [ ] Add clearer recovery actions after processing errors, such as reset,
+  lower scale, smaller tile, or retry with another backend.
+- [ ] Preserve useful process details in errors, including backend, model,
+  scale, denoise level, thread count, tile size, and image dimensions.
+
+### Priority 3: Mobile And Large-Image Experience
+
+- [x] Warn before starting high-risk large-image or 4x jobs on low-memory
+  devices.
+- [x] Offer one-click safer settings for large jobs, such as lower scale,
+  smaller tile size, or fallback backend.
+- [x] Improve small-screen control density so model, scale, denoise, and backend
+  controls are easier to use without excessive scrolling.
+- [x] Auto-scroll or focus the preview/result area after upload and after
+  processing completes on mobile.
+- [x] Revisit touch zoom and pan ergonomics for zoomed previews.
+
+### Priority 4: Resource Loading And Deployment
+
+- [x] Document recommended cache headers for `.wasm`, `.js`, worker, and
+  `web/models/` assets.
+- [x] Document required COOP/COEP headers for the threaded backend with examples
+  for common static hosts or reverse proxies.
+- [x] Add a deployment sanity check script that verifies all referenced backend
+  artifacts and model files exist in `web/`.
+- [ ] Consider generating a versioned asset manifest so cache busting does not
+  rely only on query strings.
+- [x] Audit whether current no-cache HTML meta tags conflict with long-lived
+  model and WASM caching goals.
+
+### Priority 5: Frontend Tests
+
+- [x] Add Playwright smoke tests for upload, process success, reset, download,
+  and error display.
+- [x] Add Playwright coverage for backend fallback selection when
+  `simd-threads` is unavailable.
+- [x] Add tests for model-load failure UI, including missing file, size mismatch,
+  and stale manifest cases.
+- [ ] Add tests for cancellation/reset UI behavior in both threaded and fallback
+  worker paths.
+- [ ] Add snapshot or pixel smoke checks for the preview comparison UI.
+
+### Priority 6: Maintainability
+
+- [ ] Split large frontend constants such as i18n strings, model manifests, and
+  runtime defaults out of `web/index.html`.
+- [ ] Move backend-runtime orchestration into a small dedicated module while
+  keeping the app deployable as static files.
+- [ ] Extract preview zoom/pan logic into focused helper functions with unit
+  tests.
+- [ ] Generate the model manifest from `web/models/` during build to avoid
+  manual byte-size drift.
+- [ ] Keep the no-build static app shape unless a build step clearly reduces
+  complexity or improves release safety.

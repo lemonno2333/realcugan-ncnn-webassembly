@@ -1,0 +1,14 @@
+{
+  "name": "realcugan-ncnn-webassembly",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "check:deploy": "node tests/check-deployment-assets.cjs",
+    "test:e2e": "node tests/e2e/run.cjs",
+    "test:e2e:headed": "node tests/e2e/run.cjs --headed",
+    "serve:e2e": "node tests/e2e/server.cjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.1"
+  }
+}

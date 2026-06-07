@@ -10,9 +10,6 @@
     <title>Real-CUGAN Anime Image Upscaler</title>
     <meta name="force-rendering" content="webkit" />
     <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
     <meta name="description" content="realcugan-ncnn-assembly - browser-based anime image super-resolution">
     <!-- <script src="vue.js"></script> -->
     <script>
@@ -88,15 +85,11 @@
                                                 :aria-label="t('help.projectInfoLabel')"
                                                 v-on:mouseenter="showInfoPopover('project')"
                                                 v-on:mouseleave="hideInfoPopover('project')"
-                                                v-on:focus="showInfoPopover('project')"
-                                                v-on:blur="hideInfoPopover('project')"
+                                                v-on:touchstart.stop.prevent="toggleInfoPopover('project')"
                                                 v-on:click.stop="toggleInfoPopover('project')">i</button>
                                     </el-popover>
                                 </div>
                             </div>
-                            <el-tag size="mini" :type="wasmModuleLoaded ? 'success' : (wasmLoading ? 'warning' : 'info')">
-                                {{wasmModuleLoaded ? t('state.ready') : (wasmLoading ? t('state.loading') : t('state.onDemand'))}}
-                            </el-tag>
                         </div>
 
                         <div class="control-section">
@@ -132,8 +125,7 @@
                                             :aria-label="t('help.paramsInfoLabel')"
                                             v-on:mouseenter="showInfoPopover('params')"
                                             v-on:mouseleave="hideInfoPopover('params')"
-                                            v-on:focus="showInfoPopover('params')"
-                                            v-on:blur="hideInfoPopover('params')"
+                                            v-on:touchstart.stop.prevent="toggleInfoPopover('params')"
                                             v-on:click.stop="toggleInfoPopover('params')">i</button>
                                 </el-popover>
                             </div>
@@ -180,7 +172,7 @@
                                     {{uploadPreviewWidth}} × {{uploadPreviewHeight}} -> {{outputPreviewWidth || uploadPreviewWidth * scaleRadio}} × {{outputPreviewHeight || uploadPreviewHeight * scaleRadio}}
                                 </div>
                                 <div class="stage-meta" v-else>
-                                    {{wasmLoading ? t('stage.loadingAssetsProgress', {percent: wasmLoadingProgress}) : t('stage.waiting')}}
+                                    {{wasmLoading ? getWasmLoadingText() : t('stage.waiting')}}
                                 </div>
                                 <div class="stage-status" v-if="isProcessing || isProcessDone">
                                     {{progressTip}}
@@ -210,14 +202,27 @@
                                     accept="image/png,image/jpeg,image/webp,image/bmp"
                                     :on-change="onUploadChange"
                                     action="https://jsonplaceholder.typicode.com/posts/">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor"
+                                <div class="upload-loading-state" v-if="wasmLoading" aria-live="polite">
+                                    <div class="upload-loading-orb" aria-hidden="true">
+                                        <span></span>
+                                        <span></span>
+                                    </div>
+                                    <div class="upload-loading-title">{{t('stage.loadingAssets')}}</div>
+                                <div class="upload-loading-progress">{{getWasmLoadingText()}}</div>
+                                <div class="upload-loading-bar" :class="{'is-indeterminate': !hasStableWasmProgress()}" aria-hidden="true">
+                                    <span :style="{width: wasmLoadingProgress + '%'}"></span>
+                                </div>
+                                </div>
+                                <svg v-if="!wasmLoading" xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor"
                                      class="el-icon-upload" viewBox="0 0 16 16">
                                     <path fill-rule="evenodd"
                                           d="M7.646 5.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2z"/>
                                     <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383zm.653.757c-.757.653-1.153 1.44-1.153 2.056v.448l-.445.049C2.064 6.805 1 7.952 1 9.318 1 10.785 2.23 12 3.781 12h8.906C13.98 12 15 10.988 15 9.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 4.825 10.328 3 8 3a4.53 4.53 0 0 0-2.941 1.1z"/>
                                 </svg>
-                                <div class="el-upload__text">{{t('upload.drag')}}<em>{{t('upload.click')}}</em></div>
-                                <div class="el-upload__tip" slot="tip">jpg / png / webp / bmp</div>
+                                <div class="el-upload__text" v-if="!wasmLoading">
+                                    {{t('upload.drag')}}<em>{{t('upload.click')}}</em>
+                                    <span class="upload-format-hint">jpg / png / webp / bmp</span>
+                                </div>
                             </el-upload>
                         </div>
 
@@ -307,7 +312,7 @@
 </script>
 
 <script>
-    const APP_VERSION = '2026.06.06-alpha.45';
+    const APP_VERSION = '2026.06.06-alpha.46';
     const MODEL_FILES = {
         se: {
             '-1': {
@@ -417,10 +422,12 @@
                 waiting: '等待图片',
                 loadingAssets: '资源加载中',
                 loadingAssetsProgress: '正在加载处理资源 {percent}%',
+                preparingBackend: '正在准备处理后端，并预取模型文件...',
             },
             progress: {
                 starting: '启动中，预计10秒内完成耗时估算...',
                 loadingModel: '正在加载所选模型 {percent}%',
+                loadingModelFile: '正在加载 {model}：{file} {percent}%',
                 processing: '本地CPU努力处理中......',
                 cancelling: '正在等待当前图块处理结束......',
                 done: '处理完成！耗时: {seconds}秒',
@@ -445,15 +452,18 @@
                 cancel: '取消',
                 ok: '确定',
                 continue: '继续处理',
+                safeSettings: '使用安全设置',
                 dontShowAgain: '下次不再提示',
                 sizeRiskTitle: '图片尺寸风险',
                 sizeRiskText: '当前会输出 {width} × {height}，预估至少占用 {memory} MB 内存。这个尺寸可能会导致浏览器卡顿或处理失败，建议降低倍率或换小图。',
                 sizeRiskBlockText: '当前会输出 {width} × {height}，预估至少占用 {memory} MB 内存，已经超过浏览器可稳定处理的范围。继续处理可能导致页面卡死、浏览器崩溃或处理失败。',
+                sizeRiskMobileHint: '移动端浏览器通常可用内存更紧张，4X 或大图更容易失败。',
+                sizeRiskSafeText: '安全设置会切换到 SE / 2X，并使用更保守的线程和图块参数继续处理。',
                 processErrorTitle: '处理错误',
                 processErrorText: '错误信息: {message}',
                 processErrorGeneric: '处理失败。你可以复位后重新选择图片，或降低倍率后再试。',
                 processErrorMemory: '浏览器内存不足或 WebAssembly 内存越界。建议降低倍率、换小图，或刷新页面后再试。',
-                processErrorModel: '模型文件读取失败，可能是 web/models 文件缺失、不完整，或浏览器缓存了旧文件。请确认服务器上传了完整模型文件，并强制刷新页面。',
+                processErrorModel: '模型文件读取失败，可能是 web/models 文件缺失、不完整，或浏览器缓存了旧文件。请根据下面的具体文件名检查服务器文件，并强制刷新页面。',
                 processErrorAsset: '后端资源或模型文件加载失败。请确认服务器上的 .js、.wasm、worker 和 models 文件来自同一次构建。',
                 processErrorConflict: '当前已有任务正在运行，暂时不能启动新的处理。请稍后再试。',
                 processErrorInput: '图片尺寸、处理参数或内存缓冲区无效，任务已在处理前安全停止。请复位后重新选择图片。',
@@ -539,10 +549,12 @@
                 waiting: 'Waiting for image',
                 loadingAssets: 'Loading assets',
                 loadingAssetsProgress: 'Loading processing assets {percent}%',
+                preparingBackend: 'Preparing backend and preloading model files...',
             },
             progress: {
                 starting: 'Starting. Time estimate should be ready within 10 seconds...',
                 loadingModel: 'Loading selected model {percent}%',
+                loadingModelFile: 'Loading {model}: {file} {percent}%',
                 processing: 'Processing locally on CPU...',
                 cancelling: 'Waiting for the current tile to finish...',
                 done: 'Done. Time: {seconds}s',
@@ -567,15 +579,18 @@
                 cancel: 'Cancel',
                 ok: 'OK',
                 continue: 'Continue',
+                safeSettings: 'Use safe settings',
                 dontShowAgain: 'Do not show again',
                 sizeRiskTitle: 'Image size risk',
                 sizeRiskText: 'This will output {width} × {height} and may use at least {memory} MB of memory. This size can make the browser slow or fail. Lower the scale or use a smaller image if possible.',
                 sizeRiskBlockText: 'This will output {width} × {height} and may use at least {memory} MB of memory, which is above the stable browser range. Continuing may freeze the page, crash the browser, or fail.',
+                sizeRiskMobileHint: 'Mobile browsers usually have tighter available memory, so 4X or large images are more likely to fail.',
+                sizeRiskSafeText: 'Safe settings switch to SE / 2X and continue with more conservative thread and tile settings.',
                 processErrorTitle: 'Processing error',
                 processErrorText: 'Error: {message}',
                 processErrorGeneric: 'Processing failed. You can reset the workspace and try again, or lower the scale.',
                 processErrorMemory: 'The browser ran out of memory or WebAssembly hit an out-of-bounds access. Lower the scale, use a smaller image, or refresh the page and try again.',
-                processErrorModel: 'Model loading failed. The web/models files may be missing, incomplete, or stale in browser cache. Upload the full model files and hard refresh the page.',
+                processErrorModel: 'Model loading failed. Check the exact file below in web/models, then upload the complete model files and hard refresh the page.',
                 processErrorAsset: 'Backend assets or model files failed to load. Make sure the .js, .wasm, worker, and models files on the server come from the same build.',
                 processErrorConflict: 'Another task is already running, so a new process cannot start yet. Please try again later.',
                 processErrorInput: 'The image dimensions, processing options, or memory buffers are invalid. The task stopped safely before processing. Reset and select the image again.',
@@ -661,10 +676,12 @@
                 waiting: '画像待機中',
                 loadingAssets: 'リソース読み込み中',
                 loadingAssetsProgress: '処理リソースを読み込み中 {percent}%',
+                preparingBackend: '処理バックエンドを準備し、モデルを先読みしています...',
             },
             progress: {
                 starting: '起動中です。約10秒以内に残り時間を見積もります...',
                 loadingModel: '選択したモデルを読み込み中 {percent}%',
+                loadingModelFile: '{model} を読み込み中: {file} {percent}%',
                 processing: 'ローカル CPU で処理中...',
                 cancelling: '現在のタイル処理が終わるまで待機中...',
                 done: '処理完了！所要時間: {seconds}秒',
@@ -689,15 +706,18 @@
                 cancel: 'キャンセル',
                 ok: 'OK',
                 continue: '続行',
+                safeSettings: '安全設定を使う',
                 dontShowAgain: '次回から表示しない',
                 sizeRiskTitle: '画像サイズのリスク',
                 sizeRiskText: '出力は {width} × {height} になり、少なくとも {memory} MB のメモリを使う可能性があります。このサイズではブラウザーが重くなったり失敗したりすることがあります。倍率を下げるか、小さい画像を使うことをおすすめします。',
                 sizeRiskBlockText: '出力は {width} × {height} になり、少なくとも {memory} MB のメモリを使う可能性があり、ブラウザーで安定して処理できる範囲を超えています。続行するとページの停止、ブラウザーのクラッシュ、処理失敗が起きる可能性があります。',
+                sizeRiskMobileHint: 'モバイルブラウザーは使用可能メモリが限られるため、4X や大きな画像は失敗しやすくなります。',
+                sizeRiskSafeText: '安全設定では SE / 2X に切り替え、より保守的なスレッド数とタイル設定で処理を続けます。',
                 processErrorTitle: '処理エラー',
                 processErrorText: 'エラー: {message}',
                 processErrorGeneric: '処理に失敗しました。ワークスペースをリセットして再試行するか、倍率を下げてください。',
                 processErrorMemory: 'ブラウザーのメモリ不足、または WebAssembly のメモリアクセス範囲外が発生しました。倍率を下げる、小さい画像を使う、またはページを更新して再試行してください。',
-                processErrorModel: 'モデルの読み込みに失敗しました。web/models のファイルが不足、不完全、またはブラウザーに古いファイルが残っている可能性があります。完全なモデルファイルをアップロードし、強制更新してください。',
+                processErrorModel: 'モデルの読み込みに失敗しました。下記の具体的なファイルを web/models で確認し、完全なモデルファイルをアップロードして強制更新してください。',
                 processErrorAsset: 'バックエンドリソースまたはモデルファイルの読み込みに失敗しました。サーバー上の .js、.wasm、worker、models ファイルが同じビルドのものか確認してください。',
                 processErrorConflict: '別の処理が実行中のため、新しい処理を開始できません。少し待ってから再試行してください。',
                 processErrorInput: '画像サイズ、処理設定、またはメモリバッファーが無効です。処理開始前に安全に停止しました。リセットして画像を選び直してください。',
@@ -785,10 +805,15 @@
                 wasmUsesWorker: false,
                 activeImageId: 0,
                 processRuntimeSettings: null,
+                safeProcessingMode: false,
                 loadedModelKey: '',
                 loadedModelFiles: {},
                 modelLoading: false,
                 modelLoadingProgress: 0,
+                modelLoadingName: '',
+                modelLoadingFile: '',
+                modelLoadingTimer: null,
+                modelAssetCache: {},
                 appVersion: APP_VERSION,
                 processFailureDialogOpen: false,
             };
@@ -885,6 +910,13 @@
                     });
                 },
             };
+            document.addEventListener('mousedown', this.handleInfoPopoverOutside);
+            document.addEventListener('touchstart', this.handleInfoPopoverOutside, {passive: true});
+        },
+
+        beforeDestroy() {
+            document.removeEventListener('mousedown', this.handleInfoPopoverOutside);
+            document.removeEventListener('touchstart', this.handleInfoPopoverOutside);
         },
 
         methods: {
@@ -985,6 +1017,28 @@
                 }
             },
 
+            closeInfoPopovers() {
+                this.projectInfoVisible = false;
+                this.projectInfoPinned = false;
+                this.paramsInfoVisible = false;
+                this.paramsInfoPinned = false;
+            },
+
+            handleInfoPopoverOutside(event) {
+                if (!this.projectInfoVisible && !this.paramsInfoVisible) {
+                    return;
+                }
+                let target = event && event.target;
+                if (!target || !target.closest) {
+                    this.closeInfoPopovers();
+                    return;
+                }
+                if (target.closest('.info-button') || target.closest('.info-popover')) {
+                    return;
+                }
+                this.closeInfoPopovers();
+            },
+
             getEffectiveTheme() {
                 if (this.themeMode === 'dark' || this.themeMode === 'light') {
                     return this.themeMode;
@@ -1035,11 +1089,13 @@
                 this.normalizeModelOptions();
                 this.savePreference('scale', '' + this.scaleRadio);
                 this.savePreference('denoise', '' + this.denoiseRadio);
+                this.preloadSelectedModelAssets();
             },
 
             onDenoiseOptionChange() {
                 this.normalizeModelOptions();
                 this.savePreference('denoise', '' + this.denoiseRadio);
+                this.preloadSelectedModelAssets();
             },
 
             onModelTypeOptionChange() {
@@ -1047,6 +1103,7 @@
                 this.savePreference('scale', '' + this.scaleRadio);
                 this.savePreference('denoise', '' + this.denoiseRadio);
                 this.savePreference('modelType', this.modelTypeRadio);
+                this.preloadSelectedModelAssets();
             },
 
             isDenoiseDisabled(denoise) {
@@ -1282,6 +1339,20 @@
                 return modelType === 'pro' ? 1 : 0;
             },
 
+            getDenoiseLabel(denoise) {
+                if (denoise === -1) {
+                    return this.t('denoise.conservative');
+                }
+                if (denoise === 0) {
+                    return this.t('denoise.none');
+                }
+                return denoise + 'X';
+            },
+
+            getModelDisplayName(scale, denoise, modelType) {
+                return this.t('model.' + modelType) + ' ' + scale + 'X / ' + this.getDenoiseLabel(denoise);
+            },
+
             getSelectedModelFiles(scale, denoise, modelType) {
                 let modelSet = MODEL_FILES[modelType];
                 let denoiseSet = modelSet && modelSet['' + denoise];
@@ -1291,6 +1362,7 @@
                 }
                 return {
                     key: modelType + ':' + scale + ':' + denoise,
+                    label: this.getModelDisplayName(scale, denoise, modelType),
                     param: files.param,
                     bin: files.bin,
                     paramBytes: files.paramBytes,
@@ -1298,22 +1370,126 @@
                 };
             },
 
-            async fetchModelAsset(path, expectedBytes, progress) {
-                const response = await fetch(this.versionedUrl('models/' + path));
+            formatModelLoadingTip(files, file, progress) {
+                if (files && files.label && file) {
+                    return this.t('progress.loadingModelFile', {
+                        model: files.label,
+                        file: file,
+                        percent: progress,
+                    });
+                }
+                return this.t('progress.loadingModel', {percent: progress});
+            },
+
+            startModelLoading(files, progress, file) {
+                this.modelLoadingProgress = progress;
+                this.modelLoadingName = files && files.label ? files.label : '';
+                this.modelLoadingFile = file || '';
+                if (this.modelLoading) {
+                    this.progressTip = this.formatModelLoadingTip(files, file, progress);
+                    return;
+                }
+                if (!this.modelLoadingTimer) {
+                    this.modelLoadingTimer = setTimeout(() => {
+                        this.modelLoadingTimer = null;
+                        if (!this.modelLoadingName && !this.modelLoadingFile) {
+                            return;
+                        }
+                        this.modelLoading = true;
+                        this.progressTip = this.formatModelLoadingTip(
+                            {label: this.modelLoadingName},
+                            this.modelLoadingFile,
+                            this.modelLoadingProgress
+                        );
+                    }, 120);
+                }
+            },
+
+            finishModelLoading() {
+                if (this.modelLoadingTimer) {
+                    clearTimeout(this.modelLoadingTimer);
+                    this.modelLoadingTimer = null;
+                }
+                this.modelLoading = false;
+                this.modelLoadingProgress = 0;
+                this.modelLoadingName = '';
+                this.modelLoadingFile = '';
+            },
+
+            async fetchModelAsset(path, expectedBytes, progress, files) {
+                this.startModelLoading(files, Math.max(0, progress - 10), path);
+                const bytes = await this.fetchModelAssetBytes(path, expectedBytes);
+                this.modelLoadingProgress = progress;
+                if (this.modelLoading) {
+                    this.progressTip = this.formatModelLoadingTip(files, path, progress);
+                }
+                return bytes;
+            },
+
+            async fetchModelAssetBytes(path, expectedBytes) {
+                const response = await fetch(this.versionedUrl('models/' + path), {cache: 'force-cache'});
                 if (!response.ok) {
                     throw new Error('model_file_not_found: ' + path);
                 }
                 const contentLength = Number(response.headers.get('content-length')) || 0;
                 if (contentLength && expectedBytes && contentLength !== expectedBytes) {
-                    throw new Error('model_file_size_mismatch: ' + path);
+                    throw new Error('model_file_size_mismatch: ' + path + ' expected=' + expectedBytes + ' actual=' + contentLength);
                 }
-                const bytes = new Uint8Array(await response.arrayBuffer());
+                const buffer = await response.arrayBuffer();
+                const bytes = new Uint8Array(buffer);
                 if (expectedBytes && bytes.length !== expectedBytes) {
-                    throw new Error('model_file_size_mismatch: ' + path);
+                    throw new Error('model_file_size_mismatch: ' + path + ' expected=' + expectedBytes + ' actual=' + bytes.length);
                 }
-                this.modelLoadingProgress = progress;
-                this.progressTip = this.t('progress.loadingModel', {percent: progress});
                 return bytes;
+            },
+
+            getModelAssetCacheEntry(files) {
+                let entry = this.modelAssetCache[files.key];
+                if (entry) {
+                    return entry;
+                }
+                entry = {
+                    files: files,
+                    promise: Promise.all([
+                        this.fetchModelAssetBytes(files.param, files.paramBytes),
+                        this.fetchModelAssetBytes(files.bin, files.binBytes),
+                    ]).then(([paramBytes, binBytes]) => ({
+                        files: files,
+                        paramBytes: paramBytes,
+                        binBytes: binBytes,
+                    })).catch((error) => {
+                        delete this.modelAssetCache[files.key];
+                        throw error;
+                    }),
+                };
+                this.modelAssetCache[files.key] = entry;
+                return entry;
+            },
+
+            preloadModelAssets(scale, denoise, modelType) {
+                let files;
+                try {
+                    files = this.getSelectedModelFiles(scale, denoise, modelType);
+                } catch (error) {
+                    return Promise.resolve(null);
+                }
+                return this.getModelAssetCacheEntry(files).promise.catch((error) => {
+                    console.warn('model preload skipped:', error);
+                    return null;
+                });
+            },
+
+            preloadSelectedModelAssets() {
+                let files;
+                try {
+                    files = this.getSelectedModelFiles(this.scaleRadio, this.denoiseRadio, this.modelTypeRadio);
+                } catch (error) {
+                    return Promise.resolve(null);
+                }
+                return this.getModelAssetCacheEntry(files).promise.catch((error) => {
+                    console.warn('model preload skipped:', error);
+                    return null;
+                });
             },
 
             ensureModelDirectory(path) {
@@ -1364,19 +1540,22 @@
                     return files;
                 }
 
-                this.modelLoading = true;
-                this.modelLoadingProgress = 0;
-                this.progressTip = this.t('progress.loadingModel', {percent: 0});
-                const paramBytes = await this.fetchModelAsset(files.param, files.paramBytes, 35);
-                const binBytes = await this.fetchModelAsset(files.bin, files.binBytes, 90);
+                this.startModelLoading(files, 0, files.param);
+                const assets = await this.getModelAssetCacheEntry(files).promise;
+                const paramBytes = assets.paramBytes;
+                const binBytes = assets.binBytes;
+                this.modelLoadingProgress = 90;
+                if (this.modelLoading) {
+                    this.progressTip = this.formatModelLoadingTip(files, files.bin, 90);
+                }
                 this.writeModelFile(files.param, paramBytes);
                 this.writeModelFile(files.bin, binBytes);
                 this.unloadPreviousModelFiles(files);
                 this.loadedModelFiles[files.param] = true;
                 this.loadedModelFiles[files.bin] = true;
                 this.loadedModelKey = files.key;
-                this.modelLoadingProgress = 100;
-                this.modelLoading = false;
+                this.startModelLoading(files, 100, files.bin);
+                this.finishModelLoading();
                 return files;
             },
 
@@ -1384,6 +1563,7 @@
                 if (!file || !file.raw) {
                     return;
                 }
+                this.preloadSelectedModelAssets();
                 this.ensureWasmLoaded()
                     .then(() => this.readUploadedFile(file))
                     .catch(() => {
@@ -1408,6 +1588,7 @@
                     this.uploadPreviewHeight = canvas.height;
                     this.uploadPreviewName = file.name;
                     this.applyImageThemeFromCanvas(canvas);
+                    this.scrollStageIntoView();
                     this.preflightProcess(canvas, canvas.width, canvas.height);
                 };
                 img.onerror = () => {
@@ -1440,9 +1621,10 @@
                 }
                 let skipWarning = false;
                 this.$confirm(this.getSizeRiskMessageHtml(risk), this.t('dialog.sizeRiskTitle'), {
-                        confirmButtonText: this.t('dialog.continue'),
-                        cancelButtonText: this.t('dialog.cancel'),
+                        confirmButtonText: this.t('dialog.safeSettings'),
+                        cancelButtonText: this.t('dialog.continue'),
                         type: 'warning',
+                        distinguishCancelAndClose: true,
                         dangerouslyUseHTMLString: true,
                         beforeClose: (action, instance, done) => {
                             let checkbox = document.getElementById('size-risk-skip-checkbox');
@@ -1453,12 +1635,42 @@
                     if (skipWarning) {
                         this.savePreference('skipSizeRiskWarning', '1');
                     }
+                    this.applySafeProcessingSettings();
                     this.process(sourceCanvas, w, h);
-                }).catch(() => {
+                }).catch((action) => {
                     if (skipWarning) {
                         this.savePreference('skipSizeRiskWarning', '1');
                     }
+                    if (action === 'cancel') {
+                        this.process(sourceCanvas, w, h);
+                    }
                 });
+            },
+
+            isMobileViewport() {
+                return this.windowWidth <= 768;
+            },
+
+            scrollStageIntoView() {
+                if (!this.isMobileViewport()) {
+                    return;
+                }
+                this.$nextTick(() => {
+                    let stage = document.querySelector('.stage-panel');
+                    if (stage && stage.scrollIntoView) {
+                        stage.scrollIntoView({behavior: 'smooth', block: 'start'});
+                    }
+                });
+            },
+
+            applySafeProcessingSettings() {
+                this.modelTypeRadio = 'se';
+                this.scaleRadio = 2;
+                this.safeProcessingMode = true;
+                this.normalizeModelOptions();
+                this.savePreference('modelType', this.modelTypeRadio);
+                this.savePreference('scale', '' + this.scaleRadio);
+                this.savePreference('denoise', '' + this.denoiseRadio);
             },
 
             escapeHtml(value) {
@@ -1479,6 +1691,8 @@
                     : this.t('dialog.sizeRiskText', risk);
                 return '<div class="size-risk-dialog-text">'
                     + '<p>' + this.escapeHtml(message) + '</p>'
+                    + (risk.mobile ? '<p>' + this.escapeHtml(this.t('dialog.sizeRiskMobileHint')) + '</p>' : '')
+                    + '<p>' + this.escapeHtml(this.t('dialog.sizeRiskSafeText')) + '</p>'
                     + '<label class="size-risk-skip"><input id="size-risk-skip-checkbox" type="checkbox"> '
                     + this.escapeHtml(this.t('dialog.dontShowAgain')) + '</label>'
                     + '</div>';
@@ -1521,12 +1735,15 @@
                     level = 'block';
                 } else if (estimatedBytes >= warnBytes) {
                     level = 'warn';
+                } else if (isMobileViewport && scale >= 4 && deviceMemoryGiB <= 4) {
+                    level = 'warn';
                 }
                 return {
                     level: level,
                     width: outputWidth,
                     height: outputHeight,
                     memory: Math.ceil(estimatedBytes / 1024 / 1024),
+                    mobile: isMobileViewport,
                 };
             },
 
@@ -1543,12 +1760,8 @@
                     threadCap = 1;
                 } else if (isMobileViewport) {
                     threadCap = deviceMemoryGiB <= 3 ? 2 : 4;
-                } else if (deviceMemoryGiB <= 4) {
-                    threadCap = 4;
-                } else if (deviceMemoryGiB <= 6) {
-                    threadCap = 6;
                 } else {
-                    threadCap = 8;
+                    threadCap = 4;
                 }
 
                 let threadCount = Math.max(1, Math.min(hardwareConcurrency, threadCap));
@@ -1559,6 +1772,10 @@
                     tileSize = 128;
                 } else if (latencySensitive || deviceMemoryGiB <= 6) {
                     tileSize = 160;
+                }
+                if (this.safeProcessingMode) {
+                    threadCount = Math.min(threadCount, isMobileViewport ? 2 : 4);
+                    tileSize = Math.min(tileSize, 128);
                 }
 
                 return {
@@ -1596,6 +1813,7 @@
 
                 try {
                     let modelFiles = this.getSelectedModelFiles(this.outputScale, this.outputDenoise, this.outputModelType);
+                    let modelAssetPromise = this.preloadModelAssets(this.outputScale, this.outputDenoise, this.outputModelType);
                     if (!this.wasmUsesWorker) {
                         await this.ensureSelectedModelLoaded(this.outputScale, this.outputDenoise, this.outputModelType);
                         if (imageId !== this.activeImageId || !this.isProcessing) {
@@ -1612,12 +1830,29 @@
                     console.log('runtime settings:', runtimeSettings);
 
                     if (this.wasmUsesWorker) {
+                        let modelAssets = await modelAssetPromise;
                         let inputBuffer = uploadImageData.data.buffer;
+                        let transferList = [inputBuffer];
+                        let workerModelAssets = null;
+                        if (modelAssets && modelAssets.paramBytes && modelAssets.binBytes) {
+                            workerModelAssets = {
+                                paramBuffer: modelAssets.paramBytes.buffer.slice(
+                                    modelAssets.paramBytes.byteOffset,
+                                    modelAssets.paramBytes.byteOffset + modelAssets.paramBytes.byteLength
+                                ),
+                                binBuffer: modelAssets.binBytes.buffer.slice(
+                                    modelAssets.binBytes.byteOffset,
+                                    modelAssets.binBytes.byteOffset + modelAssets.binBytes.byteLength
+                                ),
+                            };
+                            transferList.push(workerModelAssets.paramBuffer, workerModelAssets.binBuffer);
+                        }
                         this.wasmWorker.postMessage({
                             type: 'start',
                             backend: this.wasmBackend,
                             imageId: imageId,
                             modelFiles: modelFiles,
+                            modelAssets: workerModelAssets,
                             inputBuffer: inputBuffer,
                             outputByteLength: outputByteLength,
                             outputWidth: this.outputPreviewWidth,
@@ -1629,7 +1864,7 @@
                             modelType: this.getModelTypeCode(this.outputModelType),
                             threadCount: runtimeSettings.threadCount,
                             tileSize: runtimeSettings.tileSize
-                        }, [inputBuffer]);
+                        }, transferList);
                         uploadImageData = null;
                         sourceCanvas.width = 0;
                         sourceCanvas.height = 0;
@@ -1671,7 +1906,7 @@
                         });
                     }
                 } catch (error) {
-                    this.modelLoading = false;
+                    this.finishModelLoading();
                     this.handleProcessFailure(error);
                 }
             },
@@ -1931,6 +2166,9 @@
                 if (event.target.closest && event.target.closest('.el-slider')) {
                     return;
                 }
+                if (this.previewZoom <= this.previewZoomMin) {
+                    return;
+                }
                 let bounds = this.getPreviewPanBounds();
                 if (bounds.maxX === 0 && bounds.maxY === 0) {
                     return;
@@ -1965,6 +2203,17 @@
                 return path + '?v=' + encodeURIComponent(this.appVersion);
             },
 
+            hasStableWasmProgress() {
+                return this.wasmLoadingProgress >= 10;
+            },
+
+            getWasmLoadingText() {
+                if (!this.hasStableWasmProgress()) {
+                    return this.t('stage.preparingBackend');
+                }
+                return this.t('stage.loadingAssetsProgress', {percent: this.wasmLoadingProgress});
+            },
+
             ensureWasmLoaded() {
                 if (this.wasmModuleLoaded) {
                     return Promise.resolve();
@@ -1979,6 +2228,7 @@
                     .then(() => {
                         this.wasmModuleLoaded = true;
                         this.wasmLoadingProgress = 100;
+                        this.preloadSelectedModelAssets();
                     })
                     .catch((error) => {
                         this.wasmLoadPromise = null;
@@ -2000,12 +2250,22 @@
                     wasmFeatureDetect.simd().catch(() => false),
                     wasmFeatureDetect.threads().catch(() => false),
                 ]).then(([hasSIMD, hasThreads]) => {
-                    let backends = this.getBackendCandidates(hasSIMD, hasThreads);
+                    let canUseThreads = this.canUseThreadedBackend(hasSIMD, hasThreads);
+                    let backends = this.getBackendCandidates(hasSIMD, canUseThreads);
                     return this.loadWasmBackend(backends);
                 });
             },
 
-            getBackendCandidates(hasSIMD, hasThreads) {
+            canUseThreadedBackend(hasSIMD, hasThreads) {
+                return !!(
+                    hasSIMD &&
+                    hasThreads &&
+                    typeof SharedArrayBuffer !== 'undefined' &&
+                    window.crossOriginIsolated === true
+                );
+            },
+
+            getBackendCandidates(hasSIMD, canUseThreads) {
                 if (this.backendMode === 'basic') {
                     return ['basic'];
                 }
@@ -2013,10 +2273,10 @@
                     return hasSIMD ? ['simd', 'basic'] : ['basic'];
                 }
                 if (this.backendMode === 'simd-threads') {
-                    return hasSIMD && hasThreads ? ['simd-threads', 'simd', 'basic'] : (hasSIMD ? ['simd', 'basic'] : ['basic']);
+                    return canUseThreads ? ['simd-threads', 'simd', 'basic'] : (hasSIMD ? ['simd', 'basic'] : ['basic']);
                 }
 
-                if (hasSIMD && hasThreads) {
+                if (canUseThreads) {
                     return ['simd-threads', 'simd', 'basic'];
                 }
                 if (hasSIMD) {
@@ -2054,6 +2314,18 @@
                     })
                     .then((buffer) => {
                         return new Promise((resolve, reject) => {
+                            let settled = false;
+                            let timeoutId = null;
+                            let settle = (callback, value) => {
+                                if (settled) {
+                                    return;
+                                }
+                                settled = true;
+                                if (timeoutId) {
+                                    clearTimeout(timeoutId);
+                                }
+                                callback(value);
+                            };
                             Module.wasmBinary = buffer;
                             Module.locateFile = (path, prefix) => {
                                 if (path.indexOf('.worker.js') !== -1) {
@@ -2064,7 +2336,7 @@
                             Module.onRuntimeInitialized = () => {
                                 console.log("wasm module loaded:", backend);
                                 this.wasmLoadingProgress = 100;
-                                resolve();
+                                settle(resolve);
                             }
 
                             let script = document.createElement('script');
@@ -2074,9 +2346,12 @@
                                 this.wasmLoadingProgress = Math.max(this.wasmLoadingProgress, 5);
                             }
                             script.onerror = () => {
-                                reject(new Error('JS resource not found: ' + backend));
+                                settle(reject, new Error('JS resource not found: ' + backend));
                             }
                             document.body.appendChild(script);
+                            timeoutId = setTimeout(() => {
+                                settle(reject, new Error('backend runtime load timed out: ' + backend));
+                            }, 30000);
                         });
                     })
                     .catch((error) => {
@@ -2107,6 +2382,23 @@
 
                 return new Promise((resolve, reject) => {
                     let settled = false;
+                    let timeoutId = null;
+                    let cleanup = () => {
+                        this.wasmWorker.removeEventListener('message', onMessage);
+                        this.wasmWorker.removeEventListener('error', onError);
+                        if (timeoutId) {
+                            clearTimeout(timeoutId);
+                        }
+                    };
+                    let fail = (error) => {
+                        settled = true;
+                        cleanup();
+                        if (this.wasmWorker) {
+                            this.wasmWorker.terminate();
+                            this.wasmWorker = null;
+                        }
+                        reject(error);
+                    };
                     let onMessage = (event) => {
                         let message = event.data || {};
                         if (message.backend && message.backend !== backend) {
@@ -2116,27 +2408,30 @@
                             this.wasmLoadingProgress = Math.max(this.wasmLoadingProgress, message.progress || 5);
                         } else if (message.type === 'ready') {
                             settled = true;
-                            this.wasmWorker.removeEventListener('message', onMessage);
+                            cleanup();
                             this.wasmLoadingProgress = 100;
                             resolve();
                         } else if (message.type === 'error') {
-                            settled = true;
-                            this.wasmWorker.removeEventListener('message', onMessage);
-                            reject(new Error(message.detail || message.message || 'fallback worker load failed'));
+                            fail(new Error(message.detail || message.message || 'fallback worker load failed'));
+                        }
+                    };
+                    let onError = (event) => {
+                        if (!settled) {
+                            fail(new Error(event.message || 'fallback worker script failed: ' + backend));
                         }
                     };
                     this.wasmWorker.addEventListener('message', onMessage);
+                    this.wasmWorker.addEventListener('error', onError);
                     this.wasmWorker.postMessage({
                         type: 'load',
                         backend: backend,
                         appVersion: this.appVersion
                     });
-                    setTimeout(() => {
+                    timeoutId = setTimeout(() => {
                         if (!settled) {
-                            this.wasmWorker.removeEventListener('message', onMessage);
-                            reject(new Error('fallback worker load timed out: ' + backend));
+                            fail(new Error('fallback worker load timed out: ' + backend));
                         }
-                    }, 60000);
+                    }, 30000);
                 });
             },
 
@@ -2146,12 +2441,12 @@
                     return;
                 }
                 if (message.type === 'model-loading') {
-                    this.modelLoading = true;
-                    this.modelLoadingProgress = message.progress || 0;
-                    this.progressTip = this.t('progress.loadingModel', {percent: this.modelLoadingProgress});
-                    if (this.modelLoadingProgress >= 100) {
-                        this.modelLoading = false;
+                    let progress = message.progress || 0;
+                    if (progress >= 100) {
+                        this.finishModelLoading();
                         this.progressTip = this.t('progress.starting');
+                    } else {
+                        this.startModelLoading({label: message.model || ''}, progress, message.file || '');
                     }
                     return;
                 }
@@ -2223,9 +2518,11 @@
                     }
                     this.isProcessing = false;
                     this.isProcessDone = true;
+                    this.safeProcessingMode = false;
                     this.beginResultReveal();
                     this.syncPreviewViewport();
                     this.scheduleAmbientGlowUpdate();
+                    this.scrollStageIntoView();
                 }, 'image/png');
 
                 this.releaseWasmBuffers();
@@ -2306,6 +2603,8 @@
                 this.procRemainingTime = 0;
                 this.procFinalCostSeconds = null;
                 this.progressTip = '';
+                this.safeProcessingMode = false;
+                this.finishModelLoading();
                 this.clearOutputPreviewUrl();
                 this.outputPreviewWidth = 0;
                 this.outputPreviewHeight = 0;
@@ -2337,12 +2636,14 @@
 
             handleBackendProcessError(error) {
                 let code = Number(error && error.code);
+                let rawMessage = error && error.message ? error.message : '';
+                let lowerMessage = rawMessage.toLowerCase();
                 let message = this.t('dialog.processErrorGeneric');
                 if (code === -1) {
                     message = this.t('dialog.processErrorConflict');
                 } else if (code === -7) {
                     message = this.t('dialog.processErrorMemory');
-                } else if (code === -8 || code === -9) {
+                } else if (code === -8 || code === -9 || lowerMessage.includes('model_') || lowerMessage.includes('.param') || lowerMessage.includes('.bin')) {
                     message = this.t('dialog.processErrorModel');
                 } else if (code >= -6 && code <= -2) {
                     message = this.t('dialog.processErrorInput');
@@ -2350,6 +2651,9 @@
                 let detail = 'backend code ' + code;
                 if (error && error.message) {
                     detail += ': ' + error.message;
+                }
+                if (error && error.detail && error.detail !== error.message) {
+                    detail += '\n' + error.detail;
                 }
                 this.handleProcessFailure({
                     message: message + '\n\n' + detail,
@@ -2474,6 +2778,7 @@
                 this.procFinalCostSeconds = null;
                 this.progressTip = '';
                 this.processFailureDialogOpen = false;
+                this.safeProcessingMode = false;
                 this.previewOverlapRate = 50;
                 this.previewZoom = this.previewZoomMin;
                 this.previewViewportWidth = 0;
@@ -2496,6 +2801,7 @@
             },
 
             runTestCase() {
+                this.preloadSelectedModelAssets();
                 this.ensureWasmLoaded()
                     .then(() => this.loadTestCase())
                     .catch(() => {});
@@ -2514,6 +2820,7 @@
                     this.uploadPreviewHeight = img.height;
                     this.uploadPreviewName = filename;
                     this.applyImageThemeFromCanvas(canvas);
+                    this.scrollStageIntoView();
                     this.preflightProcess(canvas, canvas.width, canvas.height);
                 }
                 img.src = filename;
@@ -2530,26 +2837,34 @@
         color-scheme: light;
         --theme-primary: #409EFF;
         --theme-on-primary: #ffffff;
-        --theme-primary-soft: #eef6ff;
-        --theme-primary-border: #b8d9ff;
-        --theme-surface-tint: rgba(64, 158, 255, 0.08);
-        --theme-text-strong: #202733;
-        --app-bg: #f4f6f8;
+        --theme-primary-soft: #edf6ff;
+        --theme-primary-border: #c7dcf3;
+        --theme-surface-tint: rgba(64, 158, 255, 0.10);
+        --theme-text-strong: #17202d;
+        --app-bg: #eef3f8;
         --surface-bg: #ffffff;
-        --surface-bg-muted: #f8fafc;
+        --surface-bg-muted: #f7fafd;
         --surface-bg-elevated: #ffffff;
         --text-normal: #333333;
         --text-muted: #5d6675;
         --text-subtle: #8b95a5;
+        --hairline: rgba(41, 78, 114, 0.13);
+        --panel-ring: rgba(255, 255, 255, 0.76);
+        --surface-highlight: rgba(255, 255, 255, 0.82);
         --checker-base: var(--theme-primary-soft);
         --checker-mark: #eef2f6;
         --image-checker-base: #ffffff;
         --image-checker-mark: #e8e8e8;
         --floating-bg: rgba(255, 255, 255, 0.92);
         --upload-bg: rgba(255, 255, 255, 0.82);
-        --panel-shadow: 0 8px 24px rgba(22, 35, 48, 0.06);
-        --image-shadow: 0 10px 28px rgba(22, 35, 48, 0.08);
-        --floating-shadow: 0 6px 18px rgba(22, 35, 48, 0.08);
+        --panel-shadow: 0 22px 70px rgba(25, 50, 78, 0.11);
+        --panel-shadow-soft: 0 10px 28px rgba(25, 50, 78, 0.08);
+        --image-shadow: 0 18px 46px rgba(22, 35, 48, 0.12);
+        --floating-shadow: 0 14px 38px rgba(22, 35, 48, 0.12);
+        --radius-lg: 22px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+        --motion-curve: cubic-bezier(0.22, 1, 0.36, 1);
         --fluid-color-1: rgba(64, 158, 255, 0.72);
         --fluid-color-2: rgba(103, 194, 58, 0.68);
         --fluid-color-3: rgba(230, 162, 60, 0.66);
@@ -2564,22 +2879,26 @@
         --theme-primary-border: #2d4963;
         --theme-surface-tint: rgba(131, 189, 255, 0.14);
         --theme-text-strong: #e6edf6;
-        --app-bg: #0f141b;
+        --app-bg: #0b1118;
         --surface-bg: #151b23;
         --surface-bg-muted: #111821;
         --surface-bg-elevated: #1b2430;
         --text-normal: #d8e0ea;
         --text-muted: #b5c0ce;
         --text-subtle: #8996a8;
+        --hairline: rgba(177, 205, 237, 0.13);
+        --panel-ring: rgba(255, 255, 255, 0.08);
+        --surface-highlight: rgba(255, 255, 255, 0.06);
         --checker-base: #101923;
         --checker-mark: #1b2734;
         --image-checker-base: #101820;
         --image-checker-mark: #1f2b38;
         --floating-bg: rgba(21, 27, 35, 0.92);
         --upload-bg: rgba(21, 27, 35, 0.86);
-        --panel-shadow: 0 14px 32px rgba(0, 0, 0, 0.34);
-        --image-shadow: 0 14px 34px rgba(0, 0, 0, 0.36);
-        --floating-shadow: 0 10px 26px rgba(0, 0, 0, 0.32);
+        --panel-shadow: 0 24px 76px rgba(0, 0, 0, 0.46);
+        --panel-shadow-soft: 0 12px 34px rgba(0, 0, 0, 0.36);
+        --image-shadow: 0 18px 44px rgba(0, 0, 0, 0.44);
+        --floating-shadow: 0 16px 42px rgba(0, 0, 0, 0.38);
     }
 
     html,
@@ -2593,11 +2912,15 @@
     body {
         margin: 0;
         border: 0;
-        background-color: var(--app-bg);
+        background:
+            radial-gradient(circle at 8% 8%, rgba(64, 158, 255, 0.18), transparent 34%),
+            radial-gradient(circle at 90% 10%, rgba(103, 194, 58, 0.12), transparent 28%),
+            linear-gradient(135deg, var(--app-bg), var(--surface-bg-muted));
         color: var(--text-normal);
-        font-family: PingFang SC, Microsoft YaHei, 微软雅黑, Arial, Hiragino Sans GB, Heiti SC, Droid Sans,
-            WenQuanYi Micro Hei, sans-serif !important;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", PingFang SC,
+            Microsoft YaHei, Hiragino Sans GB, Heiti SC, Droid Sans, WenQuanYi Micro Hei, sans-serif !important;
         -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+        text-rendering: geometricPrecision;
     }
 
     .el-footer {
@@ -2651,9 +2974,9 @@
         width: 34px;
         height: 34px;
         padding: 0;
-        border: 1px solid var(--theme-primary-border);
+        border: 1px solid var(--hairline);
         background: var(--floating-bg);
-        border-radius: 6px;
+        border-radius: 999px;
         box-shadow: var(--floating-shadow);
         color: var(--theme-text-strong);
         font-size: 12px;
@@ -2661,6 +2984,11 @@
         line-height: 1;
         cursor: pointer;
         backdrop-filter: blur(10px);
+        transition:
+            border-color 180ms var(--motion-curve),
+            color 180ms var(--motion-curve),
+            transform 180ms var(--motion-curve),
+            box-shadow 180ms var(--motion-curve);
     }
 
     .floating-preference-button i,
@@ -2678,6 +3006,8 @@
         border-color: var(--theme-primary);
         color: var(--theme-primary);
         outline: none;
+        transform: translateY(-1px);
+        box-shadow: var(--panel-shadow-soft);
     }
 
     .el-dropdown-menu__item {
@@ -2879,6 +3209,7 @@
         border-color: var(--theme-primary);
         background-color: var(--theme-primary);
         color: var(--theme-on-primary);
+        box-shadow: 0 10px 24px rgba(64, 158, 255, 0.22);
     }
 
     .el-button--primary:hover,
@@ -2901,6 +3232,13 @@
         border-color: var(--theme-primary-border);
         background: var(--surface-bg-elevated);
         color: var(--text-normal);
+        border-radius: var(--radius-sm);
+        transition:
+            border-color 180ms var(--motion-curve),
+            background-color 180ms var(--motion-curve),
+            color 180ms var(--motion-curve),
+            transform 180ms var(--motion-curve),
+            box-shadow 180ms var(--motion-curve);
     }
 
     .el-button:hover,
@@ -2908,6 +3246,14 @@
     .el-radio-button__inner:hover {
         border-color: var(--theme-primary);
         color: var(--theme-primary);
+        transform: translateY(-1px);
+        box-shadow: var(--panel-shadow-soft);
+    }
+
+    .el-button:active,
+    .el-radio-button__inner:active {
+        transform: translateY(0) scale(0.985);
+        box-shadow: none;
     }
 
     .el-button.is-disabled,
@@ -2922,6 +3268,8 @@
         background: var(--surface-bg-muted);
         color: var(--text-subtle);
         opacity: 0.66;
+        transform: none;
+        box-shadow: none;
     }
 
     .preview-tools .el-button,
@@ -2960,6 +3308,22 @@
         background-color: var(--theme-primary);
         box-shadow: -1px 0 0 0 var(--theme-primary);
         color: var(--theme-on-primary);
+        transform: none;
+    }
+
+    .el-radio-button:first-child .el-radio-button__inner {
+        border-top-left-radius: var(--radius-sm);
+        border-bottom-left-radius: var(--radius-sm);
+    }
+
+    .el-radio-button:last-child .el-radio-button__inner {
+        border-top-right-radius: var(--radius-sm);
+        border-bottom-right-radius: var(--radius-sm);
+    }
+
+    .el-tag {
+        border-radius: 999px;
+        font-weight: 700;
     }
 
     .el-radio-button__inner:hover,
@@ -2986,6 +3350,21 @@
         border-color: var(--theme-primary-border);
         background-color: var(--theme-primary-soft);
         color: var(--theme-primary);
+    }
+
+    .el-progress-bar__outer {
+        overflow: hidden;
+        border: 1px solid var(--hairline);
+        box-shadow: 0 1px 0 var(--panel-ring) inset;
+    }
+
+    .el-slider__button {
+        box-shadow: var(--floating-shadow);
+    }
+
+    .el-message-box {
+        border-radius: var(--radius-md);
+        box-shadow: var(--panel-shadow);
     }
 
     @media (max-width: 768px) {
@@ -3063,10 +3442,27 @@
         isolation: isolate;
         flex: 1 1 auto;
         min-height: 0;
-        padding: 18px;
+        padding: 22px;
         overflow: hidden;
-        background: var(--app-bg);
+        background:
+            radial-gradient(circle at 12% 16%, rgba(64, 158, 255, 0.20), transparent 28%),
+            radial-gradient(circle at 88% 14%, rgba(103, 194, 58, 0.13), transparent 26%),
+            radial-gradient(circle at 78% 88%, rgba(230, 162, 60, 0.13), transparent 30%),
+            linear-gradient(135deg, var(--app-bg), var(--surface-bg-muted));
         text-align: left;
+    }
+
+    .app-main::before {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background-image:
+            linear-gradient(rgba(64, 158, 255, 0.055) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(64, 158, 255, 0.055) 1px, transparent 1px);
+        background-size: 36px 36px;
+        mask-image: radial-gradient(circle at 50% 44%, black 0%, transparent 72%);
+        content: "";
+        pointer-events: none;
     }
 
     .workspace {
@@ -3074,7 +3470,7 @@
         z-index: 1;
         display: grid;
         grid-template-columns: 340px minmax(0, 1fr);
-        gap: 18px;
+        gap: 22px;
         width: 100%;
         height: 100%;
         min-height: 0;
@@ -3085,19 +3481,22 @@
 
     .control-panel,
     .stage-panel {
-        border: 1px solid var(--theme-primary-border);
-        background: var(--surface-bg);
-        border-radius: 8px;
+        border: 1px solid var(--hairline);
+        background:
+            linear-gradient(180deg, var(--surface-highlight), transparent 46%),
+            var(--surface-bg);
+        border-radius: var(--radius-lg);
         box-shadow: var(--panel-shadow);
     }
 
     .control-panel {
         position: sticky;
-        top: 18px;
+        top: 22px;
         align-self: start;
         max-height: 100%;
         overflow: auto;
         padding: 18px;
+        scrollbar-width: thin;
     }
 
     .brand-block {
@@ -3105,16 +3504,23 @@
         align-items: flex-start;
         justify-content: space-between;
         gap: 16px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid var(--theme-primary-border);
+        padding: 2px 2px 16px;
+        border-bottom: 1px solid var(--hairline);
+    }
+
+    .brand-block > div:first-child {
+        flex: 1 1 auto;
+        min-width: 0;
     }
 
     .brand-block h1 {
+        flex: 1 1 auto;
+        min-width: 0;
         margin: 4px 0 0;
         color: var(--theme-text-strong);
-        font-size: 24px;
-        line-height: 1.22;
-        letter-spacing: 0;
+        font-size: 26px;
+        line-height: 1.08;
+        letter-spacing: -0.035em;
     }
 
     .heading-row,
@@ -3125,11 +3531,24 @@
         gap: 8px;
     }
 
+    .heading-row {
+        display: flex;
+        width: 100%;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .heading-row .el-popover__reference-wrapper {
+        flex: 0 0 auto;
+        margin-top: 7px;
+    }
+
     .eyebrow {
         color: var(--text-subtle);
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 700;
         line-height: 1.2;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
     }
 
@@ -3137,7 +3556,7 @@
         display: inline-flex;
         width: 18px;
         height: 18px;
-        border: 1px solid var(--theme-primary-border);
+        border: 1px solid var(--hairline);
         background: var(--surface-bg-elevated);
         border-radius: 50%;
         color: var(--theme-primary);
@@ -3158,7 +3577,7 @@
 
     .info-popover.el-popover {
         z-index: 3000;
-        border-color: var(--theme-primary-border);
+        border-color: var(--hairline);
         background: var(--surface-bg-elevated);
         box-shadow: var(--floating-shadow);
         color: var(--text-muted);
@@ -3188,19 +3607,27 @@
     }
 
     .control-section {
-        padding: 16px 0;
-        border-bottom: 1px solid var(--theme-primary-border);
+        margin-top: 14px;
+        padding: 14px;
+        border: 1px solid var(--hairline);
+        background:
+            linear-gradient(180deg, var(--surface-highlight), transparent),
+            var(--surface-bg-muted);
+        border-radius: var(--radius-md);
+        box-shadow: 0 1px 0 var(--panel-ring) inset;
     }
 
     .control-section:last-child {
-        border-bottom: 0;
+        border-bottom: 1px solid var(--hairline);
     }
 
     .section-title {
         margin-bottom: 12px;
         color: var(--theme-text-strong);
-        font-size: 13px;
-        font-weight: 700;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
     }
 
     .field-row {
@@ -3242,6 +3669,10 @@
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        padding: 14px 0 0;
     }
 
     .action-section .el-button {
@@ -3263,19 +3694,22 @@
         align-items: center;
         justify-content: space-between;
         gap: 16px;
-        min-height: 68px;
-        padding: 14px 18px;
-        border-bottom: 1px solid var(--theme-primary-border);
-        background: var(--surface-bg);
+        min-height: 76px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--hairline);
+        background:
+            linear-gradient(180deg, var(--surface-highlight), transparent 68%),
+            var(--surface-bg);
     }
 
     .stage-title {
         overflow: hidden;
         max-width: 760px;
         color: var(--theme-text-strong);
-        font-size: 18px;
+        font-size: 20px;
         font-weight: 700;
         line-height: 1.25;
+        letter-spacing: -0.02em;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
@@ -3317,7 +3751,7 @@
         flex: 1 1 auto;
         min-height: 0;
         overflow: auto;
-        padding: 22px;
+        padding: 24px;
         background:
             linear-gradient(45deg, var(--checker-mark) 25%, transparent 25%),
             linear-gradient(-45deg, var(--checker-mark) 25%, transparent 25%),
@@ -3384,7 +3818,7 @@
         position: relative;
         z-index: 1;
         overflow: hidden;
-        border: 1px solid var(--theme-primary-border);
+        border: 1px solid var(--hairline);
         background-color: var(--image-checker-base);
         background-image:
             linear-gradient(45deg, var(--image-checker-mark) 25%, transparent 25%),
@@ -3393,7 +3827,7 @@
             linear-gradient(-45deg, transparent 75%, var(--image-checker-mark) 75%);
         background-size: 16px 16px;
         background-position: 0 0, 0 8px, 8px -8px, -8px 0;
-        border-radius: 6px;
+        border-radius: var(--radius-sm);
         box-shadow: var(--image-shadow);
     }
 
@@ -3616,6 +4050,36 @@
         }
     }
 
+    @keyframes uploadOrbSpin {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    @keyframes uploadOrbPulse {
+        0%,
+        100% {
+            opacity: 0.38;
+            transform: scale(0.86);
+        }
+        50% {
+            opacity: 0.82;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes uploadBarSweep {
+        0% {
+            transform: translateX(-120%);
+        }
+        100% {
+            transform: translateX(260%);
+        }
+    }
+
     .large-upload,
     .large-upload .el-upload,
     .large-upload .el-upload-dragger {
@@ -3626,15 +4090,145 @@
         display: flex;
         min-height: 330px;
         border: 1px dashed var(--theme-primary-border);
-        background: var(--upload-bg);
+        background:
+            radial-gradient(circle at 50% 10%, var(--theme-surface-tint), transparent 34%),
+            var(--upload-bg);
+        border-radius: var(--radius-lg);
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        box-shadow:
+            0 1px 0 var(--panel-ring) inset,
+            var(--panel-shadow-soft);
+        transition:
+            border-color 180ms var(--motion-curve),
+            transform 180ms var(--motion-curve),
+            box-shadow 180ms var(--motion-curve);
+    }
+
+    .large-upload .el-upload-dragger:hover,
+    .large-upload .el-upload-dragger:focus-within {
+        border-color: var(--theme-primary);
+        transform: translateY(-2px);
+        box-shadow: var(--panel-shadow);
     }
 
     .large-upload .el-icon-upload {
         margin: 0 0 18px;
         color: var(--theme-primary);
+    }
+
+    .large-upload .el-upload__text {
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        gap: 6px;
+        color: var(--text-muted);
+        line-height: 1.45;
+    }
+
+    .large-upload .el-upload__text em {
+        color: var(--theme-primary);
+        font-style: normal;
+        font-weight: 800;
+    }
+
+    .upload-format-hint {
+        color: var(--text-subtle);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+    }
+
+    .upload-loading-state {
+        display: flex;
+        width: min(100%, 340px);
+        align-items: center;
+        flex-direction: column;
+        color: var(--theme-text-strong);
+        text-align: center;
+    }
+
+    .upload-loading-orb {
+        position: relative;
+        width: 72px;
+        height: 72px;
+        margin-bottom: 18px;
+        border: 1px solid var(--hairline);
+        border-radius: 50%;
+        background:
+            radial-gradient(circle at 50% 50%, var(--surface-bg-elevated) 0 38%, transparent 39%),
+            conic-gradient(from 0deg, transparent 0deg, var(--theme-primary) 70deg, transparent 142deg, var(--theme-primary-border) 260deg, transparent 360deg);
+        box-shadow:
+            0 1px 0 var(--panel-ring) inset,
+            0 16px 36px rgba(64, 158, 255, 0.18);
+        animation: uploadOrbSpin 1.2s linear infinite;
+    }
+
+    .upload-loading-orb::after {
+        position: absolute;
+        inset: 18px;
+        border-radius: 50%;
+        background: var(--surface-bg-elevated);
+        box-shadow: 0 0 0 1px var(--hairline);
+        content: "";
+    }
+
+    .upload-loading-orb span {
+        position: absolute;
+        inset: 8px;
+        border-radius: 50%;
+        background: var(--theme-surface-tint);
+        animation: uploadOrbPulse 1.6s var(--motion-curve) infinite;
+    }
+
+    .upload-loading-orb span:nth-child(2) {
+        inset: 22px;
+        background: var(--theme-primary-soft);
+        animation-delay: -0.45s;
+    }
+
+    .upload-loading-title {
+        font-size: 18px;
+        font-weight: 800;
+        line-height: 1.3;
+        letter-spacing: -0.02em;
+    }
+
+    .upload-loading-progress {
+        margin-top: 7px;
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.45;
+    }
+
+    .upload-loading-bar {
+        width: 100%;
+        height: 8px;
+        margin-top: 16px;
+        overflow: hidden;
+        border: 1px solid var(--hairline);
+        background: var(--theme-primary-soft);
+        border-radius: 999px;
+        box-shadow: 0 1px 0 var(--panel-ring) inset;
+    }
+
+    .upload-loading-bar span {
+        display: block;
+        height: 100%;
+        min-width: 8px;
+        background:
+            linear-gradient(90deg, var(--theme-primary), rgba(103, 194, 58, 0.88));
+        border-radius: inherit;
+        transition: width 220ms var(--motion-curve);
+    }
+
+    .upload-loading-bar.is-indeterminate span {
+        width: 38% !important;
+        min-width: 38%;
+        animation: uploadBarSweep 1.15s var(--motion-curve) infinite;
+        transition: none;
     }
 
     .result-overlap {
@@ -3720,9 +4314,9 @@
         justify-content: center;
         gap: 8px;
         padding: 8px 10px;
-        border: 1px solid var(--theme-primary-border);
+        border: 1px solid var(--hairline);
         background: var(--floating-bg);
-        border-radius: 6px;
+        border-radius: 999px;
         box-shadow: var(--floating-shadow);
     }
 
@@ -3767,7 +4361,7 @@
     .preview-overlap-container {
         position: relative;
         overflow: hidden;
-        border: 1px solid var(--theme-primary-border);
+        border: 1px solid var(--hairline);
         background-color: var(--image-checker-base);
         background-image:
             linear-gradient(45deg, var(--image-checker-mark) 25%, transparent 25%),
@@ -3776,7 +4370,7 @@
             linear-gradient(-45deg, transparent 75%, var(--image-checker-mark) 75%);
         background-size: 16px 16px;
         background-position: 0 0, 0 8px, 8px -8px, -8px 0;
-        border-radius: 6px;
+        border-radius: var(--radius-sm);
         box-shadow: var(--image-shadow);
     }
 
@@ -3788,9 +4382,9 @@
         z-index: 5;
         width: auto;
         padding: 8px 12px;
-        border: 1px solid var(--theme-primary-border);
+        border: 1px solid var(--hairline);
         background: var(--floating-bg);
-        border-radius: 6px;
+        border-radius: 999px;
         box-shadow: var(--floating-shadow);
     }
 
@@ -3801,7 +4395,7 @@
     .app-footer {
         flex: 0 0 44px;
         min-height: 44px;
-        border-top: 1px solid var(--theme-primary-border);
+        border-top: 1px solid var(--hairline);
         background: var(--surface-bg);
     }
 
@@ -3828,7 +4422,7 @@
 
         .app-main {
             max-width: 100%;
-            padding-top: 50px;
+            padding: 54px 14px 18px;
             overflow-x: hidden;
             overflow-y: visible;
         }
@@ -3849,10 +4443,11 @@
             max-height: none;
             overflow-x: hidden;
             overflow-y: visible;
+            border-radius: var(--radius-md);
         }
 
         .control-section {
-            padding: 14px 0;
+            padding: 14px;
         }
 
         .stage-panel {
@@ -3862,6 +4457,7 @@
             min-height: 0;
             overflow-x: hidden;
             overflow-y: visible;
+            border-radius: var(--radius-md);
         }
 
         .stage-body,
@@ -3878,7 +4474,7 @@
 
     @media (max-width: 640px) {
         .app-main {
-            padding: 10px;
+            padding: 52px 10px 12px;
         }
 
         .app-footer {
@@ -3911,11 +4507,33 @@
             padding: 14px;
         }
 
+        .control-section {
+            padding: 12px;
+        }
+
+        .section-title {
+            margin-bottom: 8px;
+        }
+
         .brand-block,
         .stage-toolbar {
             align-items: flex-start;
             flex-direction: column;
             min-width: 0;
+        }
+
+        .brand-block h1 {
+            font-size: 23px;
+            letter-spacing: -0.028em;
+        }
+
+        .heading-row {
+            align-items: flex-start;
+            gap: 7px;
+        }
+
+        .heading-row .el-popover__reference-wrapper {
+            margin-top: 5px;
         }
 
         .stage-toolbar > div:first-child {
@@ -3949,12 +4567,17 @@
         .field-row {
             align-items: stretch;
             flex-direction: column;
+            gap: 7px;
+            margin-top: 9px;
         }
 
         .field-row .el-radio-group {
+            width: 100%;
             max-width: 100%;
             justify-content: flex-start;
             overflow-x: auto;
+            padding-bottom: 2px;
+            -webkit-overflow-scrolling: touch;
         }
 
         .field-row .el-radio-button__inner {
@@ -3966,12 +4589,26 @@
             flex-basis: auto;
         }
 
+        .action-section {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .action-section .el-button {
+            width: 100%;
+            margin-left: 0;
+        }
+
         .stage-body,
         .result-stage {
             width: 100%;
             box-sizing: border-box;
-            min-height: 62vh;
+            min-height: 54vh;
             padding: 12px;
+        }
+
+        .large-upload .el-upload-dragger {
+            min-height: 240px;
         }
 
         .stage-body .el-image {
@@ -3991,6 +4628,19 @@
         .preview-pan-viewport,
         .preview-overlap-slider {
             max-width: 100%;
+        }
+
+        .preview-pan-viewport {
+            touch-action: pan-y;
+        }
+
+        .preview-pan-viewport.is-draggable {
+            touch-action: none;
+        }
+
+        .el-message-box {
+            width: calc(100vw - 28px);
+            max-width: 420px;
         }
 
         .toolbar-progress-wrap {

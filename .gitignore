@@ -6,8 +6,14 @@
 build/
 cmake-build-debug/
 
+# Node / Playwright
+node_modules/
+playwright-report/
+test-results/
+
 # files
 .DS_Store
+debug.log
 /ncnn
 /fmt
 /third_party/emsdk
