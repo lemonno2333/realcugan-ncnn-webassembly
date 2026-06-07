@@ -58,10 +58,10 @@
                 </el-dropdown>
             </div>
 
-            <el-main class="app-main">
+            <el-main class="app-main" :class="getAppMainClass()">
                 <div class="app-ambient-glow app-ambient-glow-processing" v-if="isProcessing || isResultRevealing"></div>
                 <div class="app-ambient-glow app-ambient-glow-preview" v-if="isProcessDone"></div>
-                <div class="workspace">
+                <div class="workspace" :class="getWorkspaceClass()" :style="getWorkspaceStyle()">
                     <aside class="control-panel">
                         <div class="brand-block">
                             <div>
@@ -164,7 +164,7 @@
                         </div>
                     </aside>
 
-                    <section class="stage-panel">
+                    <section class="stage-panel" :class="getStagePanelClass()" :style="getStagePanelStyle()">
                         <div class="stage-toolbar">
                             <div>
                                 <div class="stage-title">{{uploadPreviewName || t('stage.workspace')}}</div>
@@ -192,7 +192,7 @@
                             </div>
                         </div>
 
-                        <div class="stage-body" v-if="uploadPreviewWidth === 0 && !isProcessDone">
+                        <div class="stage-body" :class="getStageSurfaceClass('empty')" :style="getStageSurfaceStyle('empty')" v-if="uploadPreviewWidth === 0 && !isProcessDone">
                             <el-upload
                                     ref="imageUpload"
                                     class="large-upload"
@@ -226,7 +226,7 @@
                             </el-upload>
                         </div>
 
-                        <div class="stage-body processing-stage" :class="{'is-processing': isProcessing}" v-if="uploadPreviewWidth !== 0 && !isProcessDone">
+                        <div class="stage-body processing-stage" :class="[{'is-processing': isProcessing}, getStageSurfaceClass('input')]" :style="getStageSurfaceStyle('input')" v-if="uploadPreviewWidth !== 0 && !isProcessDone">
                             <div class="processing-gradient" v-if="isProcessing">
                                 <span></span>
                                 <span></span>
@@ -242,7 +242,7 @@
                             </el-image>
                         </div>
 
-                        <div class="result-stage result-overlap" :class="{'is-revealing': isResultRevealing}" v-if="isProcessDone">
+                        <div class="result-stage result-overlap" :class="[{'is-revealing': isResultRevealing}, getStageSurfaceClass('result')]" :style="getStageSurfaceStyle('result')" v-if="isProcessDone">
                             <div class="result-reveal-gradient" v-if="isResultRevealing">
                                 <span></span>
                                 <span></span>
@@ -792,6 +792,10 @@
                 outputDenoise: 0,
                 outputModelType: 'se',
                 windowWidth: 0,
+                windowHeight: 0,
+                windowResizeHandler: null,
+                stageLayoutTick: 0,
+                stageLayoutFrame: null,
                 outputImgSrc: '',
                 outputObjectUrl: '',
                 extractedThemeColors: null,
@@ -823,12 +827,17 @@
             this.language = this.getInitialLanguage();
             this.applyLanguage();
 
-            // watch window width
+            // watch viewport size
             this.windowWidth = window.innerWidth;
-            window.addEventListener("resize", () => {
+            this.windowHeight = window.innerHeight;
+            this.windowResizeHandler = () => {
                 this.windowWidth = window.innerWidth;
+                this.windowHeight = window.innerHeight;
+                this.scheduleStageLayoutSync();
                 this.syncPreviewViewport();
-            });
+            };
+            window.addEventListener("resize", this.windowResizeHandler);
+            this.scheduleStageLayoutSync();
 
             // load preferences
             let scale = this.getPreference('scale');
@@ -915,6 +924,14 @@
         },
 
         beforeDestroy() {
+            if (this.windowResizeHandler) {
+                window.removeEventListener('resize', this.windowResizeHandler);
+                this.windowResizeHandler = null;
+            }
+            if (this.stageLayoutFrame) {
+                cancelAnimationFrame(this.stageLayoutFrame);
+                this.stageLayoutFrame = null;
+            }
             document.removeEventListener('mousedown', this.handleInfoPopoverOutside);
             document.removeEventListener('touchstart', this.handleInfoPopoverOutside);
         },
@@ -1218,6 +1235,18 @@
                 return 'rgb(' + color.r + ', ' + color.g + ', ' + color.b + ')';
             },
 
+            getRelativeLuminance(color) {
+                let channel = (value) => {
+                    value = value / 255;
+                    return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+                };
+                return 0.2126 * channel(color.r) + 0.7152 * channel(color.g) + 0.0722 * channel(color.b);
+            },
+
+            getReadableTextOnColor(color) {
+                return this.getRelativeLuminance(color) > 0.36 ? '#111827' : '#ffffff';
+            },
+
             extractThemeColor(imageData) {
                 let colors = this.extractThemeColors(imageData, 1);
                 return colors[0];
@@ -1311,7 +1340,7 @@
                 root.style.setProperty('--theme-primary-border', this.rgbCss(border));
                 root.style.setProperty('--theme-surface-tint', 'rgba(' + primary.r + ', ' + primary.g + ', ' + primary.b + ', ' + (isDarkTheme ? '0.14' : '0.08') + ')');
                 root.style.setProperty('--theme-text-strong', this.rgbCss(textStrong));
-                root.style.setProperty('--theme-on-primary', isDarkTheme ? '#08111f' : (hsl.l > 58 ? '#111827' : '#ffffff'));
+                root.style.setProperty('--theme-on-primary', this.getReadableTextOnColor(primary));
                 colors.forEach((themeColor, index) => {
                     let colorHsl = this.rgbToHsl(themeColor.r, themeColor.g, themeColor.b);
                     let fluid = this.hslToRgb(colorHsl.h, this.clampColorValue(colorHsl.s, 45, 82), isDarkTheme ? this.clampColorValue(colorHsl.l - 8, 28, 50) : this.clampColorValue(colorHsl.l, 46, 68));
@@ -1587,6 +1616,7 @@
                     this.uploadPreviewWidth = canvas.width;
                     this.uploadPreviewHeight = canvas.height;
                     this.uploadPreviewName = file.name;
+                    this.scheduleStageLayoutSync();
                     this.applyImageThemeFromCanvas(canvas);
                     this.scrollStageIntoView();
                     this.preflightProcess(canvas, canvas.width, canvas.height);
@@ -1912,17 +1942,159 @@
             },
 
             getStageViewportSize() {
+                this.stageLayoutTick;
+                if (this.isAdaptiveStageViewport() && this.uploadPreviewWidth && this.uploadPreviewHeight) {
+                    let size = this.getAdaptiveStageSurfaceSize(this.getCurrentStageKind());
+                    return {
+                        width: Math.max(280, size.width - 48),
+                        height: Math.max(220, size.height - 48),
+                    };
+                }
                 let stage = document.querySelector('.result-stage') || document.querySelector('.stage-body');
                 if (stage) {
+                    let inset = stage.classList.contains('stage-surface-adaptive') ? 48 : 0;
                     return {
-                        width: Math.max(280, stage.clientWidth - 44),
-                        height: Math.max(220, stage.clientHeight - 112),
+                        width: Math.max(280, stage.clientWidth - (inset || 44)),
+                        height: Math.max(220, stage.clientHeight - (inset || 112)),
                     };
                 }
                 let gutter = this.windowWidth > 1180 ? 420 : 48;
                 return {
                     width: Math.max(280, this.windowWidth - gutter),
                     height: Math.max(220, window.innerHeight - 300),
+                };
+            },
+
+            scheduleStageLayoutSync() {
+                if (this.stageLayoutFrame) {
+                    cancelAnimationFrame(this.stageLayoutFrame);
+                }
+                this.stageLayoutFrame = requestAnimationFrame(() => {
+                    this.stageLayoutFrame = null;
+                    this.stageLayoutTick += 1;
+                    this.syncPreviewViewport();
+                });
+            },
+
+            isAdaptiveStageViewport() {
+                return this.windowWidth > 1120;
+            },
+
+            getCurrentStageKind() {
+                if (this.isProcessDone) {
+                    return 'result';
+                }
+                if (this.uploadPreviewWidth !== 0) {
+                    return 'input';
+                }
+                return 'empty';
+            },
+
+            getStagePanelClass() {
+                return this.isAdaptiveStageViewport() ? 'stage-panel-adaptive' : '';
+            },
+
+            getAppMainClass() {
+                return this.isAdaptiveStageViewport() ? 'app-main-adaptive' : '';
+            },
+
+            getWorkspaceClass() {
+                return this.isAdaptiveStageViewport() ? 'workspace-adaptive' : '';
+            },
+
+            getWorkspaceStyle() {
+                if (!this.isAdaptiveStageViewport()) {
+                    return {};
+                }
+                let controlWidth = 340;
+                let gap = 15;
+                let size = this.getAdaptiveStageSurfaceSize(this.getCurrentStageKind());
+                return {
+                    width: Math.floor(controlWidth + gap + size.width) + 'px',
+                    gridTemplateColumns: controlWidth + 'px ' + Math.floor(size.width) + 'px',
+                    gap: gap + 'px',
+                };
+            },
+
+            getStageSurfaceClass(kind) {
+                if (!this.isAdaptiveStageViewport()) {
+                    return '';
+                }
+                return 'stage-surface-adaptive stage-surface-' + kind;
+            },
+
+            getAdaptiveStageBounds() {
+                this.stageLayoutTick;
+                let appMain = document.querySelector('.app-main');
+                let workspace = document.querySelector('.workspace');
+                let controlPanel = document.querySelector('.control-panel');
+                let toolbar = document.querySelector('.stage-toolbar');
+                let appMainRect = appMain ? appMain.getBoundingClientRect() : null;
+                let controlRect = controlPanel ? controlPanel.getBoundingClientRect() : null;
+                let toolbarHeight = toolbar ? toolbar.getBoundingClientRect().height : 76;
+                let appMainHorizontalPadding = this.windowWidth > 1120 ? 44 : 28;
+                let controlWidth = controlRect ? controlRect.width : 340;
+                let columnGap = 15;
+                let workspaceLimit = Math.min(1680, this.windowWidth - appMainHorizontalPadding);
+                let maxPanelHeight = appMainRect
+                    ? Math.max(420, appMainRect.height - 44)
+                    : Math.max(420, this.windowHeight - 88);
+                let maxBodyWidth = Math.max(360, workspaceLimit - controlWidth - columnGap);
+                let maxBodyHeight = Math.max(260, maxPanelHeight - toolbarHeight);
+                return {
+                    maxBodyWidth: maxBodyWidth,
+                    maxBodyHeight: maxBodyHeight,
+                };
+            },
+
+            getAdaptiveStageSurfaceSize(kind) {
+                let bounds = this.getAdaptiveStageBounds();
+                if (kind === 'empty' || !this.uploadPreviewWidth || !this.uploadPreviewHeight) {
+                    return {
+                        width: 620 + 48,
+                        height: Math.min(bounds.maxBodyHeight, 330 + 48),
+                    };
+                }
+
+                let imageWidth = kind === 'result'
+                    ? (this.outputPreviewWidth || this.uploadPreviewWidth * this.scaleRadio)
+                    : this.uploadPreviewWidth;
+                let imageHeight = kind === 'result'
+                    ? (this.outputPreviewHeight || this.uploadPreviewHeight * this.scaleRadio)
+                    : this.uploadPreviewHeight;
+                let ratio = Math.max(0.05, imageWidth / Math.max(1, imageHeight));
+                let width = bounds.maxBodyWidth;
+                let height = width / ratio;
+                if (height > bounds.maxBodyHeight) {
+                    height = bounds.maxBodyHeight;
+                    width = height * ratio;
+                }
+                return {
+                    width: Math.max(320, Math.floor(width)),
+                    height: Math.max(260, Math.floor(height)),
+                };
+            },
+
+            getStagePanelStyle() {
+                this.stageLayoutTick;
+                if (!this.isAdaptiveStageViewport()) {
+                    return {};
+                }
+                let size = this.getAdaptiveStageSurfaceSize(this.getCurrentStageKind());
+                return {
+                    width: Math.floor(size.width) + 'px',
+                };
+            },
+
+            getStageSurfaceStyle(kind) {
+                this.stageLayoutTick;
+                if (!this.isAdaptiveStageViewport()) {
+                    return {};
+                }
+                let size = this.getAdaptiveStageSurfaceSize(kind);
+                return {
+                    width: Math.floor(size.width) + 'px',
+                    height: Math.floor(size.height) + 'px',
                 };
             },
 
@@ -2111,6 +2283,19 @@
                 this.ambientUpdateTimer = setTimeout(() => {
                     this.updatePreviewAmbientGlow();
                 }, 120);
+            },
+
+            primePreviewAmbientGlow() {
+                this.$nextTick(() => {
+                    let glow = document.querySelector('.app-ambient-glow-preview');
+                    if (!glow) {
+                        return;
+                    }
+                    glow.style.setProperty('--ambient-top', 'var(--fluid-color-1)');
+                    glow.style.setProperty('--ambient-right', 'var(--fluid-color-2)');
+                    glow.style.setProperty('--ambient-bottom', 'var(--fluid-color-3)');
+                    glow.style.setProperty('--ambient-left', 'var(--fluid-color-4)');
+                });
             },
 
             updatePreviewAmbientGlow() {
@@ -2519,9 +2704,12 @@
                     this.isProcessing = false;
                     this.isProcessDone = true;
                     this.safeProcessingMode = false;
+                    this.scheduleStageLayoutSync();
                     this.beginResultReveal();
                     this.syncPreviewViewport();
-                    this.scheduleAmbientGlowUpdate();
+                    setTimeout(() => {
+                        this.scheduleAmbientGlowUpdate();
+                    }, 260);
                     this.scrollStageIntoView();
                 }, 'image/png');
 
@@ -2578,6 +2766,7 @@
                     this.resultRevealTimer = null;
                 }
                 this.isResultRevealing = true;
+                this.primePreviewAmbientGlow();
                 this.resultRevealTimer = setTimeout(() => {
                     this.isResultRevealing = false;
                     this.resultRevealTimer = null;
@@ -2784,6 +2973,7 @@
                 this.previewViewportWidth = 0;
                 this.resetPreviewPan();
                 this.resetTheme();
+                this.scheduleStageLayoutSync();
                 let uploadCanvas = document.getElementById('canvas-upload');
                 let outputCanvas = document.getElementById('canvas-output');
                 if (uploadCanvas) {
@@ -2819,6 +3009,7 @@
                     this.uploadPreviewWidth = img.width;
                     this.uploadPreviewHeight = img.height;
                     this.uploadPreviewName = filename;
+                    this.scheduleStageLayoutSync();
                     this.applyImageThemeFromCanvas(canvas);
                     this.scrollStageIntoView();
                     this.preflightProcess(canvas, canvas.width, canvas.height);
@@ -2833,6 +3024,90 @@
 
 
 <style>
+    @property --theme-primary {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: #409EFF;
+    }
+
+    @property --theme-on-primary {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: #ffffff;
+    }
+
+    @property --theme-primary-soft {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: #edf6ff;
+    }
+
+    @property --theme-primary-border {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: #c7dcf3;
+    }
+
+    @property --theme-surface-tint {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: rgba(64, 158, 255, 0.10);
+    }
+
+    @property --theme-text-strong {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: #17202d;
+    }
+
+    @property --fluid-color-1 {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: rgba(64, 158, 255, 0.72);
+    }
+
+    @property --fluid-color-2 {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: rgba(103, 194, 58, 0.68);
+    }
+
+    @property --fluid-color-3 {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: rgba(230, 162, 60, 0.66);
+    }
+
+    @property --fluid-color-4 {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: rgba(245, 108, 108, 0.62);
+    }
+
+    @property --ambient-top {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: rgba(64, 158, 255, 0.72);
+    }
+
+    @property --ambient-right {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: rgba(103, 194, 58, 0.68);
+    }
+
+    @property --ambient-bottom {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: rgba(230, 162, 60, 0.66);
+    }
+
+    @property --ambient-left {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: rgba(245, 108, 108, 0.62);
+    }
+
     :root {
         color-scheme: light;
         --theme-primary: #409EFF;
@@ -2869,6 +3144,21 @@
         --fluid-color-2: rgba(103, 194, 58, 0.68);
         --fluid-color-3: rgba(230, 162, 60, 0.66);
         --fluid-color-4: rgba(245, 108, 108, 0.62);
+        transition:
+            --theme-primary 420ms var(--motion-curve),
+            --theme-on-primary 420ms var(--motion-curve),
+            --theme-primary-soft 420ms var(--motion-curve),
+            --theme-primary-border 420ms var(--motion-curve),
+            --theme-surface-tint 420ms var(--motion-curve),
+            --theme-text-strong 420ms var(--motion-curve),
+            --fluid-color-1 520ms var(--motion-curve),
+            --fluid-color-2 520ms var(--motion-curve),
+            --fluid-color-3 520ms var(--motion-curve),
+            --fluid-color-4 520ms var(--motion-curve),
+            --ambient-top 620ms var(--motion-curve),
+            --ambient-right 620ms var(--motion-curve),
+            --ambient-bottom 620ms var(--motion-curve),
+            --ambient-left 620ms var(--motion-curve);
     }
 
     :root[data-theme="dark"] {
@@ -2923,6 +3213,54 @@
         text-rendering: geometricPrecision;
     }
 
+    body,
+    .app-main,
+    .control-panel,
+    .stage-panel,
+    .stage-toolbar,
+    .stage-body,
+    .result-stage,
+    .control-section,
+    .brand-block,
+    .floating-preferences,
+    .floating-preference-button,
+    .info-button,
+    .el-footer,
+    .el-dropdown-menu,
+    .el-menu--popup,
+    .el-message-box,
+    .el-notification,
+    .el-button,
+    .el-radio-button__inner,
+    .el-slider__runway,
+    .el-progress-bar__outer,
+    .large-upload .el-upload-dragger,
+    .upload-loading-bar,
+    .preview-tools,
+    .preview-overlap-slider {
+        transition:
+            background-color 420ms var(--motion-curve),
+            background 520ms var(--motion-curve),
+            border-color 420ms var(--motion-curve),
+            color 420ms var(--motion-curve),
+            box-shadow 420ms var(--motion-curve),
+            filter 420ms var(--motion-curve);
+    }
+
+    .app-main::before,
+    .app-ambient-glow,
+    .processing-gradient,
+    .processing-gradient::before,
+    .processing-gradient span,
+    .result-reveal-gradient,
+    .result-reveal-gradient span {
+        transition:
+            background 520ms var(--motion-curve),
+            background-color 520ms var(--motion-curve),
+            opacity 420ms var(--motion-curve),
+            filter 420ms var(--motion-curve);
+    }
+
     .el-footer {
         background-color: var(--surface-bg);
         color: var(--text-normal);
@@ -2931,19 +3269,37 @@
 
     .el-dropdown-menu,
     .el-menu--popup,
-    .el-message-box {
+    .el-message-box,
+    .el-notification {
         border-color: var(--theme-primary-border);
         background: var(--surface-bg-elevated);
         color: var(--text-normal);
     }
 
     .el-message-box__title,
-    .el-message-box__content {
+    .el-message-box__content,
+    .el-notification__title {
         color: var(--text-normal);
     }
 
-    .el-message-box__message {
+    .el-message-box__message,
+    .el-notification__content {
         color: var(--text-muted);
+    }
+
+    .el-notification {
+        border: 1px solid var(--hairline);
+        box-shadow: var(--floating-shadow);
+    }
+
+    .el-notification__icon,
+    .el-notification__closeBtn {
+        color: var(--theme-primary);
+    }
+
+    .el-notification__closeBtn:hover,
+    .el-notification__closeBtn:focus {
+        color: var(--theme-text-strong);
     }
 
     .el-menu--popup .el-menu-item {
@@ -3250,6 +3606,20 @@
         box-shadow: var(--panel-shadow-soft);
     }
 
+    .el-button--primary {
+        border-color: var(--theme-primary);
+        background-color: var(--theme-primary);
+        color: var(--theme-on-primary);
+    }
+
+    .el-button--primary:hover,
+    .el-button--primary:focus,
+    .el-button--primary:active {
+        border-color: var(--theme-primary);
+        background-color: var(--theme-primary);
+        color: var(--theme-on-primary);
+    }
+
     .el-button:active,
     .el-radio-button__inner:active {
         transform: translateY(0) scale(0.985);
@@ -3452,6 +3822,12 @@
         text-align: left;
     }
 
+    .app-main-adaptive {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
     .app-main::before {
         position: absolute;
         inset: 0;
@@ -3479,6 +3855,13 @@
         align-items: stretch;
     }
 
+    .workspace-adaptive {
+        height: auto;
+        max-width: calc(100vw - 44px);
+        align-items: center;
+        transition: width 220ms var(--motion-curve);
+    }
+
     .control-panel,
     .stage-panel {
         border: 1px solid var(--hairline);
@@ -3497,6 +3880,13 @@
         overflow: auto;
         padding: 18px;
         scrollbar-width: thin;
+    }
+
+    .workspace-adaptive .control-panel {
+        position: static;
+        top: auto;
+        align-self: center;
+        max-height: calc(100vh - 88px);
     }
 
     .brand-block {
@@ -3688,6 +4078,15 @@
         flex-direction: column;
     }
 
+    .stage-panel-adaptive {
+        height: auto;
+        align-self: start;
+        justify-self: center;
+        transition:
+            width 220ms var(--motion-curve),
+            box-shadow 220ms var(--motion-curve);
+    }
+
     .stage-toolbar {
         display: flex;
         flex: 0 0 auto;
@@ -3764,6 +4163,16 @@
         justify-content: center;
     }
 
+    .stage-surface-adaptive {
+        box-sizing: border-box;
+        flex: 0 0 auto;
+        max-width: 100%;
+        min-height: 0;
+        transition:
+            width 220ms var(--motion-curve),
+            height 220ms var(--motion-curve);
+    }
+
     .app-ambient-glow {
         position: absolute;
         inset: -80px;
@@ -3801,7 +4210,14 @@
             radial-gradient(ellipse at 50% 95%, var(--ambient-bottom) 0%, transparent 42%),
             radial-gradient(ellipse at 7% 50%, var(--ambient-left) 0%, transparent 44%);
         opacity: 0.68;
-        transition: background 180ms ease, opacity 180ms ease;
+        transition:
+            --ambient-top 620ms var(--motion-curve),
+            --ambient-right 620ms var(--motion-curve),
+            --ambient-bottom 620ms var(--motion-curve),
+            --ambient-left 620ms var(--motion-curve),
+            background 620ms var(--motion-curve),
+            opacity 420ms var(--motion-curve),
+            filter 420ms var(--motion-curve);
     }
 
     :root[data-theme="dark"] .app-ambient-glow {
@@ -4477,26 +4893,69 @@
             padding: 52px 10px 12px;
         }
 
+        .floating-preferences {
+            top: 10px;
+            right: 10px;
+            left: auto;
+            gap: 2px;
+            padding: 4px;
+            border: 1px solid var(--hairline);
+            border-radius: 999px;
+            background: var(--floating-bg);
+            box-shadow: 0 10px 28px rgba(22, 35, 48, 0.1);
+            backdrop-filter: blur(14px);
+        }
+
+        .floating-preference-button {
+            width: 32px;
+            height: 32px;
+            min-width: 32px;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+            backdrop-filter: none;
+        }
+
+        .floating-preference-button i,
+        .floating-preference-button svg {
+            width: 15px;
+            height: 15px;
+            font-size: 15px;
+        }
+
+        .floating-preference-button:hover,
+        .floating-preference-button:focus {
+            box-shadow: none;
+            transform: none;
+        }
+
         .app-footer {
             flex: 0 0 auto;
-            flex-direction: column;
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
             width: 100%;
             max-width: 100%;
             height: auto !important;
-            min-height: 44px;
+            min-height: 36px;
             box-sizing: border-box;
-            gap: 4px;
-            padding: 10px 12px;
-            line-height: 1.5;
+            gap: 5px 11px;
+            padding: 8px 14px 12px;
+            font-size: 11px;
+            line-height: 1.35;
             overflow-wrap: anywhere;
         }
 
         .app-footer > span,
         .app-footer > a {
-            max-width: 100%;
-            white-space: normal;
-            overflow-wrap: anywhere;
-            word-break: break-word;
+            max-width: none;
+            white-space: nowrap;
+            overflow-wrap: normal;
+            word-break: normal;
+        }
+
+        .app-footer a:nth-of-type(n+4) {
+            display: none;
         }
 
         .workspace {
@@ -4603,12 +5062,32 @@
         .result-stage {
             width: 100%;
             box-sizing: border-box;
-            min-height: 54vh;
-            padding: 12px;
+            min-height: 46vh;
+            padding: 10px;
         }
 
         .large-upload .el-upload-dragger {
-            min-height: 240px;
+            min-height: 205px;
+            border-radius: var(--radius-md);
+        }
+
+        .large-upload .el-icon-upload {
+            width: 54px;
+            height: 54px;
+            margin-bottom: 12px;
+            font-size: 54px;
+            line-height: 54px;
+        }
+
+        .large-upload .el-upload__text {
+            gap: 4px;
+            font-size: 14px;
+            line-height: 1.35;
+        }
+
+        .upload-format-hint {
+            font-size: 11px;
+            letter-spacing: 0.01em;
         }
 
         .stage-body .el-image {
