@@ -50,10 +50,15 @@ function stripHtmlComments(html) {
     return html.replace(/<!--[\s\S]*?-->/g, '');
 }
 
-function extractModelManifest(html) {
-    const match = html.match(/const\s+MODEL_FILES\s*=\s*([\s\S]*?);\s*const\s+I18N\s*=/);
+function extractModelManifest(webRoot) {
+    const manifestPath = path.join(webRoot, 'modelManifest.js');
+    if (!fs.existsSync(manifestPath)) {
+        throw new Error('Could not find web/modelManifest.js');
+    }
+    const source = readText(manifestPath);
+    const match = source.match(/window\.MODEL_FILES\s*=\s*([\s\S]*?);\s*$/);
     if (!match) {
-        throw new Error('Could not find MODEL_FILES in web/index.html');
+        throw new Error('Could not find MODEL_FILES in web/modelManifest.js');
     }
     return Function(`"use strict"; return (${match[1]});`)();
 }
@@ -142,7 +147,7 @@ function buildReport(webRoot) {
     }
 
     const html = readText(indexPath);
-    const manifest = extractModelManifest(html);
+    const manifest = extractModelManifest(webRoot);
 
     addAsset(report, webRoot, 'index.html');
     collectStaticReferences(html).forEach((relativePath) => {

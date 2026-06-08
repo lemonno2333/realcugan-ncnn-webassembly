@@ -21,9 +21,13 @@
     <!-- import CSS -->
     <link rel="stylesheet" href="normalize.css?v=2026.06.05-alpha.23">
     <link rel="stylesheet" href="element.css?v=2026.06.05-alpha.23">
+    <link rel="stylesheet" href="app.css?v=2026.06.05-alpha.23">
     <!-- import JavaS/docs/doccnToNsFKaK01nwkKpHD5S4xbcript -->
     <script src="element.js?v=2026.06.05-alpha.23"></script>
     <script src="wasmFeatureDetect.js?v=2026.06.05-alpha.23"></script>
+    <script src="debugLogger.js?v=2026.06.05-alpha.23"></script>
+    <script src="modelManifest.js?v=2026.06.05-alpha.23"></script>
+    <script src="i18n.js?v=2026.06.05-alpha.23"></script>
 </head>
 
 <body>
@@ -58,11 +62,11 @@
                 </el-dropdown>
             </div>
 
-            <el-main class="app-main" :class="getAppMainClass()">
+            <el-main ref="appMain" class="app-main" :class="getAppMainClass()">
                 <div class="app-ambient-glow app-ambient-glow-processing" v-if="isProcessing || isResultRevealing"></div>
-                <div class="app-ambient-glow app-ambient-glow-preview" v-if="isProcessDone"></div>
-                <div class="workspace" :class="getWorkspaceClass()" :style="getWorkspaceStyle()">
-                    <aside class="control-panel">
+                <div ref="ambientPreviewGlow" class="app-ambient-glow app-ambient-glow-preview" v-if="isProcessDone"></div>
+                <div ref="workspace" class="workspace" :class="getWorkspaceClass()" :style="getWorkspaceStyle()">
+                    <aside ref="controlPanel" class="control-panel">
                         <div class="brand-block">
                             <div>
                                 <div class="eyebrow">Real-CUGAN Web</div>
@@ -164,8 +168,8 @@
                         </div>
                     </aside>
 
-                    <section class="stage-panel" :class="getStagePanelClass()" :style="getStagePanelStyle()">
-                        <div class="stage-toolbar">
+                    <section ref="stagePanel" class="stage-panel" :class="getStagePanelClass()" :style="getStagePanelStyle()">
+                        <div ref="stageToolbar" class="stage-toolbar">
                             <div>
                                 <div class="stage-title">{{uploadPreviewName || t('stage.workspace')}}</div>
                                 <div class="stage-meta" v-if="uploadPreviewWidth !== 0">
@@ -192,7 +196,7 @@
                             </div>
                         </div>
 
-                        <div class="stage-body" :class="getStageSurfaceClass('empty')" :style="getStageSurfaceStyle('empty')" v-if="uploadPreviewWidth === 0 && !isProcessDone">
+                        <div ref="emptyStageSurface" class="stage-body" :class="getStageSurfaceClass('empty')" :style="getStageSurfaceStyle('empty')" v-if="uploadPreviewWidth === 0 && !isProcessDone">
                             <el-upload
                                     ref="imageUpload"
                                     class="large-upload"
@@ -226,7 +230,7 @@
                             </el-upload>
                         </div>
 
-                        <div class="stage-body processing-stage" :class="[{'is-processing': isProcessing}, getStageSurfaceClass('input')]" :style="getStageSurfaceStyle('input')" v-if="uploadPreviewWidth !== 0 && !isProcessDone">
+                        <div ref="inputStageSurface" class="stage-body processing-stage" :class="[{'is-processing': isProcessing}, getStageSurfaceClass('input')]" :style="getStageSurfaceStyle('input')" v-if="uploadPreviewWidth !== 0 && !isProcessDone">
                             <div class="processing-gradient" v-if="isProcessing">
                                 <span></span>
                                 <span></span>
@@ -242,14 +246,15 @@
                             </el-image>
                         </div>
 
-                        <div class="result-stage result-overlap" :class="[{'is-revealing': isResultRevealing}, getStageSurfaceClass('result')]" :style="getStageSurfaceStyle('result')" v-if="isProcessDone">
+                        <div ref="resultStageSurface" class="result-stage result-overlap" :class="[{'is-revealing': isResultRevealing}, getStageSurfaceClass('result')]" :style="getStageSurfaceStyle('result')" v-if="isProcessDone">
                             <div class="result-reveal-gradient" v-if="isResultRevealing">
                                 <span></span>
                                 <span></span>
                                 <span></span>
                                 <span></span>
                             </div>
-                            <div class="preview-pan-viewport"
+                            <div ref="previewViewport" class="preview-pan-viewport"
+                                 :style="getPreviewViewportStyle()"
                                  :class="{'is-draggable': previewZoom > previewZoomMin, 'is-dragging': previewDragging}"
                                  v-on:mousedown="startPreviewPan"
                                  v-on:mousemove="movePreviewPan"
@@ -261,7 +266,7 @@
                                  v-on:touchcancel="endPreviewPan"
                                  v-on:wheel.prevent="onPreviewWheel">
                                 <div class="preview-pan-content"
-                                     :style="{transform: 'translate(' + previewPanX + 'px, ' + previewPanY + 'px)'}">
+                                     :style="{transform: 'translate(' + previewPanX + 'px, ' + getPreviewContentTranslateY() + 'px)'}">
                                     <div class="preview-overlap-container"
                                          :style="{width: getZoomedPreviewSize().outputImgWidth + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
                                         <img
@@ -283,6 +288,7 @@
                                 <div class="preview-split-indicator"
                                      :style="{left: getPreviewSplitViewportX() + 'px'}"></div>
                                 <el-slider
+                                        ref="previewSlider"
                                         class="preview-overlap-slider"
                                         v-model="previewOverlapRate"
                                         :show-tooltip="false">
@@ -313,428 +319,49 @@
 
 <script>
     const APP_VERSION = '2026.06.06-alpha.46';
-    const MODEL_FILES = {
-        se: {
-            '-1': {
-                2: {param: 'up2x-conservative.param', bin: 'up2x-conservative.bin', paramBytes: 4818, binBytes: 2573648},
-                3: {param: 'up3x-conservative.param', bin: 'up3x-conservative.bin', paramBytes: 4761, binBytes: 2577104},
-                4: {param: 'up4x-conservative.param', bin: 'up4x-conservative.bin', paramBytes: 5018, binBytes: 2818348},
-            },
-            0: {
-                2: {param: 'up2x-no-denoise.param', bin: 'up2x-no-denoise.bin', paramBytes: 4818, binBytes: 2573648},
-                3: {param: 'up3x-no-denoise.param', bin: 'up3x-no-denoise.bin', paramBytes: 4761, binBytes: 2577104},
-                4: {param: 'up4x-no-denoise.param', bin: 'up4x-no-denoise.bin', paramBytes: 5018, binBytes: 2818348},
-            },
-            1: {
-                2: {param: 'up2x-denoise1x.param', bin: 'up2x-denoise1x.bin', paramBytes: 4761, binBytes: 2573648},
-            },
-            2: {
-                2: {param: 'up2x-denoise2x.param', bin: 'up2x-denoise2x.bin', paramBytes: 4761, binBytes: 2573648},
-            },
-            3: {
-                2: {param: 'up2x-denoise3x.param', bin: 'up2x-denoise3x.bin', paramBytes: 4818, binBytes: 2573648},
-                3: {param: 'up3x-denoise3x.param', bin: 'up3x-denoise3x.bin', paramBytes: 4818, binBytes: 2577104},
-                4: {param: 'up4x-denoise3x.param', bin: 'up4x-denoise3x.bin', paramBytes: 5018, binBytes: 2818348},
-            },
+    const Logger = window.RealCuganLogger || {
+        debug() {},
+        info() {},
+        warn() {
+            if (window.console && window.console.warn) {
+                window.console.warn.apply(window.console, arguments);
+            }
         },
-        pro: {
-            '-1': {
-                2: {param: 'models-pro/up2x-conservative.param', bin: 'models-pro/up2x-conservative.bin', paramBytes: 4765, binBytes: 2573648},
-                3: {param: 'models-pro/up3x-conservative.param', bin: 'models-pro/up3x-conservative.bin', paramBytes: 4765, binBytes: 2577104},
-            },
-            0: {
-                2: {param: 'models-pro/up2x-no-denoise.param', bin: 'models-pro/up2x-no-denoise.bin', paramBytes: 4765, binBytes: 2573648},
-                3: {param: 'models-pro/up3x-no-denoise.param', bin: 'models-pro/up3x-no-denoise.bin', paramBytes: 4765, binBytes: 2577104},
-            },
-            3: {
-                2: {param: 'models-pro/up2x-denoise3x.param', bin: 'models-pro/up2x-denoise3x.bin', paramBytes: 4765, binBytes: 2573648},
-                3: {param: 'models-pro/up3x-denoise3x.param', bin: 'models-pro/up3x-denoise3x.bin', paramBytes: 4765, binBytes: 2577104},
-            },
+        error() {
+            if (window.console && window.console.error) {
+                window.console.error.apply(window.console, arguments);
+            }
         },
     };
-    const I18N = {
-        zh: {
-            app: {
-                title: '动漫图片超分辨率 Real-CUGAN',
-                heading: '动漫图片超分辨率',
-            },
-            nav: {
-                title: '动漫图片超分辨率',
-                about: '关于',
-                originalProject: '原作项目',
-                language: '语言',
-                theme: '主题',
-            },
-            theme: {
-                auto: '跟随系统',
-                light: '浅色',
-                dark: '深色',
-            },
-            state: {
-                ready: '就绪',
-                loading: '加载中',
-                onDemand: '按需加载',
-            },
-            help: {
-                localPrefix: '本项目基于 Web Assembly 技术，',
-                localStrong: '在浏览器端使用 CPU 完成图像处理，',
-                localSuffix: '不会上传任何图片到云端。',
-                noticeTitle: '注意：',
-                noticeText: '处理图片时内存和 CPU 占用较高。如果输出有问题或长时间无响应，请刷新重试。',
-                scaleTitle: '超分倍率：',
-                scaleText: '决定输出图片尺寸，推荐 2X；倍率越高处理越久。',
-                denoiseTitle: '降噪：',
-                denoiseText: '原片噪声多或压缩严重时推荐使用；原片质量较好时可选无降噪；担心画风、纹理或颜色改变时可选保守。',
-                projectInfoLabel: '项目说明',
-                paramsInfoLabel: '参数说明',
-            },
-            controls: {
-                run: '运行',
-                backendMode: '后端模式',
-                params: '参数',
-                model: '模型',
-                scale: '倍率',
-                denoise: '降噪',
-            },
-            model: {
-                se: 'SE',
-                pro: 'Pro',
-            },
-            backend: {
-                auto: '自动',
-                threads: '多线程',
-                basic: '兼容',
-                detecting: '按需加载',
-            },
-            denoise: {
-                conservative: '保守',
-                none: '无',
-            },
-            actions: {
-                sample: '示例图片',
-                reset: '复位',
-                save: '保存图片',
-                cancel: '取消处理',
-                cancelling: '正在取消',
-            },
-            stage: {
-                workspace: '工作区',
-                waiting: '等待图片',
-                loadingAssets: '资源加载中',
-                loadingAssetsProgress: '正在加载处理资源 {percent}%',
-                preparingBackend: '正在准备处理后端，并预取模型文件...',
-            },
-            progress: {
-                starting: '启动中，预计10秒内完成耗时估算...',
-                loadingModel: '正在加载所选模型 {percent}%',
-                loadingModelFile: '正在加载 {model}：{file} {percent}%',
-                processing: '本地CPU努力处理中......',
-                cancelling: '正在等待当前图块处理结束......',
-                done: '处理完成！耗时: {seconds}秒',
-                remaining: '剩余 {seconds} 秒',
-            },
-            preview: {
-                zoomOut: '缩小',
-                zoomIn: '放大',
-            },
-            upload: {
-                drag: '将文件拖到此处，或',
-                click: '点击选取',
-            },
-            footer: {
-                version: '版本',
-                backend: '后端',
-            },
-            dialog: {
-                backendSavedTitle: '设置已保存',
-                backendSavedText: '后端模式会在刷新后生效',
-                reload: '刷新',
-                cancel: '取消',
-                ok: '确定',
-                continue: '继续处理',
-                safeSettings: '使用安全设置',
-                dontShowAgain: '下次不再提示',
-                sizeRiskTitle: '图片尺寸风险',
-                sizeRiskText: '当前会输出 {width} × {height}，预估至少占用 {memory} MB 内存。这个尺寸可能会导致浏览器卡顿或处理失败，建议降低倍率或换小图。',
-                sizeRiskBlockText: '当前会输出 {width} × {height}，预估至少占用 {memory} MB 内存，已经超过浏览器可稳定处理的范围。继续处理可能导致页面卡死、浏览器崩溃或处理失败。',
-                sizeRiskMobileHint: '移动端浏览器通常可用内存更紧张，4X 或大图更容易失败。',
-                sizeRiskSafeText: '安全设置会切换到 SE / 2X，并使用更保守的线程和图块参数继续处理。',
-                processErrorTitle: '处理错误',
-                processErrorText: '错误信息: {message}',
-                processErrorGeneric: '处理失败。你可以复位后重新选择图片，或降低倍率后再试。',
-                processErrorMemory: '浏览器内存不足或 WebAssembly 内存越界。建议降低倍率、换小图，或刷新页面后再试。',
-                processErrorModel: '模型文件读取失败，可能是 web/models 文件缺失、不完整，或浏览器缓存了旧文件。请根据下面的具体文件名检查服务器文件，并强制刷新页面。',
-                processErrorAsset: '后端资源或模型文件加载失败。请确认服务器上的 .js、.wasm、worker 和 models 文件来自同一次构建。',
-                processErrorConflict: '当前已有任务正在运行，暂时不能启动新的处理。请稍后再试。',
-                processErrorInput: '图片尺寸、处理参数或内存缓冲区无效，任务已在处理前安全停止。请复位后重新选择图片。',
-                retryReload: '刷新重试',
-                conflictTitle: '调用冲突',
-                conflictText: '请稍后再试',
-                resourceErrorTitle: '资源加载失败',
-                resourceErrorText: '无法加载 {backend} 后端，请确认 web 目录包含完整构建产物。',
-                oomTitle: '标签页内存受限',
-                oomText: '本页面多次处理图片后，触发了浏览器内存限制，请点击刷新按钮重试',
-            },
-            notify: {
-                success: '成功',
-                saved: '保存成功',
-            },
-        },
-        en: {
-            app: {
-                title: 'Real-CUGAN Anime Image Upscaler',
-                heading: 'Anime Image Upscaler',
-            },
-            nav: {
-                title: 'Anime Image Upscaler',
-                about: 'About',
-                originalProject: 'Original project',
-                language: 'Language',
-                theme: 'Theme',
-            },
-            theme: {
-                auto: 'System',
-                light: 'Light',
-                dark: 'Dark',
-            },
-            state: {
-                ready: 'Ready',
-                loading: 'Loading',
-                onDemand: 'On demand',
-            },
-            help: {
-                localPrefix: 'Powered by WebAssembly. ',
-                localStrong: 'Images are processed locally on your CPU in the browser, ',
-                localSuffix: 'and are never uploaded to the cloud.',
-                noticeTitle: 'Note: ',
-                noticeText: 'Processing uses a lot of memory and CPU. If the output looks wrong or the page stops responding, refresh and try again.',
-                scaleTitle: 'Scale: ',
-                scaleText: 'Controls the output size. 2X is recommended. Higher scales take longer to process.',
-                denoiseTitle: 'Denoise: ',
-                denoiseText: 'Use denoise for noisy or heavily compressed images. Choose none for clean originals, or conservative if you want to preserve style, texture, and color.',
-                projectInfoLabel: 'Project info',
-                paramsInfoLabel: 'Parameter info',
-            },
-            controls: {
-                run: 'Runtime',
-                backendMode: 'Backend',
-                params: 'Settings',
-                model: 'Model',
-                scale: 'Scale',
-                denoise: 'Denoise',
-            },
-            model: {
-                se: 'SE',
-                pro: 'Pro',
-            },
-            backend: {
-                auto: 'Auto',
-                threads: 'Threads',
-                basic: 'Basic',
-                detecting: 'On demand',
-            },
-            denoise: {
-                conservative: 'Conservative',
-                none: 'None',
-            },
-            actions: {
-                sample: 'Sample',
-                reset: 'Reset',
-                save: 'Save image',
-                cancel: 'Cancel',
-                cancelling: 'Cancelling',
-            },
-            stage: {
-                workspace: 'Workspace',
-                waiting: 'Waiting for image',
-                loadingAssets: 'Loading assets',
-                loadingAssetsProgress: 'Loading processing assets {percent}%',
-                preparingBackend: 'Preparing backend and preloading model files...',
-            },
-            progress: {
-                starting: 'Starting. Time estimate should be ready within 10 seconds...',
-                loadingModel: 'Loading selected model {percent}%',
-                loadingModelFile: 'Loading {model}: {file} {percent}%',
-                processing: 'Processing locally on CPU...',
-                cancelling: 'Waiting for the current tile to finish...',
-                done: 'Done. Time: {seconds}s',
-                remaining: '{seconds}s remaining',
-            },
-            preview: {
-                zoomOut: 'Zoom out',
-                zoomIn: 'Zoom in',
-            },
-            upload: {
-                drag: 'Drop an image here, or ',
-                click: 'click to choose',
-            },
-            footer: {
-                version: 'Version',
-                backend: 'Backend',
-            },
-            dialog: {
-                backendSavedTitle: 'Setting saved',
-                backendSavedText: 'The backend mode will take effect after refresh.',
-                reload: 'Refresh',
-                cancel: 'Cancel',
-                ok: 'OK',
-                continue: 'Continue',
-                safeSettings: 'Use safe settings',
-                dontShowAgain: 'Do not show again',
-                sizeRiskTitle: 'Image size risk',
-                sizeRiskText: 'This will output {width} × {height} and may use at least {memory} MB of memory. This size can make the browser slow or fail. Lower the scale or use a smaller image if possible.',
-                sizeRiskBlockText: 'This will output {width} × {height} and may use at least {memory} MB of memory, which is above the stable browser range. Continuing may freeze the page, crash the browser, or fail.',
-                sizeRiskMobileHint: 'Mobile browsers usually have tighter available memory, so 4X or large images are more likely to fail.',
-                sizeRiskSafeText: 'Safe settings switch to SE / 2X and continue with more conservative thread and tile settings.',
-                processErrorTitle: 'Processing error',
-                processErrorText: 'Error: {message}',
-                processErrorGeneric: 'Processing failed. You can reset the workspace and try again, or lower the scale.',
-                processErrorMemory: 'The browser ran out of memory or WebAssembly hit an out-of-bounds access. Lower the scale, use a smaller image, or refresh the page and try again.',
-                processErrorModel: 'Model loading failed. Check the exact file below in web/models, then upload the complete model files and hard refresh the page.',
-                processErrorAsset: 'Backend assets or model files failed to load. Make sure the .js, .wasm, worker, and models files on the server come from the same build.',
-                processErrorConflict: 'Another task is already running, so a new process cannot start yet. Please try again later.',
-                processErrorInput: 'The image dimensions, processing options, or memory buffers are invalid. The task stopped safely before processing. Reset and select the image again.',
-                retryReload: 'Refresh and retry',
-                conflictTitle: 'Call conflict',
-                conflictText: 'Please try again later.',
-                resourceErrorTitle: 'Asset loading failed',
-                resourceErrorText: 'Could not load the {backend} backend. Please make sure the web directory contains the full build output.',
-                oomTitle: 'Tab memory limit',
-                oomText: 'The browser memory limit was reached after multiple runs. Refresh this tab and try again.',
-            },
-            notify: {
-                success: 'Success',
-                saved: 'Saved',
-            },
-        },
-        ja: {
-            app: {
-                title: 'Real-CUGAN アニメ画像アップスケーラー',
-                heading: 'アニメ画像アップスケーラー',
-            },
-            nav: {
-                title: 'アニメ画像アップスケーラー',
-                about: '概要',
-                originalProject: '元プロジェクト',
-                language: '言語',
-                theme: 'テーマ',
-            },
-            theme: {
-                auto: 'システム',
-                light: 'ライト',
-                dark: 'ダーク',
-            },
-            state: {
-                ready: '準備完了',
-                loading: '読み込み中',
-                onDemand: 'オンデマンド',
-            },
-            help: {
-                localPrefix: 'このプロジェクトは WebAssembly を利用しています。',
-                localStrong: '画像処理はブラウザー内の CPU でローカルに実行され、',
-                localSuffix: '画像がクラウドへアップロードされることはありません。',
-                noticeTitle: '注意: ',
-                noticeText: '処理中はメモリと CPU を多く使用します。出力がおかしい場合や長時間応答しない場合は、更新して再試行してください。',
-                scaleTitle: '拡大率: ',
-                scaleText: '出力画像のサイズを決めます。2X 推奨です。倍率が高いほど処理に時間がかかります。',
-                denoiseTitle: 'ノイズ除去: ',
-                denoiseText: 'ノイズや圧縮劣化が多い画像におすすめです。元画像がきれいな場合は「なし」、画風・質感・色の変化を抑えたい場合は「控えめ」を選んでください。',
-                projectInfoLabel: 'プロジェクト説明',
-                paramsInfoLabel: 'パラメータ説明',
-            },
-            controls: {
-                run: '実行',
-                backendMode: 'バックエンド',
-                params: '設定',
-                model: 'モデル',
-                scale: '倍率',
-                denoise: 'ノイズ除去',
-            },
-            model: {
-                se: 'SE',
-                pro: 'Pro',
-            },
-            backend: {
-                auto: '自動',
-                threads: 'マルチスレッド',
-                basic: '互換',
-                detecting: 'オンデマンド',
-            },
-            denoise: {
-                conservative: '控えめ',
-                none: 'なし',
-            },
-            actions: {
-                sample: 'サンプル画像',
-                reset: 'リセット',
-                save: '画像を保存',
-                cancel: 'キャンセル',
-                cancelling: 'キャンセル中',
-            },
-            stage: {
-                workspace: 'ワークスペース',
-                waiting: '画像待機中',
-                loadingAssets: 'リソース読み込み中',
-                loadingAssetsProgress: '処理リソースを読み込み中 {percent}%',
-                preparingBackend: '処理バックエンドを準備し、モデルを先読みしています...',
-            },
-            progress: {
-                starting: '起動中です。約10秒以内に残り時間を見積もります...',
-                loadingModel: '選択したモデルを読み込み中 {percent}%',
-                loadingModelFile: '{model} を読み込み中: {file} {percent}%',
-                processing: 'ローカル CPU で処理中...',
-                cancelling: '現在のタイル処理が終わるまで待機中...',
-                done: '処理完了！所要時間: {seconds}秒',
-                remaining: '残り {seconds} 秒',
-            },
-            preview: {
-                zoomOut: '縮小',
-                zoomIn: '拡大',
-            },
-            upload: {
-                drag: 'ここに画像をドラッグ、または',
-                click: 'クリックして選択',
-            },
-            footer: {
-                version: 'バージョン',
-                backend: 'バックエンド',
-            },
-            dialog: {
-                backendSavedTitle: '設定を保存しました',
-                backendSavedText: 'バックエンド設定は更新後に反映されます。',
-                reload: '更新',
-                cancel: 'キャンセル',
-                ok: 'OK',
-                continue: '続行',
-                safeSettings: '安全設定を使う',
-                dontShowAgain: '次回から表示しない',
-                sizeRiskTitle: '画像サイズのリスク',
-                sizeRiskText: '出力は {width} × {height} になり、少なくとも {memory} MB のメモリを使う可能性があります。このサイズではブラウザーが重くなったり失敗したりすることがあります。倍率を下げるか、小さい画像を使うことをおすすめします。',
-                sizeRiskBlockText: '出力は {width} × {height} になり、少なくとも {memory} MB のメモリを使う可能性があり、ブラウザーで安定して処理できる範囲を超えています。続行するとページの停止、ブラウザーのクラッシュ、処理失敗が起きる可能性があります。',
-                sizeRiskMobileHint: 'モバイルブラウザーは使用可能メモリが限られるため、4X や大きな画像は失敗しやすくなります。',
-                sizeRiskSafeText: '安全設定では SE / 2X に切り替え、より保守的なスレッド数とタイル設定で処理を続けます。',
-                processErrorTitle: '処理エラー',
-                processErrorText: 'エラー: {message}',
-                processErrorGeneric: '処理に失敗しました。ワークスペースをリセットして再試行するか、倍率を下げてください。',
-                processErrorMemory: 'ブラウザーのメモリ不足、または WebAssembly のメモリアクセス範囲外が発生しました。倍率を下げる、小さい画像を使う、またはページを更新して再試行してください。',
-                processErrorModel: 'モデルの読み込みに失敗しました。下記の具体的なファイルを web/models で確認し、完全なモデルファイルをアップロードして強制更新してください。',
-                processErrorAsset: 'バックエンドリソースまたはモデルファイルの読み込みに失敗しました。サーバー上の .js、.wasm、worker、models ファイルが同じビルドのものか確認してください。',
-                processErrorConflict: '別の処理が実行中のため、新しい処理を開始できません。少し待ってから再試行してください。',
-                processErrorInput: '画像サイズ、処理設定、またはメモリバッファーが無効です。処理開始前に安全に停止しました。リセットして画像を選び直してください。',
-                retryReload: '更新して再試行',
-                conflictTitle: '呼び出しの競合',
-                conflictText: 'しばらくしてから再試行してください。',
-                resourceErrorTitle: 'リソースの読み込みに失敗しました',
-                resourceErrorText: '{backend} バックエンドを読み込めませんでした。web ディレクトリに完全なビルド成果物があるか確認してください。',
-                oomTitle: 'タブのメモリ制限',
-                oomText: '複数回処理したため、ブラウザーのメモリ制限に達しました。このタブを更新して再試行してください。',
-            },
-            notify: {
-                success: '成功',
-                saved: '保存しました',
-            },
-        },
+    const ADAPTIVE_LAYOUT = {
+        breakpoint: 1120,
+        controlPanelWidth: 340,
+        panelGap: 15,
+        stagePadding: 24,
+        appMainDesktopPaddingX: 44,
+        appMainCompactPaddingX: 28,
+        maxWorkspaceWidth: 1680,
+        minPanelHeight: 420,
+        minBodyWidth: 360,
+        minBodyHeight: 260,
+        minPreviewWidth: 280,
+        minPreviewHeight: 220,
+        emptyUploadWidth: 620,
+        emptyUploadHeight: 330,
+        fallbackToolbarHeight: 76,
+        minStageWidth: 320,
+        narrowViewportGutter: 48,
+        wideViewportGutter: 420,
+        fallbackViewportHeightOffset: 300,
+        nonAdaptiveHorizontalInset: 44,
+        nonAdaptiveVerticalInset: 112,
+        previewSliderFallbackHeight: 44,
+        previewSliderBottom: 18,
+        previewSliderGap: 10,
     };
+    const MODEL_FILES = window.MODEL_FILES;
+
+    const I18N = window.I18N;
     let srcInteractedData = null;
     let dstInteractedData = null;
     var Module = null;
@@ -761,6 +388,8 @@
                 previewZoomMax: 300,
                 previewZoomStep: 25,
                 previewViewportWidth: 0,
+                previewViewportHeight: 0,
+                previewSliderHeight: ADAPTIVE_LAYOUT.previewSliderFallbackHeight,
                 previewSliderInset: 18,
                 previewPanX: 0,
                 previewPanY: 0,
@@ -882,10 +511,12 @@
             // init emscripten
             Module = {
                 print: (text) => {
-                    console.log(text);
+                    if (text) {
+                        Logger.debug('[emscripten]', text);
+                    }
                 },
                 printErr: (text) => {
-                    console.error(text);
+                    Logger.error('[emscripten]', text);
                     let lower = (text || '').toLowerCase();
                     if (this.isProcessing && (
                         lower.includes('memory access out of bounds') ||
@@ -937,6 +568,26 @@
         },
 
         methods: {
+            getRefElement(refName) {
+                let ref = this.$refs[refName];
+                ref = Array.isArray(ref) ? ref[0] : ref;
+                return ref && ref.$el ? ref.$el : ref;
+            },
+
+            getStageSurfaceElement() {
+                return this.getRefElement('resultStageSurface')
+                    || this.getRefElement('inputStageSurface')
+                    || this.getRefElement('emptyStageSurface');
+            },
+
+            getPreviewViewportElement() {
+                return this.getRefElement('previewViewport');
+            },
+
+            getAmbientPreviewGlowElement() {
+                return this.getRefElement('ambientPreviewGlow');
+            },
+
             t(key, params) {
                 let parts = key.split('.');
                 let value = I18N[this.language] || I18N.zh;
@@ -1247,11 +898,6 @@
                 return this.getRelativeLuminance(color) > 0.36 ? '#111827' : '#ffffff';
             },
 
-            extractThemeColor(imageData) {
-                let colors = this.extractThemeColors(imageData, 1);
-                return colors[0];
-            },
-
             extractThemeColors(imageData, limit) {
                 let data = imageData.data;
                 let pixelCount = imageData.width * imageData.height;
@@ -1320,6 +966,42 @@
                 return selected.slice(0, limit);
             },
 
+            buildThemePalette(colors, isDarkTheme) {
+                let color = colors[0];
+                let hsl = this.rgbToHsl(color.r, color.g, color.b);
+                let primary = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 42, 78), isDarkTheme ? this.clampColorValue(hsl.l + 4, 42, 56) : this.clampColorValue(hsl.l, 34, 52));
+                let soft = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 24, 58), isDarkTheme ? 14 : 94);
+                let border = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 20, 52), isDarkTheme ? 28 : 78);
+                let textStrong = isDarkTheme ? this.hslToRgb(hsl.h, 24, 92) : this.hslToRgb(hsl.h, 28, 20);
+                let fluidColors = colors.map((themeColor) => {
+                    let colorHsl = this.rgbToHsl(themeColor.r, themeColor.g, themeColor.b);
+                    let fluid = this.hslToRgb(colorHsl.h, this.clampColorValue(colorHsl.s, 45, 82), isDarkTheme ? this.clampColorValue(colorHsl.l - 8, 28, 50) : this.clampColorValue(colorHsl.l, 46, 68));
+                    return 'rgba(' + fluid.r + ', ' + fluid.g + ', ' + fluid.b + ', ' + (isDarkTheme ? '0.66' : '0.72') + ')';
+                });
+                return {
+                    primary: this.rgbCss(primary),
+                    soft: this.rgbCss(soft),
+                    border: this.rgbCss(border),
+                    surfaceTint: 'rgba(' + primary.r + ', ' + primary.g + ', ' + primary.b + ', ' + (isDarkTheme ? '0.14' : '0.08') + ')',
+                    textStrong: this.rgbCss(textStrong),
+                    onPrimary: this.getReadableTextOnColor(primary),
+                    fluidColors: fluidColors,
+                };
+            },
+
+            applyThemePalette(palette) {
+                let root = document.documentElement;
+                root.style.setProperty('--theme-primary', palette.primary);
+                root.style.setProperty('--theme-primary-soft', palette.soft);
+                root.style.setProperty('--theme-primary-border', palette.border);
+                root.style.setProperty('--theme-surface-tint', palette.surfaceTint);
+                root.style.setProperty('--theme-text-strong', palette.textStrong);
+                root.style.setProperty('--theme-on-primary', palette.onPrimary);
+                palette.fluidColors.forEach((color, index) => {
+                    root.style.setProperty('--fluid-color-' + (index + 1), color);
+                });
+            },
+
             applyImageTheme(imageData) {
                 let colors = this.extractThemeColors(imageData, 4);
                 this.extractedThemeColors = colors;
@@ -1327,25 +1009,8 @@
             },
 
             applyExtractedThemeColors(colors) {
-                let color = colors[0];
-                let hsl = this.rgbToHsl(color.r, color.g, color.b);
                 let isDarkTheme = this.getEffectiveTheme() === 'dark';
-                let primary = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 42, 78), isDarkTheme ? this.clampColorValue(hsl.l + 4, 42, 56) : this.clampColorValue(hsl.l, 34, 52));
-                let soft = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 24, 58), isDarkTheme ? 14 : 94);
-                let border = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 20, 52), isDarkTheme ? 28 : 78);
-                let textStrong = isDarkTheme ? this.hslToRgb(hsl.h, 24, 92) : this.hslToRgb(hsl.h, 28, 20);
-                let root = document.documentElement;
-                root.style.setProperty('--theme-primary', this.rgbCss(primary));
-                root.style.setProperty('--theme-primary-soft', this.rgbCss(soft));
-                root.style.setProperty('--theme-primary-border', this.rgbCss(border));
-                root.style.setProperty('--theme-surface-tint', 'rgba(' + primary.r + ', ' + primary.g + ', ' + primary.b + ', ' + (isDarkTheme ? '0.14' : '0.08') + ')');
-                root.style.setProperty('--theme-text-strong', this.rgbCss(textStrong));
-                root.style.setProperty('--theme-on-primary', this.getReadableTextOnColor(primary));
-                colors.forEach((themeColor, index) => {
-                    let colorHsl = this.rgbToHsl(themeColor.r, themeColor.g, themeColor.b);
-                    let fluid = this.hslToRgb(colorHsl.h, this.clampColorValue(colorHsl.s, 45, 82), isDarkTheme ? this.clampColorValue(colorHsl.l - 8, 28, 50) : this.clampColorValue(colorHsl.l, 46, 68));
-                    root.style.setProperty('--fluid-color-' + (index + 1), 'rgba(' + fluid.r + ', ' + fluid.g + ', ' + fluid.b + ', ' + (isDarkTheme ? '0.66' : '0.72') + ')');
-                });
+                this.applyThemePalette(this.buildThemePalette(colors, isDarkTheme));
             },
 
             resetTheme() {
@@ -1503,7 +1168,7 @@
                     return Promise.resolve(null);
                 }
                 return this.getModelAssetCacheEntry(files).promise.catch((error) => {
-                    console.warn('model preload skipped:', error);
+                    Logger.warn('model preload skipped:', error);
                     return null;
                 });
             },
@@ -1516,7 +1181,7 @@
                     return Promise.resolve(null);
                 }
                 return this.getModelAssetCacheEntry(files).promise.catch((error) => {
-                    console.warn('model preload skipped:', error);
+                    Logger.warn('model preload skipped:', error);
                     return null;
                 });
             },
@@ -1686,7 +1351,7 @@
                     return;
                 }
                 this.$nextTick(() => {
-                    let stage = document.querySelector('.stage-panel');
+                    let stage = this.getRefElement('stagePanel');
                     if (stage && stage.scrollIntoView) {
                         stage.scrollIntoView({behavior: 'smooth', block: 'start'});
                     }
@@ -1855,9 +1520,9 @@
                     let uploadImageData = sourceContext.getImageData(0, 0, w, h);
                     let inputByteLength = uploadImageData.data.length;
                     let outputByteLength = this.outputPreviewWidth * this.outputPreviewHeight * 4;
-                    let runtimeSettings = this.getRuntimeSettings(w, h, this.outputScale);
-                    this.processRuntimeSettings = runtimeSettings;
-                    console.log('runtime settings:', runtimeSettings);
+                let runtimeSettings = this.getRuntimeSettings(w, h, this.outputScale);
+                this.processRuntimeSettings = runtimeSettings;
+                    Logger.debug('runtime settings:', runtimeSettings);
 
                     if (this.wasmUsesWorker) {
                         let modelAssets = await modelAssetPromise;
@@ -1943,25 +1608,26 @@
 
             getStageViewportSize() {
                 this.stageLayoutTick;
+                let layout = ADAPTIVE_LAYOUT;
                 if (this.isAdaptiveStageViewport() && this.uploadPreviewWidth && this.uploadPreviewHeight) {
                     let size = this.getAdaptiveStageSurfaceSize(this.getCurrentStageKind());
                     return {
-                        width: Math.max(280, size.width - 48),
-                        height: Math.max(220, size.height - 48),
+                        width: Math.max(layout.minPreviewWidth, size.width - layout.stagePadding * 2),
+                        height: Math.max(layout.minPreviewHeight, size.height - layout.stagePadding * 2),
                     };
                 }
-                let stage = document.querySelector('.result-stage') || document.querySelector('.stage-body');
+                let stage = this.getStageSurfaceElement();
                 if (stage) {
-                    let inset = stage.classList.contains('stage-surface-adaptive') ? 48 : 0;
+                    let inset = stage.classList.contains('stage-surface-adaptive') ? layout.stagePadding * 2 : 0;
                     return {
-                        width: Math.max(280, stage.clientWidth - (inset || 44)),
-                        height: Math.max(220, stage.clientHeight - (inset || 112)),
+                        width: Math.max(layout.minPreviewWidth, stage.clientWidth - (inset || layout.nonAdaptiveHorizontalInset)),
+                        height: Math.max(layout.minPreviewHeight, stage.clientHeight - (inset || layout.nonAdaptiveVerticalInset)),
                     };
                 }
-                let gutter = this.windowWidth > 1180 ? 420 : 48;
+                let gutter = this.windowWidth > 1180 ? layout.wideViewportGutter : layout.narrowViewportGutter;
                 return {
-                    width: Math.max(280, this.windowWidth - gutter),
-                    height: Math.max(220, window.innerHeight - 300),
+                    width: Math.max(layout.minPreviewWidth, this.windowWidth - gutter),
+                    height: Math.max(layout.minPreviewHeight, this.windowHeight - layout.fallbackViewportHeightOffset),
                 };
             },
 
@@ -1977,7 +1643,7 @@
             },
 
             isAdaptiveStageViewport() {
-                return this.windowWidth > 1120;
+                return this.windowWidth > ADAPTIVE_LAYOUT.breakpoint;
             },
 
             getCurrentStageKind() {
@@ -2006,8 +1672,8 @@
                 if (!this.isAdaptiveStageViewport()) {
                     return {};
                 }
-                let controlWidth = 340;
-                let gap = 15;
+                let controlWidth = ADAPTIVE_LAYOUT.controlPanelWidth;
+                let gap = ADAPTIVE_LAYOUT.panelGap;
                 let size = this.getAdaptiveStageSurfaceSize(this.getCurrentStageKind());
                 return {
                     width: Math.floor(controlWidth + gap + size.width) + 'px',
@@ -2025,53 +1691,73 @@
 
             getAdaptiveStageBounds() {
                 this.stageLayoutTick;
-                let appMain = document.querySelector('.app-main');
-                let workspace = document.querySelector('.workspace');
-                let controlPanel = document.querySelector('.control-panel');
-                let toolbar = document.querySelector('.stage-toolbar');
+                let layout = ADAPTIVE_LAYOUT;
+                let appMain = this.getRefElement('appMain');
+                let controlPanel = this.getRefElement('controlPanel');
+                let toolbar = this.getRefElement('stageToolbar');
                 let appMainRect = appMain ? appMain.getBoundingClientRect() : null;
                 let controlRect = controlPanel ? controlPanel.getBoundingClientRect() : null;
-                let toolbarHeight = toolbar ? toolbar.getBoundingClientRect().height : 76;
-                let appMainHorizontalPadding = this.windowWidth > 1120 ? 44 : 28;
-                let controlWidth = controlRect ? controlRect.width : 340;
-                let columnGap = 15;
-                let workspaceLimit = Math.min(1680, this.windowWidth - appMainHorizontalPadding);
+                let toolbarHeight = toolbar ? toolbar.getBoundingClientRect().height : layout.fallbackToolbarHeight;
+                let appMainHorizontalPadding = this.windowWidth > layout.breakpoint ? layout.appMainDesktopPaddingX : layout.appMainCompactPaddingX;
+                let controlWidth = controlRect ? controlRect.width : layout.controlPanelWidth;
+                let workspaceLimit = Math.min(layout.maxWorkspaceWidth, this.windowWidth - appMainHorizontalPadding);
                 let maxPanelHeight = appMainRect
-                    ? Math.max(420, appMainRect.height - 44)
-                    : Math.max(420, this.windowHeight - 88);
-                let maxBodyWidth = Math.max(360, workspaceLimit - controlWidth - columnGap);
-                let maxBodyHeight = Math.max(260, maxPanelHeight - toolbarHeight);
+                    ? Math.max(layout.minPanelHeight, appMainRect.height - layout.appMainDesktopPaddingX)
+                    : Math.max(layout.minPanelHeight, this.windowHeight - layout.appMainDesktopPaddingX * 2);
+                let maxBodyWidth = Math.max(layout.minBodyWidth, workspaceLimit - controlWidth - layout.panelGap);
+                let maxBodyHeight = Math.max(layout.minBodyHeight, maxPanelHeight - toolbarHeight);
                 return {
+                    minSurfaceWidth: layout.minBodyWidth,
+                    minSurfaceHeight: layout.minBodyHeight,
                     maxBodyWidth: maxBodyWidth,
                     maxBodyHeight: maxBodyHeight,
+                    maxSurfaceWidth: maxBodyWidth,
+                    maxSurfaceHeight: maxBodyHeight,
                 };
             },
 
             getAdaptiveStageSurfaceSize(kind) {
+                let layout = ADAPTIVE_LAYOUT;
                 let bounds = this.getAdaptiveStageBounds();
                 if (kind === 'empty' || !this.uploadPreviewWidth || !this.uploadPreviewHeight) {
                     return {
-                        width: 620 + 48,
-                        height: Math.min(bounds.maxBodyHeight, 330 + 48),
+                        width: layout.emptyUploadWidth + layout.stagePadding * 2,
+                        height: Math.min(bounds.maxBodyHeight, layout.emptyUploadHeight + layout.stagePadding * 2),
                     };
                 }
 
-                let imageWidth = kind === 'result'
-                    ? (this.outputPreviewWidth || this.uploadPreviewWidth * this.scaleRadio)
-                    : this.uploadPreviewWidth;
-                let imageHeight = kind === 'result'
-                    ? (this.outputPreviewHeight || this.uploadPreviewHeight * this.scaleRadio)
-                    : this.uploadPreviewHeight;
-                let ratio = Math.max(0.05, imageWidth / Math.max(1, imageHeight));
-                let width = bounds.maxBodyWidth;
-                let height = width / ratio;
-                if (height > bounds.maxBodyHeight) {
-                    height = bounds.maxBodyHeight;
-                    width = height * ratio;
+                let targetScale = this.outputScale || this.scaleRadio;
+                let imageWidth = this.outputPreviewWidth || this.uploadPreviewWidth * targetScale;
+                let imageHeight = this.outputPreviewHeight || this.uploadPreviewHeight * targetScale;
+                let paddingSize = layout.stagePadding * 2;
+                let naturalWidth = imageWidth + paddingSize;
+                let naturalHeight = imageHeight + paddingSize;
+                let scale = Math.min(
+                    1,
+                    bounds.maxSurfaceWidth / Math.max(1, naturalWidth),
+                    bounds.maxSurfaceHeight / Math.max(1, naturalHeight)
+                );
+                let width = naturalWidth * scale;
+                let height = naturalHeight * scale;
+                if (width < bounds.minSurfaceWidth || height < bounds.minSurfaceHeight) {
+                    let minScale = Math.max(
+                        bounds.minSurfaceWidth / Math.max(1, width),
+                        bounds.minSurfaceHeight / Math.max(1, height)
+                    );
+                    width *= minScale;
+                    height *= minScale;
+                }
+                if (width > bounds.maxSurfaceWidth || height > bounds.maxSurfaceHeight) {
+                    let maxScale = Math.min(
+                        bounds.maxSurfaceWidth / Math.max(1, width),
+                        bounds.maxSurfaceHeight / Math.max(1, height)
+                    );
+                    width *= maxScale;
+                    height *= maxScale;
                 }
                 return {
-                    width: Math.max(320, Math.floor(width)),
-                    height: Math.max(260, Math.floor(height)),
+                    width: Math.max(layout.minStageWidth, Math.floor(width)),
+                    height: Math.max(layout.minBodyHeight, Math.floor(height)),
                 };
             },
 
@@ -2115,7 +1801,7 @@
             getPreviewSize() {
                 let stageSize = this.getStageViewportSize();
                 let maxWidth = stageSize.width;
-                let maxHeight = stageSize.height;
+                let maxHeight = this.getPreviewImageAreaHeight(stageSize.height);
                 let originImgWidth = this.uploadPreviewWidth;
                 let originImgHeight = this.uploadPreviewHeight;
                 let outputImgWidth = this.outputPreviewWidth;
@@ -2140,6 +1826,37 @@
                 };
             },
 
+            getPreviewSliderReserveHeight() {
+                let sliderHeight = this.previewSliderHeight || ADAPTIVE_LAYOUT.previewSliderFallbackHeight;
+                return sliderHeight + ADAPTIVE_LAYOUT.previewSliderBottom + ADAPTIVE_LAYOUT.previewSliderGap;
+            },
+
+            getPreviewImageAreaHeight(viewportHeight) {
+                let height = viewportHeight || this.previewViewportHeight;
+                if (!height) {
+                    return Math.max(ADAPTIVE_LAYOUT.minPreviewHeight, height || 0);
+                }
+                return Math.max(ADAPTIVE_LAYOUT.minPreviewHeight, height - this.getPreviewSliderReserveHeight());
+            },
+
+            getPreviewImageAreaOffsetY(viewportHeight) {
+                let height = viewportHeight || this.previewViewportHeight;
+                if (!height) {
+                    return 0;
+                }
+                return -this.getPreviewSliderReserveHeight() / 2;
+            },
+
+            getPreviewViewportStyle() {
+                return {
+                    '--preview-image-area-offset-y': this.getPreviewImageAreaOffsetY() + 'px',
+                };
+            },
+
+            getPreviewContentTranslateY() {
+                return this.previewPanY + this.getPreviewImageAreaOffsetY();
+            },
+
             getZoomedPreviewSize() {
                 let baseSize = this.getPreviewSize();
                 let zoomRatio = this.previewZoom / 100;
@@ -2152,7 +1869,7 @@
             },
 
             getPreviewSplitViewportX() {
-                let viewport = document.querySelector('.preview-pan-viewport');
+                let viewport = this.getPreviewViewportElement();
                 let viewportWidth = this.previewViewportWidth || (viewport ? viewport.clientWidth : 0);
                 if (!viewportWidth) {
                     return 0;
@@ -2161,7 +1878,7 @@
             },
 
             getPreviewSplitLocalX() {
-                let viewport = document.querySelector('.preview-pan-viewport');
+                let viewport = this.getPreviewViewportElement();
                 if (!viewport) {
                     return 0;
                 }
@@ -2174,9 +1891,14 @@
             syncPreviewViewport() {
                 this.$nextTick(() => {
                     let update = () => {
-                        let viewport = document.querySelector('.preview-pan-viewport');
+                        let viewport = this.getPreviewViewportElement();
                         if (viewport && viewport.clientWidth) {
                             this.previewViewportWidth = viewport.clientWidth;
+                            this.previewViewportHeight = viewport.clientHeight;
+                            let slider = this.getRefElement('previewSlider');
+                            if (slider && slider.getBoundingClientRect) {
+                                this.previewSliderHeight = Math.max(ADAPTIVE_LAYOUT.previewSliderFallbackHeight, slider.getBoundingClientRect().height);
+                            }
                             this.clampPreviewPan();
                         }
                     };
@@ -2220,15 +1942,15 @@
             },
 
             getPreviewPanBounds() {
-                let viewport = document.querySelector('.preview-pan-viewport');
+                let viewport = this.getPreviewViewportElement();
                 if (!viewport) {
                     return {maxX: 0, maxY: 0};
                 }
                 let size = this.getZoomedPreviewSize();
-                let sliderHeight = 44;
+                let imageAreaHeight = this.getPreviewImageAreaHeight(viewport.clientHeight);
                 return {
                     maxX: Math.max(0, (size.outputImgWidth - viewport.clientWidth) / 2),
-                    maxY: Math.max(0, (size.outputImgHeight + sliderHeight - viewport.clientHeight) / 2),
+                    maxY: Math.max(0, (size.outputImgHeight - imageAreaHeight) / 2),
                 };
             },
 
@@ -2287,7 +2009,7 @@
 
             primePreviewAmbientGlow() {
                 this.$nextTick(() => {
-                    let glow = document.querySelector('.app-ambient-glow-preview');
+                    let glow = this.getAmbientPreviewGlowElement();
                     if (!glow) {
                         return;
                     }
@@ -2300,9 +2022,9 @@
 
             updatePreviewAmbientGlow() {
                 this.ambientUpdateTimer = null;
-                let glow = document.querySelector('.app-ambient-glow-preview');
+                let glow = this.getAmbientPreviewGlowElement();
                 let canvasOutput = document.getElementById('canvas-output');
-                let viewport = document.querySelector('.preview-pan-viewport');
+                let viewport = this.getPreviewViewportElement();
                 if (!glow || !canvasOutput || !viewport || !canvasOutput.width || !canvasOutput.height) {
                     return;
                 }
@@ -2310,7 +2032,7 @@
                 let viewportWidth = viewport.clientWidth;
                 let viewportHeight = viewport.clientHeight;
                 let imageLeft = (viewportWidth - size.outputImgWidth) / 2 + this.previewPanX;
-                let imageTop = (viewportHeight - size.outputImgHeight) / 2 + this.previewPanY;
+                let imageTop = (viewportHeight - size.outputImgHeight) / 2 + this.getPreviewContentTranslateY();
                 let visibleLeft = Math.max(0, -imageLeft);
                 let visibleTop = Math.max(0, -imageTop);
                 let visibleRight = Math.min(size.outputImgWidth, viewportWidth - imageLeft);
@@ -2473,12 +2195,12 @@
             loadWasmBackend(backends) {
                 let backend = backends[0];
                 this.wasmBackend = backend;
-                console.log('selected wasm backend:', backend);
+                Logger.info('selected wasm backend:', backend);
                 this.wasmLoadingProgress = Math.max(this.wasmLoadingProgress, 3);
                 if (this.shouldUseWorkerBackend(backend)) {
                     return this.loadWorkerBackend(backend)
                         .catch((error) => {
-                            console.error(error);
+                            Logger.error(error);
                             if (backends.length > 1) {
                                 return this.loadWasmBackend(backends.slice(1));
                             }
@@ -2519,7 +2241,7 @@
                                 return prefix + path;
                             };
                             Module.onRuntimeInitialized = () => {
-                                console.log("wasm module loaded:", backend);
+                                Logger.info('wasm module loaded:', backend);
                                 this.wasmLoadingProgress = 100;
                                 settle(resolve);
                             }
@@ -2527,7 +2249,7 @@
                             let script = document.createElement('script');
                             script.src = this.versionedUrl("realcugan-ncnn-webassembly-" + backend + ".js");
                             script.onload = () => {
-                                console.log('Emscripten loaded:', backend);
+                                Logger.debug('Emscripten loaded:', backend);
                                 this.wasmLoadingProgress = Math.max(this.wasmLoadingProgress, 5);
                             }
                             script.onerror = () => {
@@ -2540,7 +2262,7 @@
                         });
                     })
                     .catch((error) => {
-                        console.error(error);
+                        Logger.error(error);
                         if (backends.length > 1) {
                             return this.loadWasmBackend(backends.slice(1));
                         }
@@ -2636,7 +2358,7 @@
                     return;
                 }
                 if (message.type === 'stderr') {
-                    console.error(message.text);
+                    Logger.error('[worker]', message.text);
                     return;
                 }
                 if (message.type === 'ready') {
@@ -2688,7 +2410,7 @@
                     );
                 }
                 ctxOutput.putImageData(imageDataOutput, 0, 0);
-                console.log("output size: ", outputByteLength);
+                Logger.debug('output size:', outputByteLength);
                 if (this.outputObjectUrl) {
                     URL.revokeObjectURL(this.outputObjectUrl);
                     this.outputObjectUrl = '';
@@ -2971,6 +2693,8 @@
                 this.previewOverlapRate = 50;
                 this.previewZoom = this.previewZoomMin;
                 this.previewViewportWidth = 0;
+                this.previewViewportHeight = 0;
+                this.previewSliderHeight = ADAPTIVE_LAYOUT.previewSliderFallbackHeight;
                 this.resetPreviewPan();
                 this.resetTheme();
                 this.scheduleStageLayoutSync();
@@ -3023,2114 +2747,5 @@
 </script>
 
 
-<style>
-    @property --theme-primary {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: #409EFF;
-    }
-
-    @property --theme-on-primary {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: #ffffff;
-    }
-
-    @property --theme-primary-soft {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: #edf6ff;
-    }
-
-    @property --theme-primary-border {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: #c7dcf3;
-    }
-
-    @property --theme-surface-tint {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: rgba(64, 158, 255, 0.10);
-    }
-
-    @property --theme-text-strong {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: #17202d;
-    }
-
-    @property --fluid-color-1 {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: rgba(64, 158, 255, 0.72);
-    }
-
-    @property --fluid-color-2 {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: rgba(103, 194, 58, 0.68);
-    }
-
-    @property --fluid-color-3 {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: rgba(230, 162, 60, 0.66);
-    }
-
-    @property --fluid-color-4 {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: rgba(245, 108, 108, 0.62);
-    }
-
-    @property --ambient-top {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: rgba(64, 158, 255, 0.72);
-    }
-
-    @property --ambient-right {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: rgba(103, 194, 58, 0.68);
-    }
-
-    @property --ambient-bottom {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: rgba(230, 162, 60, 0.66);
-    }
-
-    @property --ambient-left {
-        syntax: "<color>";
-        inherits: true;
-        initial-value: rgba(245, 108, 108, 0.62);
-    }
-
-    :root {
-        color-scheme: light;
-        --theme-primary: #409EFF;
-        --theme-on-primary: #ffffff;
-        --theme-primary-soft: #edf6ff;
-        --theme-primary-border: #c7dcf3;
-        --theme-surface-tint: rgba(64, 158, 255, 0.10);
-        --theme-text-strong: #17202d;
-        --app-bg: #eef3f8;
-        --surface-bg: #ffffff;
-        --surface-bg-muted: #f7fafd;
-        --surface-bg-elevated: #ffffff;
-        --text-normal: #333333;
-        --text-muted: #5d6675;
-        --text-subtle: #8b95a5;
-        --hairline: rgba(41, 78, 114, 0.13);
-        --panel-ring: rgba(255, 255, 255, 0.76);
-        --surface-highlight: rgba(255, 255, 255, 0.82);
-        --checker-base: var(--theme-primary-soft);
-        --checker-mark: #eef2f6;
-        --image-checker-base: #ffffff;
-        --image-checker-mark: #e8e8e8;
-        --floating-bg: rgba(255, 255, 255, 0.92);
-        --upload-bg: rgba(255, 255, 255, 0.82);
-        --panel-shadow: 0 22px 70px rgba(25, 50, 78, 0.11);
-        --panel-shadow-soft: 0 10px 28px rgba(25, 50, 78, 0.08);
-        --image-shadow: 0 18px 46px rgba(22, 35, 48, 0.12);
-        --floating-shadow: 0 14px 38px rgba(22, 35, 48, 0.12);
-        --radius-lg: 22px;
-        --radius-md: 16px;
-        --radius-sm: 12px;
-        --motion-curve: cubic-bezier(0.22, 1, 0.36, 1);
-        --fluid-color-1: rgba(64, 158, 255, 0.72);
-        --fluid-color-2: rgba(103, 194, 58, 0.68);
-        --fluid-color-3: rgba(230, 162, 60, 0.66);
-        --fluid-color-4: rgba(245, 108, 108, 0.62);
-        transition:
-            --theme-primary 420ms var(--motion-curve),
-            --theme-on-primary 420ms var(--motion-curve),
-            --theme-primary-soft 420ms var(--motion-curve),
-            --theme-primary-border 420ms var(--motion-curve),
-            --theme-surface-tint 420ms var(--motion-curve),
-            --theme-text-strong 420ms var(--motion-curve),
-            --fluid-color-1 520ms var(--motion-curve),
-            --fluid-color-2 520ms var(--motion-curve),
-            --fluid-color-3 520ms var(--motion-curve),
-            --fluid-color-4 520ms var(--motion-curve),
-            --ambient-top 620ms var(--motion-curve),
-            --ambient-right 620ms var(--motion-curve),
-            --ambient-bottom 620ms var(--motion-curve),
-            --ambient-left 620ms var(--motion-curve);
-    }
-
-    :root[data-theme="dark"] {
-        color-scheme: dark;
-        --theme-primary: #83bdff;
-        --theme-on-primary: #07111f;
-        --theme-primary-soft: #12263a;
-        --theme-primary-border: #2d4963;
-        --theme-surface-tint: rgba(131, 189, 255, 0.14);
-        --theme-text-strong: #e6edf6;
-        --app-bg: #0b1118;
-        --surface-bg: #151b23;
-        --surface-bg-muted: #111821;
-        --surface-bg-elevated: #1b2430;
-        --text-normal: #d8e0ea;
-        --text-muted: #b5c0ce;
-        --text-subtle: #8996a8;
-        --hairline: rgba(177, 205, 237, 0.13);
-        --panel-ring: rgba(255, 255, 255, 0.08);
-        --surface-highlight: rgba(255, 255, 255, 0.06);
-        --checker-base: #101923;
-        --checker-mark: #1b2734;
-        --image-checker-base: #101820;
-        --image-checker-mark: #1f2b38;
-        --floating-bg: rgba(21, 27, 35, 0.92);
-        --upload-bg: rgba(21, 27, 35, 0.86);
-        --panel-shadow: 0 24px 76px rgba(0, 0, 0, 0.46);
-        --panel-shadow-soft: 0 12px 34px rgba(0, 0, 0, 0.36);
-        --image-shadow: 0 18px 44px rgba(0, 0, 0, 0.44);
-        --floating-shadow: 0 16px 42px rgba(0, 0, 0, 0.38);
-    }
-
-    html,
-    body,
-    #app {
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-    }
-
-    body {
-        margin: 0;
-        border: 0;
-        background:
-            radial-gradient(circle at 8% 8%, rgba(64, 158, 255, 0.18), transparent 34%),
-            radial-gradient(circle at 90% 10%, rgba(103, 194, 58, 0.12), transparent 28%),
-            linear-gradient(135deg, var(--app-bg), var(--surface-bg-muted));
-        color: var(--text-normal);
-        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", PingFang SC,
-            Microsoft YaHei, Hiragino Sans GB, Heiti SC, Droid Sans, WenQuanYi Micro Hei, sans-serif !important;
-        -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
-        text-rendering: geometricPrecision;
-    }
-
-    body,
-    .app-main,
-    .control-panel,
-    .stage-panel,
-    .stage-toolbar,
-    .stage-body,
-    .result-stage,
-    .control-section,
-    .brand-block,
-    .floating-preferences,
-    .floating-preference-button,
-    .info-button,
-    .el-footer,
-    .el-dropdown-menu,
-    .el-menu--popup,
-    .el-message-box,
-    .el-notification,
-    .el-button,
-    .el-radio-button__inner,
-    .el-slider__runway,
-    .el-progress-bar__outer,
-    .large-upload .el-upload-dragger,
-    .upload-loading-bar,
-    .preview-tools,
-    .preview-overlap-slider {
-        transition:
-            background-color 420ms var(--motion-curve),
-            background 520ms var(--motion-curve),
-            border-color 420ms var(--motion-curve),
-            color 420ms var(--motion-curve),
-            box-shadow 420ms var(--motion-curve),
-            filter 420ms var(--motion-curve);
-    }
-
-    .app-main::before,
-    .app-ambient-glow,
-    .processing-gradient,
-    .processing-gradient::before,
-    .processing-gradient span,
-    .result-reveal-gradient,
-    .result-reveal-gradient span {
-        transition:
-            background 520ms var(--motion-curve),
-            background-color 520ms var(--motion-curve),
-            opacity 420ms var(--motion-curve),
-            filter 420ms var(--motion-curve);
-    }
-
-    .el-footer {
-        background-color: var(--surface-bg);
-        color: var(--text-normal);
-        text-align: center;
-    }
-
-    .el-dropdown-menu,
-    .el-menu--popup,
-    .el-message-box,
-    .el-notification {
-        border-color: var(--theme-primary-border);
-        background: var(--surface-bg-elevated);
-        color: var(--text-normal);
-    }
-
-    .el-message-box__title,
-    .el-message-box__content,
-    .el-notification__title {
-        color: var(--text-normal);
-    }
-
-    .el-message-box__message,
-    .el-notification__content {
-        color: var(--text-muted);
-    }
-
-    .el-notification {
-        border: 1px solid var(--hairline);
-        box-shadow: var(--floating-shadow);
-    }
-
-    .el-notification__icon,
-    .el-notification__closeBtn {
-        color: var(--theme-primary);
-    }
-
-    .el-notification__closeBtn:hover,
-    .el-notification__closeBtn:focus {
-        color: var(--theme-text-strong);
-    }
-
-    .el-menu--popup .el-menu-item {
-        background: var(--surface-bg-elevated);
-        color: var(--text-normal);
-    }
-
-    .el-menu--popup .el-menu-item:hover,
-    .el-menu--popup .el-menu-item:focus {
-        background: var(--theme-primary-soft);
-        color: var(--theme-primary);
-    }
-
-    .floating-preferences {
-        position: fixed;
-        top: 14px;
-        right: 18px;
-        z-index: 60;
-        display: flex;
-        gap: 8px;
-        align-items: center;
-    }
-
-    .floating-preference-button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 34px;
-        height: 34px;
-        padding: 0;
-        border: 1px solid var(--hairline);
-        background: var(--floating-bg);
-        border-radius: 999px;
-        box-shadow: var(--floating-shadow);
-        color: var(--theme-text-strong);
-        font-size: 12px;
-        font-weight: 700;
-        line-height: 1;
-        cursor: pointer;
-        backdrop-filter: blur(10px);
-        transition:
-            border-color 180ms var(--motion-curve),
-            color 180ms var(--motion-curve),
-            transform 180ms var(--motion-curve),
-            box-shadow 180ms var(--motion-curve);
-    }
-
-    .floating-preference-button i,
-    .floating-preference-button svg {
-        display: block;
-        flex: 0 0 auto;
-        width: 17px;
-        height: 17px;
-        font-size: 17px;
-        line-height: 1;
-    }
-
-    .floating-preference-button:hover,
-    .floating-preference-button:focus {
-        border-color: var(--theme-primary);
-        color: var(--theme-primary);
-        outline: none;
-        transform: translateY(-1px);
-        box-shadow: var(--panel-shadow-soft);
-    }
-
-    .el-dropdown-menu__item {
-        color: var(--text-normal);
-    }
-
-    .el-dropdown-menu__item:hover,
-    .el-dropdown-menu__item:focus {
-        background: var(--theme-primary-soft);
-        color: var(--theme-primary);
-    }
-
-    .el-main {
-        background-color: var(--app-bg);
-        color: var(--text-normal);
-        text-align: center;
-    }
-
-    body>.el-container {
-        margin-bottom: 40px;
-    }
-
-    .option-title {
-        flex: 0 0 5.6em;
-        text-align: left;
-        font-size: 1em;
-    }
-
-    .main-content {
-        background-color: var(--surface-bg);
-        padding: 28px 32px 32px;
-        max-width: 980px;
-    }
-
-    .el-main {
-        padding: 0;
-        padding-top: 20px;
-        padding-bottom: 50px;
-    }
-
-    .intro-row {
-        gap: 24px;
-        margin-bottom: 6px;
-    }
-
-    .intro-copy {
-        display: flex;
-        flex: 1 1 auto;
-        min-width: 0;
-        flex-direction: column;
-    }
-
-    .intro-copy h1 {
-        margin: 10px 0 14px;
-        text-align: left;
-        font-size: 28px;
-        line-height: 1.25;
-        letter-spacing: 0;
-    }
-
-    .intro-copy p {
-        margin: 0;
-        text-align: left;
-        font-size: 14px;
-        line-height: 1.6;
-    }
-
-    .runtime-status {
-        flex: 0 0 210px;
-        align-self: flex-start;
-        margin-top: 12px;
-        padding: 14px 16px;
-        border: 1px solid var(--theme-primary-border);
-        background: var(--surface-bg-muted);
-        border-radius: 6px;
-    }
-
-    .status-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        min-height: 28px;
-        font-size: 13px;
-    }
-
-    .status-label {
-        color: var(--text-muted);
-    }
-
-    .status-value {
-        min-width: 0;
-        color: var(--text-subtle);
-        text-align: right;
-        word-break: break-all;
-    }
-
-    .option-row {
-        flex-wrap: wrap;
-        gap: 10px 12px;
-        margin-top: 18px;
-    }
-
-    .upload-block .el-upload,
-    .upload-block .el-upload-dragger {
-        width: min(100%, 420px);
-    }
-
-    .loading-tip {
-        margin-top: 30px;
-        color: var(--theme-primary);
-        font-size: 14px;
-    }
-
-    .app-footer {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 14px;
-        min-height: 44px;
-        font-size: 12px;
-        color: var(--text-subtle);
-        flex-wrap: wrap;
-    }
-
-    .app-footer a {
-        color: var(--text-subtle);
-        text-decoration: none;
-    }
-
-    .app-footer a:hover,
-    .app-footer a:focus {
-        color: var(--theme-primary);
-    }
-
-    .preview-overlap-origin {
-        position: absolute;
-        left: 0;
-        top: 0;
-    }
-
-    .preview-overlap-output {
-        position: absolute;
-        left: 0;
-        top: 0;
-        overflow: hidden;
-        z-index: 1;
-    }
-
-    .preview-overlap-result {
-        position: absolute;
-        left: 0;
-        top: 0;
-        display: block;
-        max-width: none;
-        object-fit: fill;
-    }
-
-    .preview-split-indicator {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        width: 2px;
-        background-color: var(--theme-primary);
-        z-index: 4;
-        pointer-events: none;
-        transform: translateX(-1px);
-    }
-
-    .preview-overlap-container {
-        position: relative;
-        display: flex;
-        justify-content: start;
-    }
-
-    .content-block {
-        margin-top: 20px;
-    }
-
-    .el-upload-list {
-        display: none;
-    }
-
-    .size-risk-dialog-text p {
-        margin: 0 0 14px;
-        line-height: 1.7;
-    }
-
-    .size-risk-skip {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--text-subtle);
-        font-size: 13px;
-        line-height: 1.4;
-    }
-
-    .el-button--primary {
-        border-color: var(--theme-primary);
-        background-color: var(--theme-primary);
-        color: var(--theme-on-primary);
-        box-shadow: 0 10px 24px rgba(64, 158, 255, 0.22);
-    }
-
-    .el-button--primary:hover,
-    .el-button--primary:focus {
-        border-color: var(--theme-primary);
-        background-color: var(--theme-primary);
-        color: var(--theme-on-primary);
-        filter: brightness(1.06);
-    }
-
-    .el-button--plain:hover,
-    .el-button--plain:focus {
-        border-color: var(--theme-primary);
-        color: var(--theme-primary);
-        background: var(--theme-primary-soft);
-    }
-
-    .el-button,
-    .el-radio-button__inner {
-        border-color: var(--theme-primary-border);
-        background: var(--surface-bg-elevated);
-        color: var(--text-normal);
-        border-radius: var(--radius-sm);
-        transition:
-            border-color 180ms var(--motion-curve),
-            background-color 180ms var(--motion-curve),
-            color 180ms var(--motion-curve),
-            transform 180ms var(--motion-curve),
-            box-shadow 180ms var(--motion-curve);
-    }
-
-    .el-button:hover,
-    .el-button:focus,
-    .el-radio-button__inner:hover {
-        border-color: var(--theme-primary);
-        color: var(--theme-primary);
-        transform: translateY(-1px);
-        box-shadow: var(--panel-shadow-soft);
-    }
-
-    .el-button--primary {
-        border-color: var(--theme-primary);
-        background-color: var(--theme-primary);
-        color: var(--theme-on-primary);
-    }
-
-    .el-button--primary:hover,
-    .el-button--primary:focus,
-    .el-button--primary:active {
-        border-color: var(--theme-primary);
-        background-color: var(--theme-primary);
-        color: var(--theme-on-primary);
-    }
-
-    .el-button:active,
-    .el-radio-button__inner:active {
-        transform: translateY(0) scale(0.985);
-        box-shadow: none;
-    }
-
-    .el-button.is-disabled,
-    .el-button.is-disabled:hover,
-    .el-button.is-disabled:focus,
-    .el-button.is-disabled:active,
-    .el-button--plain.is-disabled,
-    .el-button--plain.is-disabled:hover,
-    .el-button--plain.is-disabled:focus,
-    .el-button--plain.is-disabled:active {
-        border-color: var(--theme-primary-border);
-        background: var(--surface-bg-muted);
-        color: var(--text-subtle);
-        opacity: 0.66;
-        transform: none;
-        box-shadow: none;
-    }
-
-    .preview-tools .el-button,
-    .preview-tools .el-button:focus,
-    .preview-tools .el-button:active {
-        border-color: var(--theme-primary-border);
-        background: var(--surface-bg-elevated);
-        color: var(--text-normal);
-    }
-
-    .preview-tools .el-button:hover {
-        border-color: var(--theme-primary);
-        background: var(--theme-primary-soft);
-        color: var(--theme-primary);
-    }
-
-    .preview-tools .el-button.is-disabled,
-    .preview-tools .el-button.is-disabled:hover,
-    .preview-tools .el-button.is-disabled:focus,
-    .preview-tools .el-button.is-disabled:active {
-        border-color: var(--theme-primary-border);
-        background: var(--surface-bg-muted);
-        color: var(--text-subtle);
-        opacity: 0.62;
-    }
-
-    .el-radio-button__orig-radio:disabled + .el-radio-button__inner {
-        border-color: var(--theme-primary-border);
-        background: var(--surface-bg-muted);
-        color: var(--text-subtle);
-        opacity: 0.58;
-    }
-
-    .el-radio-button__orig-radio:checked + .el-radio-button__inner {
-        border-color: var(--theme-primary);
-        background-color: var(--theme-primary);
-        box-shadow: -1px 0 0 0 var(--theme-primary);
-        color: var(--theme-on-primary);
-        transform: none;
-    }
-
-    .el-radio-button:first-child .el-radio-button__inner {
-        border-top-left-radius: var(--radius-sm);
-        border-bottom-left-radius: var(--radius-sm);
-    }
-
-    .el-radio-button:last-child .el-radio-button__inner {
-        border-top-right-radius: var(--radius-sm);
-        border-bottom-right-radius: var(--radius-sm);
-    }
-
-    .el-tag {
-        border-radius: 999px;
-        font-weight: 700;
-    }
-
-    .el-radio-button__inner:hover,
-    .el-slider__button {
-        border-color: var(--theme-primary);
-        color: var(--theme-primary);
-    }
-
-    .el-progress-bar__inner,
-    .el-slider__bar {
-        background-color: var(--theme-primary);
-    }
-
-    .el-progress-bar__outer,
-    .el-slider__runway {
-        background-color: var(--theme-primary-soft);
-    }
-
-    .el-progress__text {
-        color: var(--theme-text-strong);
-    }
-
-    .el-tag--success {
-        border-color: var(--theme-primary-border);
-        background-color: var(--theme-primary-soft);
-        color: var(--theme-primary);
-    }
-
-    .el-progress-bar__outer {
-        overflow: hidden;
-        border: 1px solid var(--hairline);
-        box-shadow: 0 1px 0 var(--panel-ring) inset;
-    }
-
-    .el-slider__button {
-        box-shadow: var(--floating-shadow);
-    }
-
-    .el-message-box {
-        border-radius: var(--radius-md);
-        box-shadow: var(--panel-shadow);
-    }
-
-    @media (max-width: 768px) {
-        .intro-row {
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .intro-copy h1 {
-            font-size: 24px;
-        }
-
-        .runtime-status {
-            width: auto;
-            flex-basis: auto;
-            align-self: stretch;
-            margin-top: 0;
-        }
-
-        .option-row {
-            align-items: flex-start;
-        }
-
-        .option-row .el-radio-group {
-            max-width: 100%;
-            overflow-x: auto;
-            white-space: nowrap;
-        }
-    }
-
-    @media (max-width: 479px) {
-        .floating-preferences {
-            top: 8px;
-            right: 8px;
-            left: 8px;
-            justify-content: flex-end;
-        }
-
-        .floating-preference-button {
-            width: 34px;
-            min-width: 34px;
-        }
-
-        .main-content {
-            background-color: var(--surface-bg);
-            padding: 16px;
-        }
-
-        .option-title {
-            flex-basis: 100%;
-        }
-
-        .el-upload-dragger {
-            width: 100%;
-        }
-
-        .app-footer {
-            flex-direction: column;
-            gap: 4px;
-            height: auto !important;
-            padding: 10px 0;
-            line-height: 1.4;
-        }
-    }
-
-    .el-container {
-        width: 100%;
-        height: 100vh;
-        min-height: 0;
-        overflow: hidden;
-    }
-
-    .app-main {
-        position: relative;
-        isolation: isolate;
-        flex: 1 1 auto;
-        min-height: 0;
-        padding: 22px;
-        overflow: hidden;
-        background:
-            radial-gradient(circle at 12% 16%, rgba(64, 158, 255, 0.20), transparent 28%),
-            radial-gradient(circle at 88% 14%, rgba(103, 194, 58, 0.13), transparent 26%),
-            radial-gradient(circle at 78% 88%, rgba(230, 162, 60, 0.13), transparent 30%),
-            linear-gradient(135deg, var(--app-bg), var(--surface-bg-muted));
-        text-align: left;
-    }
-
-    .app-main-adaptive {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .app-main::before {
-        position: absolute;
-        inset: 0;
-        z-index: 0;
-        background-image:
-            linear-gradient(rgba(64, 158, 255, 0.055) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(64, 158, 255, 0.055) 1px, transparent 1px);
-        background-size: 36px 36px;
-        mask-image: radial-gradient(circle at 50% 44%, black 0%, transparent 72%);
-        content: "";
-        pointer-events: none;
-    }
-
-    .workspace {
-        position: relative;
-        z-index: 1;
-        display: grid;
-        grid-template-columns: 340px minmax(0, 1fr);
-        gap: 22px;
-        width: 100%;
-        height: 100%;
-        min-height: 0;
-        max-width: 1680px;
-        margin: 0 auto;
-        align-items: stretch;
-    }
-
-    .workspace-adaptive {
-        height: auto;
-        max-width: calc(100vw - 44px);
-        align-items: center;
-        transition: width 220ms var(--motion-curve);
-    }
-
-    .control-panel,
-    .stage-panel {
-        border: 1px solid var(--hairline);
-        background:
-            linear-gradient(180deg, var(--surface-highlight), transparent 46%),
-            var(--surface-bg);
-        border-radius: var(--radius-lg);
-        box-shadow: var(--panel-shadow);
-    }
-
-    .control-panel {
-        position: sticky;
-        top: 22px;
-        align-self: start;
-        max-height: 100%;
-        overflow: auto;
-        padding: 18px;
-        scrollbar-width: thin;
-    }
-
-    .workspace-adaptive .control-panel {
-        position: static;
-        top: auto;
-        align-self: center;
-        max-height: calc(100vh - 88px);
-    }
-
-    .brand-block {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 16px;
-        padding: 2px 2px 16px;
-        border-bottom: 1px solid var(--hairline);
-    }
-
-    .brand-block > div:first-child {
-        flex: 1 1 auto;
-        min-width: 0;
-    }
-
-    .brand-block h1 {
-        flex: 1 1 auto;
-        min-width: 0;
-        margin: 4px 0 0;
-        color: var(--theme-text-strong);
-        font-size: 26px;
-        line-height: 1.08;
-        letter-spacing: -0.035em;
-    }
-
-    .heading-row,
-    .section-title-with-info {
-        display: inline-flex;
-        position: relative;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .heading-row {
-        display: flex;
-        width: 100%;
-        align-items: flex-start;
-        gap: 8px;
-    }
-
-    .heading-row .el-popover__reference-wrapper {
-        flex: 0 0 auto;
-        margin-top: 7px;
-    }
-
-    .eyebrow {
-        color: var(--text-subtle);
-        font-size: 11px;
-        font-weight: 700;
-        line-height: 1.2;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-    }
-
-    .info-button {
-        display: inline-flex;
-        width: 18px;
-        height: 18px;
-        border: 1px solid var(--hairline);
-        background: var(--surface-bg-elevated);
-        border-radius: 50%;
-        color: var(--theme-primary);
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: 800;
-        line-height: 1;
-        cursor: pointer;
-    }
-
-    .info-button:hover,
-    .info-button:focus {
-        border-color: var(--theme-primary);
-        background: var(--theme-primary-soft);
-        outline: none;
-    }
-
-    .info-popover.el-popover {
-        z-index: 3000;
-        border-color: var(--hairline);
-        background: var(--surface-bg-elevated);
-        box-shadow: var(--floating-shadow);
-        color: var(--text-muted);
-    }
-
-    .info-popover .popper__arrow,
-    .info-popover .popper__arrow::after {
-        border-right-color: var(--theme-primary-border);
-    }
-
-    .info-popover[x-placement^="right"] .popper__arrow::after {
-        border-right-color: var(--surface-bg-elevated);
-    }
-
-    .info-popover-content {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        color: var(--text-muted);
-        font-size: 12px;
-        line-height: 1.6;
-        text-align: left;
-    }
-
-    .info-popover-content p {
-        margin: 0;
-    }
-
-    .control-section {
-        margin-top: 14px;
-        padding: 14px;
-        border: 1px solid var(--hairline);
-        background:
-            linear-gradient(180deg, var(--surface-highlight), transparent),
-            var(--surface-bg-muted);
-        border-radius: var(--radius-md);
-        box-shadow: 0 1px 0 var(--panel-ring) inset;
-    }
-
-    .control-section:last-child {
-        border-bottom: 1px solid var(--hairline);
-    }
-
-    .section-title {
-        margin-bottom: 12px;
-        color: var(--theme-text-strong);
-        font-size: 12px;
-        font-weight: 800;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-    }
-
-    .field-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        margin-top: 12px;
-    }
-
-    .field-row:first-of-type {
-        margin-top: 0;
-    }
-
-    .field-row .el-radio-group {
-        display: flex;
-        flex: 1 1 auto;
-        min-width: 0;
-        justify-content: flex-end;
-    }
-
-    .field-row .el-radio-button {
-        flex: 1 1 auto;
-    }
-
-    .field-row .el-radio-button__inner {
-        width: 100%;
-        padding: 9px 10px;
-    }
-
-    .option-title {
-        flex: 0 0 58px;
-        color: var(--text-muted);
-        font-size: 13px;
-        font-weight: 700;
-    }
-
-    .action-section {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-        background: transparent;
-        border: 0;
-        box-shadow: none;
-        padding: 14px 0 0;
-    }
-
-    .action-section .el-button {
-        width: 100%;
-        margin: 0;
-    }
-
-    .stage-panel {
-        display: flex;
-        height: 100%;
-        min-height: 0;
-        overflow: hidden;
-        flex-direction: column;
-    }
-
-    .stage-panel-adaptive {
-        height: auto;
-        align-self: start;
-        justify-self: center;
-        transition:
-            width 220ms var(--motion-curve),
-            box-shadow 220ms var(--motion-curve);
-    }
-
-    .stage-toolbar {
-        display: flex;
-        flex: 0 0 auto;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        min-height: 76px;
-        padding: 16px 20px;
-        border-bottom: 1px solid var(--hairline);
-        background:
-            linear-gradient(180deg, var(--surface-highlight), transparent 68%),
-            var(--surface-bg);
-    }
-
-    .stage-title {
-        overflow: hidden;
-        max-width: 760px;
-        color: var(--theme-text-strong);
-        font-size: 20px;
-        font-weight: 700;
-        line-height: 1.25;
-        letter-spacing: -0.02em;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .stage-meta {
-        margin-top: 5px;
-        color: var(--text-subtle);
-        font-size: 12px;
-        line-height: 1.3;
-    }
-
-    .stage-status {
-        margin-top: 7px;
-        color: var(--text-muted);
-        font-size: 13px;
-        line-height: 1.35;
-    }
-
-    .toolbar-progress-wrap {
-        flex: 0 0 min(320px, 38vw);
-    }
-
-    .toolbar-progress {
-        width: 100%;
-    }
-
-    .toolbar-progress-meta {
-        margin-top: 5px;
-        color: var(--text-subtle);
-        font-size: 12px;
-        line-height: 1.3;
-        text-align: right;
-    }
-
-    .stage-body,
-    .result-stage {
-        position: relative;
-        display: flex;
-        flex: 1 1 auto;
-        min-height: 0;
-        overflow: auto;
-        padding: 24px;
-        background:
-            linear-gradient(45deg, var(--checker-mark) 25%, transparent 25%),
-            linear-gradient(-45deg, var(--checker-mark) 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, var(--checker-mark) 75%),
-            linear-gradient(-45deg, transparent 75%, var(--checker-mark) 75%);
-        background-color: var(--checker-base);
-        background-position: 0 0, 0 10px, 10px -10px, -10px 0;
-        background-size: 20px 20px;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .stage-surface-adaptive {
-        box-sizing: border-box;
-        flex: 0 0 auto;
-        max-width: 100%;
-        min-height: 0;
-        transition:
-            width 220ms var(--motion-curve),
-            height 220ms var(--motion-curve);
-    }
-
-    .app-ambient-glow {
-        position: absolute;
-        inset: -80px;
-        z-index: 0;
-        overflow: hidden;
-        pointer-events: none;
-        filter: blur(42px) saturate(1.18);
-        opacity: 0.62;
-    }
-
-    .app-ambient-glow::before,
-    .app-ambient-glow::after {
-        position: absolute;
-        inset: 0;
-        content: "";
-    }
-
-    .app-ambient-glow-processing {
-        background:
-            radial-gradient(ellipse at 15% 18%, var(--fluid-color-1) 0%, transparent 46%),
-            radial-gradient(ellipse at 84% 20%, var(--fluid-color-2) 0%, transparent 44%),
-            radial-gradient(ellipse at 22% 86%, var(--fluid-color-3) 0%, transparent 46%),
-            radial-gradient(ellipse at 86% 82%, var(--fluid-color-4) 0%, transparent 44%);
-        animation: ambientProcessingPulse 5.2s ease-in-out infinite alternate;
-    }
-
-    .app-ambient-glow-preview {
-        --ambient-top: var(--fluid-color-1);
-        --ambient-right: var(--fluid-color-2);
-        --ambient-bottom: var(--fluid-color-3);
-        --ambient-left: var(--fluid-color-4);
-        background:
-            radial-gradient(ellipse at 50% 7%, var(--ambient-top) 0%, transparent 42%),
-            radial-gradient(ellipse at 96% 50%, var(--ambient-right) 0%, transparent 44%),
-            radial-gradient(ellipse at 50% 95%, var(--ambient-bottom) 0%, transparent 42%),
-            radial-gradient(ellipse at 7% 50%, var(--ambient-left) 0%, transparent 44%);
-        opacity: 0.68;
-        transition:
-            --ambient-top 620ms var(--motion-curve),
-            --ambient-right 620ms var(--motion-curve),
-            --ambient-bottom 620ms var(--motion-curve),
-            --ambient-left 620ms var(--motion-curve),
-            background 620ms var(--motion-curve),
-            opacity 420ms var(--motion-curve),
-            filter 420ms var(--motion-curve);
-    }
-
-    :root[data-theme="dark"] .app-ambient-glow {
-        filter: blur(48px) saturate(1.18) brightness(1.08);
-        opacity: 0.9;
-    }
-
-    :root[data-theme="dark"] .app-ambient-glow-preview {
-        opacity: 0.98;
-    }
-
-    .stage-body .el-image,
-    .result-stage .el-image {
-        position: relative;
-        z-index: 1;
-        overflow: hidden;
-        border: 1px solid var(--hairline);
-        background-color: var(--image-checker-base);
-        background-image:
-            linear-gradient(45deg, var(--image-checker-mark) 25%, transparent 25%),
-            linear-gradient(-45deg, var(--image-checker-mark) 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, var(--image-checker-mark) 75%),
-            linear-gradient(-45deg, transparent 75%, var(--image-checker-mark) 75%);
-        background-size: 16px 16px;
-        background-position: 0 0, 0 8px, 8px -8px, -8px 0;
-        border-radius: var(--radius-sm);
-        box-shadow: var(--image-shadow);
-    }
-
-    .stage-body .el-image__inner,
-    .result-stage .el-image__inner {
-        display: block;
-        object-fit: contain;
-    }
-
-    .processing-stage {
-        position: relative;
-        isolation: isolate;
-        overflow: hidden;
-    }
-
-    .processing-stage.is-processing {
-        background: var(--surface-bg-muted);
-    }
-
-    .processing-gradient {
-        position: absolute;
-        inset: -12%;
-        z-index: 0;
-        overflow: hidden;
-        background:
-            radial-gradient(ellipse at 16% 20%, var(--fluid-color-1) 0%, transparent 44%),
-            radial-gradient(ellipse at 78% 18%, var(--fluid-color-2) 0%, transparent 46%),
-            radial-gradient(ellipse at 18% 86%, var(--fluid-color-3) 0%, transparent 46%),
-            radial-gradient(ellipse at 88% 82%, var(--fluid-color-4) 0%, transparent 42%),
-            linear-gradient(135deg, rgba(4, 7, 28, 0.96) 0%, transparent 34%, rgba(255, 255, 255, 0.34) 68%, rgba(4, 7, 28, 0.82) 100%),
-            linear-gradient(28deg, var(--fluid-color-3) 0%, var(--fluid-color-1) 42%, var(--fluid-color-2) 72%, var(--fluid-color-4) 100%);
-        background-position: 0% 0%, 100% 0%, 0% 100%, 100% 100%, 50% 50%, 50% 50%;
-        background-size: 140% 140%, 150% 150%, 145% 145%, 150% 150%, 160% 160%, 130% 130%;
-        filter: saturate(1.32) contrast(1.08);
-        opacity: 1;
-        pointer-events: none;
-        animation: meshGradientFlow 7s ease-in-out infinite alternate;
-    }
-
-    :root[data-theme="dark"] .processing-gradient {
-        filter: saturate(1.08) contrast(1.02) brightness(0.72);
-        opacity: 0.92;
-    }
-
-    .processing-gradient::before {
-        position: absolute;
-        inset: 0;
-        background:
-            linear-gradient(110deg, rgba(255, 255, 255, 0.22), transparent 32%, rgba(0, 0, 0, 0.22) 74%, transparent),
-            radial-gradient(circle at 8% 12%, rgba(0, 0, 0, 0.54), transparent 30%),
-            radial-gradient(circle at 92% 8%, rgba(0, 0, 0, 0.48), transparent 32%),
-            radial-gradient(circle at 52% 96%, rgba(255, 255, 255, 0.36), transparent 34%);
-        content: "";
-        mix-blend-mode: soft-light;
-        animation: meshSheenFlow 5.8s ease-in-out infinite alternate;
-    }
-
-    .processing-gradient::after {
-        position: absolute;
-        inset: 0;
-        background-image:
-            repeating-radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.22) 0 1px, transparent 1px 4px),
-            repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.12) 0 1px, transparent 1px 3px);
-        background-size: 7px 7px, 5px 5px;
-        content: "";
-        mix-blend-mode: overlay;
-        opacity: 0.2;
-        animation: meshNoiseDrift 1.8s steps(2, end) infinite;
-    }
-
-    .processing-gradient span {
-        position: absolute;
-        width: 82%;
-        height: 76%;
-        border-radius: 42% 58% 48% 52%;
-        filter: blur(42px);
-        mix-blend-mode: screen;
-        opacity: 0.74;
-        animation: meshColorDrift 6s ease-in-out infinite alternate;
-    }
-
-    :root[data-theme="dark"] .processing-gradient span {
-        filter: blur(46px);
-        mix-blend-mode: lighten;
-        opacity: 0.56;
-    }
-
-    .processing-gradient span:nth-child(1) {
-        left: -28%;
-        top: -22%;
-        background: var(--fluid-color-1);
-        animation-duration: 5.4s;
-    }
-
-    .processing-gradient span:nth-child(2) {
-        right: -34%;
-        top: -18%;
-        background: var(--fluid-color-2);
-        animation-delay: -1s;
-        animation-duration: 6.1s;
-    }
-
-    .processing-gradient span:nth-child(3) {
-        left: -22%;
-        bottom: -28%;
-        background: var(--fluid-color-3);
-        animation-delay: -2.1s;
-        animation-duration: 5.7s;
-    }
-
-    .processing-gradient span:nth-child(4) {
-        right: -24%;
-        bottom: -24%;
-        background: var(--fluid-color-4);
-        animation-delay: -3.2s;
-        animation-duration: 6.5s;
-    }
-
-    .processing-preview {
-        position: relative;
-        z-index: 1;
-    }
-
-    @keyframes meshGradientFlow {
-        0% {
-            background-position: 0% 0%, 100% 0%, 0% 100%, 100% 100%, 20% 40%, 50% 50%;
-            transform: scale(1) rotate(0deg);
-        }
-        35% {
-            background-position: 32% 18%, 72% 28%, 18% 76%, 82% 64%, 62% 38%, 38% 62%;
-            transform: scale(1.05) rotate(2deg);
-        }
-        70% {
-            background-position: 10% 52%, 94% 16%, 42% 92%, 58% 76%, 38% 72%, 72% 42%;
-            transform: scale(1.08) rotate(-2deg);
-        }
-        100% {
-            background-position: 48% 12%, 56% 44%, 26% 58%, 92% 42%, 72% 46%, 28% 72%;
-            transform: scale(1.04) rotate(3deg);
-        }
-    }
-
-    @keyframes ambientProcessingPulse {
-        0% {
-            transform: translate3d(-3%, -2%, 0) scale(1);
-            opacity: 0.58;
-        }
-        50% {
-            transform: translate3d(4%, 3%, 0) scale(1.08);
-            opacity: 0.84;
-        }
-        100% {
-            transform: translate3d(2%, -4%, 0) scale(1.04);
-            opacity: 0.68;
-        }
-    }
-
-    @keyframes resultPreviewFadeIn {
-        0% {
-            opacity: 0;
-            filter: blur(10px) saturate(0.92);
-        }
-        45% {
-            opacity: 0.24;
-            filter: blur(6px) saturate(0.98);
-        }
-        100% {
-            opacity: 1;
-            filter: blur(0) saturate(1);
-        }
-    }
-
-    @keyframes resultRevealFadeOut {
-        0% {
-            opacity: 1;
-            filter: blur(8px) saturate(1.24) contrast(1.08);
-            transform: scale(1);
-        }
-        55% {
-            opacity: 0.58;
-            filter: blur(28px) saturate(1.14) contrast(1.02);
-            transform: scale(1.04);
-        }
-        100% {
-            opacity: 0;
-            filter: blur(54px) saturate(0.98) contrast(0.96);
-            transform: scale(1.08);
-        }
-    }
-
-    @keyframes meshColorDrift {
-        0% {
-            transform: translate3d(-18%, -12%, 0) scale(1) rotate(0deg);
-        }
-        45% {
-            transform: translate3d(34%, 24%, 0) scale(1.26) rotate(16deg);
-        }
-        100% {
-            transform: translate3d(18%, -30%, 0) scale(1.14) rotate(-14deg);
-        }
-    }
-
-    @keyframes meshSheenFlow {
-        0% {
-            transform: translate3d(-7%, -4%, 0) scale(1.04);
-            opacity: 0.72;
-        }
-        100% {
-            transform: translate3d(8%, 6%, 0) scale(1.12);
-            opacity: 0.92;
-        }
-    }
-
-    @keyframes meshNoiseDrift {
-        0% {
-            transform: translate3d(0, 0, 0);
-        }
-        100% {
-            transform: translate3d(7px, -5px, 0);
-        }
-    }
-
-    @keyframes uploadOrbSpin {
-        0% {
-            transform: rotate(0deg);
-        }
-        100% {
-            transform: rotate(360deg);
-        }
-    }
-
-    @keyframes uploadOrbPulse {
-        0%,
-        100% {
-            opacity: 0.38;
-            transform: scale(0.86);
-        }
-        50% {
-            opacity: 0.82;
-            transform: scale(1);
-        }
-    }
-
-    @keyframes uploadBarSweep {
-        0% {
-            transform: translateX(-120%);
-        }
-        100% {
-            transform: translateX(260%);
-        }
-    }
-
-    .large-upload,
-    .large-upload .el-upload,
-    .large-upload .el-upload-dragger {
-        width: min(100%, 620px);
-    }
-
-    .large-upload .el-upload-dragger {
-        display: flex;
-        min-height: 330px;
-        border: 1px dashed var(--theme-primary-border);
-        background:
-            radial-gradient(circle at 50% 10%, var(--theme-surface-tint), transparent 34%),
-            var(--upload-bg);
-        border-radius: var(--radius-lg);
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        box-shadow:
-            0 1px 0 var(--panel-ring) inset,
-            var(--panel-shadow-soft);
-        transition:
-            border-color 180ms var(--motion-curve),
-            transform 180ms var(--motion-curve),
-            box-shadow 180ms var(--motion-curve);
-    }
-
-    .large-upload .el-upload-dragger:hover,
-    .large-upload .el-upload-dragger:focus-within {
-        border-color: var(--theme-primary);
-        transform: translateY(-2px);
-        box-shadow: var(--panel-shadow);
-    }
-
-    .large-upload .el-icon-upload {
-        margin: 0 0 18px;
-        color: var(--theme-primary);
-    }
-
-    .large-upload .el-upload__text {
-        display: flex;
-        align-items: center;
-        flex-direction: column;
-        gap: 6px;
-        color: var(--text-muted);
-        line-height: 1.45;
-    }
-
-    .large-upload .el-upload__text em {
-        color: var(--theme-primary);
-        font-style: normal;
-        font-weight: 800;
-    }
-
-    .upload-format-hint {
-        color: var(--text-subtle);
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        text-transform: uppercase;
-    }
-
-    .upload-loading-state {
-        display: flex;
-        width: min(100%, 340px);
-        align-items: center;
-        flex-direction: column;
-        color: var(--theme-text-strong);
-        text-align: center;
-    }
-
-    .upload-loading-orb {
-        position: relative;
-        width: 72px;
-        height: 72px;
-        margin-bottom: 18px;
-        border: 1px solid var(--hairline);
-        border-radius: 50%;
-        background:
-            radial-gradient(circle at 50% 50%, var(--surface-bg-elevated) 0 38%, transparent 39%),
-            conic-gradient(from 0deg, transparent 0deg, var(--theme-primary) 70deg, transparent 142deg, var(--theme-primary-border) 260deg, transparent 360deg);
-        box-shadow:
-            0 1px 0 var(--panel-ring) inset,
-            0 16px 36px rgba(64, 158, 255, 0.18);
-        animation: uploadOrbSpin 1.2s linear infinite;
-    }
-
-    .upload-loading-orb::after {
-        position: absolute;
-        inset: 18px;
-        border-radius: 50%;
-        background: var(--surface-bg-elevated);
-        box-shadow: 0 0 0 1px var(--hairline);
-        content: "";
-    }
-
-    .upload-loading-orb span {
-        position: absolute;
-        inset: 8px;
-        border-radius: 50%;
-        background: var(--theme-surface-tint);
-        animation: uploadOrbPulse 1.6s var(--motion-curve) infinite;
-    }
-
-    .upload-loading-orb span:nth-child(2) {
-        inset: 22px;
-        background: var(--theme-primary-soft);
-        animation-delay: -0.45s;
-    }
-
-    .upload-loading-title {
-        font-size: 18px;
-        font-weight: 800;
-        line-height: 1.3;
-        letter-spacing: -0.02em;
-    }
-
-    .upload-loading-progress {
-        margin-top: 7px;
-        color: var(--text-muted);
-        font-size: 13px;
-        line-height: 1.45;
-    }
-
-    .upload-loading-bar {
-        width: 100%;
-        height: 8px;
-        margin-top: 16px;
-        overflow: hidden;
-        border: 1px solid var(--hairline);
-        background: var(--theme-primary-soft);
-        border-radius: 999px;
-        box-shadow: 0 1px 0 var(--panel-ring) inset;
-    }
-
-    .upload-loading-bar span {
-        display: block;
-        height: 100%;
-        min-width: 8px;
-        background:
-            linear-gradient(90deg, var(--theme-primary), rgba(103, 194, 58, 0.88));
-        border-radius: inherit;
-        transition: width 220ms var(--motion-curve);
-    }
-
-    .upload-loading-bar.is-indeterminate span {
-        width: 38% !important;
-        min-width: 38%;
-        animation: uploadBarSweep 1.15s var(--motion-curve) infinite;
-        transition: none;
-    }
-
-    .result-overlap {
-        isolation: isolate;
-        gap: 18px;
-        flex-direction: column;
-        overflow: hidden;
-        justify-content: flex-start;
-    }
-
-    .result-stage.is-revealing .preview-pan-viewport {
-        opacity: 0;
-        animation: resultPreviewFadeIn 1.35s ease forwards;
-    }
-
-    .result-reveal-gradient {
-        position: absolute;
-        inset: -12%;
-        z-index: 5;
-        overflow: hidden;
-        background:
-            radial-gradient(ellipse at 16% 20%, var(--fluid-color-1) 0%, transparent 44%),
-            radial-gradient(ellipse at 78% 18%, var(--fluid-color-2) 0%, transparent 46%),
-            radial-gradient(ellipse at 18% 86%, var(--fluid-color-3) 0%, transparent 46%),
-            radial-gradient(ellipse at 88% 82%, var(--fluid-color-4) 0%, transparent 42%),
-            linear-gradient(28deg, var(--fluid-color-3) 0%, var(--fluid-color-1) 42%, var(--fluid-color-2) 72%, var(--fluid-color-4) 100%);
-        background-position: 0% 0%, 100% 0%, 0% 100%, 100% 100%, 50% 50%;
-        background-size: 140% 140%, 150% 150%, 145% 145%, 150% 150%, 130% 130%;
-        pointer-events: none;
-        animation: resultRevealFadeOut 1.45s ease forwards;
-    }
-
-    .result-reveal-gradient span {
-        position: absolute;
-        width: 82%;
-        height: 76%;
-        border-radius: 42% 58% 48% 52%;
-        filter: blur(38px);
-        mix-blend-mode: screen;
-        opacity: 0.68;
-        animation: meshColorDrift 1.45s ease-in-out forwards;
-    }
-
-    :root[data-theme="dark"] .result-reveal-gradient {
-        filter: saturate(1.1) brightness(0.96);
-    }
-
-    :root[data-theme="dark"] .result-reveal-gradient span {
-        mix-blend-mode: lighten;
-        opacity: 0.58;
-    }
-
-    .result-reveal-gradient span:nth-child(1) {
-        left: -28%;
-        top: -22%;
-        background: var(--fluid-color-1);
-    }
-
-    .result-reveal-gradient span:nth-child(2) {
-        right: -34%;
-        top: -18%;
-        background: var(--fluid-color-2);
-    }
-
-    .result-reveal-gradient span:nth-child(3) {
-        left: -22%;
-        bottom: -28%;
-        background: var(--fluid-color-3);
-    }
-
-    .result-reveal-gradient span:nth-child(4) {
-        right: -24%;
-        bottom: -24%;
-        background: var(--fluid-color-4);
-    }
-
-    .preview-tools {
-        position: relative;
-        z-index: 4;
-        display: flex;
-        flex: 0 0 auto;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 8px 10px;
-        border: 1px solid var(--hairline);
-        background: var(--floating-bg);
-        border-radius: 999px;
-        box-shadow: var(--floating-shadow);
-    }
-
-    .preview-tools span {
-        min-width: 44px;
-        color: var(--theme-text-strong);
-        font-size: 12px;
-        font-weight: 700;
-        text-align: center;
-    }
-
-    .preview-pan-viewport {
-        position: relative;
-        z-index: 2;
-        display: flex;
-        width: 100%;
-        min-height: 0;
-        overflow: hidden;
-        flex: 1 1 auto;
-        align-items: center;
-        justify-content: center;
-        touch-action: none;
-        user-select: none;
-    }
-
-    .preview-pan-viewport.is-draggable {
-        cursor: grab;
-    }
-
-    .preview-pan-viewport.is-dragging {
-        cursor: grabbing;
-    }
-
-    .preview-pan-content {
-        display: flex;
-        flex: 0 0 auto;
-        flex-direction: column;
-        align-items: center;
-        will-change: transform;
-    }
-
-    .preview-overlap-container {
-        position: relative;
-        overflow: hidden;
-        border: 1px solid var(--hairline);
-        background-color: var(--image-checker-base);
-        background-image:
-            linear-gradient(45deg, var(--image-checker-mark) 25%, transparent 25%),
-            linear-gradient(-45deg, var(--image-checker-mark) 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, var(--image-checker-mark) 75%),
-            linear-gradient(-45deg, transparent 75%, var(--image-checker-mark) 75%);
-        background-size: 16px 16px;
-        background-position: 0 0, 0 8px, 8px -8px, -8px 0;
-        border-radius: var(--radius-sm);
-        box-shadow: var(--image-shadow);
-    }
-
-    .preview-overlap-slider {
-        position: absolute;
-        left: 18px;
-        right: 18px;
-        bottom: 18px;
-        z-index: 5;
-        width: auto;
-        padding: 8px 12px;
-        border: 1px solid var(--hairline);
-        background: var(--floating-bg);
-        border-radius: 999px;
-        box-shadow: var(--floating-shadow);
-    }
-
-    .preview-overlap-slider .el-slider__runway {
-        margin: 8px 0;
-    }
-
-    .app-footer {
-        flex: 0 0 44px;
-        min-height: 44px;
-        border-top: 1px solid var(--hairline);
-        background: var(--surface-bg);
-    }
-
-    @media (max-width: 1120px) {
-        html,
-        body,
-        #app {
-            width: 100%;
-            max-width: 100%;
-            height: auto;
-            min-height: 100%;
-            overflow-x: hidden;
-            overflow-y: auto;
-        }
-
-        .el-container {
-            width: 100%;
-            max-width: 100%;
-            height: auto;
-            min-height: 100vh;
-            overflow-x: hidden;
-            overflow-y: visible;
-        }
-
-        .app-main {
-            max-width: 100%;
-            padding: 54px 14px 18px;
-            overflow-x: hidden;
-            overflow-y: visible;
-        }
-
-        .workspace {
-            grid-template-columns: 1fr;
-            width: 100%;
-            min-width: 0;
-            height: auto;
-            min-height: 0;
-            max-width: 100%;
-        }
-
-        .control-panel {
-            position: static;
-            min-width: 0;
-            max-width: 100%;
-            max-height: none;
-            overflow-x: hidden;
-            overflow-y: visible;
-            border-radius: var(--radius-md);
-        }
-
-        .control-section {
-            padding: 14px;
-        }
-
-        .stage-panel {
-            min-width: 0;
-            max-width: 100%;
-            height: auto;
-            min-height: 0;
-            overflow-x: hidden;
-            overflow-y: visible;
-            border-radius: var(--radius-md);
-        }
-
-        .stage-body,
-        .result-stage {
-            max-width: 100%;
-            min-height: min(70vh, 620px);
-            overflow-x: hidden;
-        }
-
-        .result-overlap {
-            min-height: min(82vh, 720px);
-        }
-    }
-
-    @media (max-width: 640px) {
-        .app-main {
-            padding: 52px 10px 12px;
-        }
-
-        .floating-preferences {
-            top: 10px;
-            right: 10px;
-            left: auto;
-            gap: 2px;
-            padding: 4px;
-            border: 1px solid var(--hairline);
-            border-radius: 999px;
-            background: var(--floating-bg);
-            box-shadow: 0 10px 28px rgba(22, 35, 48, 0.1);
-            backdrop-filter: blur(14px);
-        }
-
-        .floating-preference-button {
-            width: 32px;
-            height: 32px;
-            min-width: 32px;
-            border: 0;
-            background: transparent;
-            box-shadow: none;
-            backdrop-filter: none;
-        }
-
-        .floating-preference-button i,
-        .floating-preference-button svg {
-            width: 15px;
-            height: 15px;
-            font-size: 15px;
-        }
-
-        .floating-preference-button:hover,
-        .floating-preference-button:focus {
-            box-shadow: none;
-            transform: none;
-        }
-
-        .app-footer {
-            flex: 0 0 auto;
-            flex-direction: row;
-            flex-wrap: wrap;
-            justify-content: center;
-            width: 100%;
-            max-width: 100%;
-            height: auto !important;
-            min-height: 36px;
-            box-sizing: border-box;
-            gap: 5px 11px;
-            padding: 8px 14px 12px;
-            font-size: 11px;
-            line-height: 1.35;
-            overflow-wrap: anywhere;
-        }
-
-        .app-footer > span,
-        .app-footer > a {
-            max-width: none;
-            white-space: nowrap;
-            overflow-wrap: normal;
-            word-break: normal;
-        }
-
-        .app-footer a:nth-of-type(n+4) {
-            display: none;
-        }
-
-        .workspace {
-            gap: 10px;
-        }
-
-        .control-panel {
-            padding: 14px;
-        }
-
-        .control-section {
-            padding: 12px;
-        }
-
-        .section-title {
-            margin-bottom: 8px;
-        }
-
-        .brand-block,
-        .stage-toolbar {
-            align-items: flex-start;
-            flex-direction: column;
-            min-width: 0;
-        }
-
-        .brand-block h1 {
-            font-size: 23px;
-            letter-spacing: -0.028em;
-        }
-
-        .heading-row {
-            align-items: flex-start;
-            gap: 7px;
-        }
-
-        .heading-row .el-popover__reference-wrapper {
-            margin-top: 5px;
-        }
-
-        .stage-toolbar > div:first-child {
-            width: 100%;
-            min-width: 0;
-        }
-
-        .stage-title {
-            max-width: 100%;
-            overflow: visible;
-            text-overflow: clip;
-            white-space: normal;
-            overflow-wrap: anywhere;
-            word-break: break-word;
-        }
-
-        .stage-meta,
-        .stage-status {
-            max-width: 100%;
-            overflow-wrap: anywhere;
-            word-break: break-word;
-        }
-
-        .preview-tools {
-            width: fit-content;
-            max-width: 100%;
-            flex-wrap: wrap;
-            justify-content: flex-start;
-        }
-
-        .field-row {
-            align-items: stretch;
-            flex-direction: column;
-            gap: 7px;
-            margin-top: 9px;
-        }
-
-        .field-row .el-radio-group {
-            width: 100%;
-            max-width: 100%;
-            justify-content: flex-start;
-            overflow-x: auto;
-            padding-bottom: 2px;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .field-row .el-radio-button__inner {
-            padding: 8px 9px;
-            white-space: nowrap;
-        }
-
-        .option-title {
-            flex-basis: auto;
-        }
-
-        .action-section {
-            grid-template-columns: 1fr;
-            gap: 8px;
-        }
-
-        .action-section .el-button {
-            width: 100%;
-            margin-left: 0;
-        }
-
-        .stage-body,
-        .result-stage {
-            width: 100%;
-            box-sizing: border-box;
-            min-height: 46vh;
-            padding: 10px;
-        }
-
-        .large-upload .el-upload-dragger {
-            min-height: 205px;
-            border-radius: var(--radius-md);
-        }
-
-        .large-upload .el-icon-upload {
-            width: 54px;
-            height: 54px;
-            margin-bottom: 12px;
-            font-size: 54px;
-            line-height: 54px;
-        }
-
-        .large-upload .el-upload__text {
-            gap: 4px;
-            font-size: 14px;
-            line-height: 1.35;
-        }
-
-        .upload-format-hint {
-            font-size: 11px;
-            letter-spacing: 0.01em;
-        }
-
-        .stage-body .el-image {
-            max-width: 100%;
-            height: auto !important;
-        }
-
-        .stage-body .el-image__inner {
-            max-width: 100%;
-            height: auto;
-        }
-
-        .result-overlap {
-            min-height: 72vh;
-        }
-
-        .preview-pan-viewport,
-        .preview-overlap-slider {
-            max-width: 100%;
-        }
-
-        .preview-pan-viewport {
-            touch-action: pan-y;
-        }
-
-        .preview-pan-viewport.is-draggable {
-            touch-action: none;
-        }
-
-        .el-message-box {
-            width: calc(100vw - 28px);
-            max-width: 420px;
-        }
-
-        .toolbar-progress-wrap {
-            width: 100%;
-            flex-basis: auto;
-        }
-
-        .toolbar-progress-meta {
-            text-align: left;
-        }
-    }
-</style>
 
 </html>

@@ -9,8 +9,23 @@ npm run check:deploy
 
 The check verifies that `web/` contains the frontend assets, every generated
 WASM backend, the worker files, and every model file referenced by
-`MODEL_FILES` in `web/index.html`. It also checks model byte sizes so stale or
-partial uploads fail before deployment.
+`MODEL_FILES` in `web/modelManifest.js`. It also checks model byte sizes so
+stale or partial uploads fail before deployment.
+
+## Repository Layout
+
+The `web/` directory is the deployable static root. It intentionally mixes
+hand-maintained frontend files with build output so it can be served directly
+for local testing and copied as-is for deployment.
+
+Tracked files in `web/` are the static app shell, vendor runtime files, and
+small frontend helpers such as `app.css`, `i18n.js`, `modelManifest.js`,
+`debugLogger.js`, `wasmFeatureDetect.js`, and `wasmFallbackWorker.js`.
+
+Do not commit generated deployment payloads under `web/`: `build.sh` copies the
+WASM runtime files and copies the source model set from `models/` into
+`web/models/`. The `web/.gitignore` file keeps those generated files out of
+Git, while `npm run check:deploy` still verifies they exist before publishing.
 
 ## Required Files
 
@@ -20,6 +35,7 @@ Deploy the whole `web/` directory after building. At minimum it must include:
 - `vue.min.js`, `element.js`, `element.css`, `normalize.css`
 - `wasmFeatureDetect.js`
 - `wasmFallbackWorker.js`
+- `app.css`, `i18n.js`, `modelManifest.js`, `debugLogger.js`
 - `realcugan-ncnn-webassembly-basic.js`
 - `realcugan-ncnn-webassembly-basic.wasm`
 - `realcugan-ncnn-webassembly-simd.js`

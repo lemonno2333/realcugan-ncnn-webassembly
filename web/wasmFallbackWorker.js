@@ -1,4 +1,15 @@
 var Module = null;
+try {
+    importScripts('debugLogger.js' + (self.location && self.location.search ? self.location.search : ''));
+} catch (error) {
+    // Logging is optional for the fallback worker.
+}
+const Logger = self.RealCuganLogger || {
+    debug() {},
+    info() {},
+    warn() {},
+    error() {},
+};
 let loadedBackend = '';
 let appVersion = '';
 let loading = false;
@@ -239,10 +250,12 @@ async function loadBackend(backend, version) {
             wasmBinary,
             print: (text) => {
                 if (text) {
+                    Logger.debug('[emscripten]', text);
                     post('stdout', {text: String(text)});
                 }
             },
             printErr: (text) => {
+                Logger.error('[emscripten]', text);
                 post('stderr', {text: String(text || '')});
             },
             onBackendProgress: (totalCost, tileCost, progressRate, remainingTime) => {

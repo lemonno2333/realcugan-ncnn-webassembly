@@ -168,8 +168,13 @@ stability, cancellation, and build quality.
 
 ### Priority 6: Maintainability
 
-- [ ] Split large frontend constants such as i18n strings, model manifests, and
-  runtime defaults out of `web/index.html`.
+- [x] Centralize adaptive stage layout constants and sizing helpers.
+- [x] Extract theme color derivation and CSS variable application helpers.
+- [x] Replace layout, preview, and ambient-glow DOM lookups with Vue refs where
+  practical.
+- [x] Split i18n strings and model manifests out of `web/index.html`.
+- [ ] Split remaining runtime defaults out of `web/index.html` where it keeps
+  the static app shape simpler.
 - [ ] Move backend-runtime orchestration into a small dedicated module while
   keeping the app deployable as static files.
 - [ ] Extract preview zoom/pan logic into focused helper functions with unit

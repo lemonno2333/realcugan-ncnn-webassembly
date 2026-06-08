@@ -1,0 +1,12 @@
+# Generated WebAssembly runtime copied here by build.sh.
+/realcugan-ncnn-webassembly*
+
+# Model files are copied from ../models/ by build.sh for local serving and
+# deployment. Keep the source model set in ../models/ tracked instead.
+/models/
+
+# Legacy flat model output paths from older build layouts.
+/up2x*
+/up3x*
+/up4x*
+/models-pro/
