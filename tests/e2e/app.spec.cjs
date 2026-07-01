@@ -74,6 +74,21 @@ async function uploadTinyImage(page) {
   });
 }
 
+async function uploadTinyImages(page) {
+  await page.locator('input[type="file"]').setInputFiles([
+    {
+      name: 'tiny-a.png',
+      mimeType: 'image/png',
+      buffer: tinyImage,
+    },
+    {
+      name: 'tiny-b.png',
+      mimeType: 'image/png',
+      buffer: tinyImage,
+    },
+  ]);
+}
+
 async function seedPreferences(page, overrides = {}) {
   await page.addInitScript((prefs) => {
     localStorage.clear();
@@ -140,6 +155,22 @@ test('falls back when the threaded backend is unavailable', async ({page}) => {
   await waitForSuccess(page);
   await expect(page.locator('.app-footer')).toContainText(/Backend: (simd|basic)/);
   await expect(page.locator('.app-footer')).not.toContainText('Backend: simd-threads');
+});
+
+test('processes multiple uploaded images as a batch', async ({page}) => {
+  await seedPreferences(page);
+  await openApp(page);
+
+  await uploadTinyImages(page);
+  await expect(page.locator('.batch-summary')).toContainText('2 / 2 done', {timeout: 120000});
+  await page.getByRole('button', {name: /tiny-a\.png/}).click();
+  await expect(page.locator('.stage-title')).toContainText('tiny-a.png');
+  await expect(page.getByRole('button', {name: /Download: tiny-a-se-up2x-denoise3x\.png/})).toBeVisible();
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', {name: /Download: tiny-a-se-up2x-denoise3x\.png/}).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/tiny-a-se-up2x-denoise3x\.png$/);
 });
 
 test('shows the exact missing model file in the error dialog', async ({page}) => {

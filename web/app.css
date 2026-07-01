@@ -1044,6 +1044,158 @@
         margin: 0;
     }
 
+    .batch-section {
+        text-align: left;
+    }
+
+    .batch-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.4;
+    }
+
+    .batch-progress {
+        margin-top: 10px;
+    }
+
+    .batch-list {
+        display: flex;
+        max-height: 176px;
+        margin-top: 12px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        flex-direction: column;
+        gap: 8px;
+        padding: 0 2px 2px 0;
+    }
+
+    .batch-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        min-width: 0;
+        padding: 8px 9px;
+        border: 1px solid var(--hairline);
+        background: var(--surface-bg-elevated);
+        border-radius: var(--radius-sm);
+        color: inherit;
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+        transition:
+            border-color 180ms var(--motion-curve),
+            background-color 180ms var(--motion-curve),
+            box-shadow 180ms var(--motion-curve),
+            transform 180ms var(--motion-curve);
+    }
+
+    .batch-item:hover,
+    .batch-item:focus {
+        border-color: var(--theme-primary);
+        background: var(--theme-primary-soft);
+        box-shadow: 0 1px 0 var(--panel-ring) inset;
+        outline: none;
+    }
+
+    .batch-item.is-selected {
+        border-color: var(--theme-primary);
+        background: var(--theme-primary-soft);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-primary) 52%, transparent) inset;
+    }
+
+    .batch-item-name {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        color: var(--theme-text-strong);
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.35;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .batch-item-action {
+        position: relative;
+        display: inline-flex;
+        flex: 0 0 42px;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 28px;
+        min-width: 42px;
+        min-height: 28px;
+        overflow: hidden;
+    }
+
+    .batch-status-tag {
+        transition:
+            opacity 160ms var(--motion-curve),
+            transform 160ms var(--motion-curve);
+    }
+
+    .batch-download-button {
+        position: absolute;
+        right: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: 1px solid color-mix(in srgb, var(--batch-download-accent, var(--theme-primary)) 68%, var(--surface-bg-elevated));
+        background:
+            radial-gradient(circle at 34% 24%, rgba(255, 255, 255, 0.46), transparent 34%),
+            linear-gradient(145deg, var(--batch-download-soft, var(--theme-primary-soft)), var(--batch-download-accent, var(--theme-primary)));
+        border-radius: 50%;
+        color: var(--batch-download-on-accent, var(--theme-on-primary));
+        cursor: pointer;
+        font-size: 14px;
+        opacity: 0;
+        outline: none;
+        pointer-events: none;
+        transform: scale(0.94);
+        box-shadow: none;
+        transition:
+            opacity 160ms var(--motion-curve),
+            transform 160ms var(--motion-curve),
+            background-color 160ms var(--motion-curve),
+            border-color 160ms var(--motion-curve),
+            filter 160ms var(--motion-curve);
+    }
+
+    .batch-download-button:hover,
+    .batch-download-button:focus {
+        border-color: var(--batch-download-accent, var(--theme-primary));
+        background: var(--batch-download-accent, var(--theme-primary));
+        color: var(--batch-download-on-accent, var(--theme-on-primary));
+        filter: brightness(0.96);
+    }
+
+    .batch-item.is-done:hover .batch-status-tag,
+    .batch-item.is-done:focus .batch-status-tag,
+    .batch-item.is-done.is-selected .batch-status-tag {
+        opacity: 0;
+        transform: translateX(-4px) scale(0.94);
+    }
+
+    .batch-item.is-done:hover .batch-download-button,
+    .batch-item.is-done:focus .batch-download-button,
+    .batch-item.is-done.is-selected .batch-download-button {
+        opacity: 1;
+        pointer-events: auto;
+        transform: scale(1);
+    }
+
     .stage-panel {
         display: flex;
         height: 100%;

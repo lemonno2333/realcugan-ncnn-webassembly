@@ -61,6 +61,9 @@ window.I18N = {
                 sample: '示例图片',
                 reset: '复位',
                 save: '保存图片',
+                download: '下载',
+                downloadAll: '下载全部',
+                clearBatch: '清空批量',
                 cancel: '取消处理',
                 cancelling: '正在取消',
             },
@@ -87,6 +90,24 @@ window.I18N = {
             upload: {
                 drag: '将文件拖到此处，或',
                 click: '点击选取',
+                batchHint: 'jpg / png / webp / bmp，支持多选批量处理',
+            },
+            batch: {
+                title: '批量处理',
+                summary: '已完成 {done} / {total}',
+                running: '处理中',
+                busy: '已有任务正在运行，请稍后再选择批量图片。',
+                queued: '已加入 {total} 张图片，准备顺序处理。',
+                processing: '正在处理 {current} / {total}: {name}',
+                done: '批量处理完成：{done} / {total}',
+                cancelled: '批量处理已取消',
+                status: {
+                    pending: '等待',
+                    processing: '处理中',
+                    done: '完成',
+                    error: '失败',
+                    cancelled: '已取消',
+                },
             },
             footer: {
                 version: '版本',
@@ -125,6 +146,7 @@ window.I18N = {
             notify: {
                 success: '成功',
                 saved: '保存成功',
+                busy: '任务忙',
             },
         },
         en: {
@@ -188,6 +210,9 @@ window.I18N = {
                 sample: 'Sample',
                 reset: 'Reset',
                 save: 'Save image',
+                download: 'Download',
+                downloadAll: 'Download all',
+                clearBatch: 'Clear batch',
                 cancel: 'Cancel',
                 cancelling: 'Cancelling',
             },
@@ -214,6 +239,24 @@ window.I18N = {
             upload: {
                 drag: 'Drop an image here, or ',
                 click: 'click to choose',
+                batchHint: 'jpg / png / webp / bmp, multiple images supported',
+            },
+            batch: {
+                title: 'Batch',
+                summary: '{done} / {total} done',
+                running: 'Running',
+                busy: 'A task is already running. Choose batch images after it finishes.',
+                queued: '{total} images queued for sequential processing.',
+                processing: 'Processing {current} / {total}: {name}',
+                done: 'Batch complete: {done} / {total}',
+                cancelled: 'Batch cancelled',
+                status: {
+                    pending: 'Pending',
+                    processing: 'Processing',
+                    done: 'Done',
+                    error: 'Failed',
+                    cancelled: 'Cancelled',
+                },
             },
             footer: {
                 version: 'Version',
@@ -252,6 +295,7 @@ window.I18N = {
             notify: {
                 success: 'Success',
                 saved: 'Saved',
+                busy: 'Busy',
             },
         },
         ja: {
@@ -315,6 +359,9 @@ window.I18N = {
                 sample: 'サンプル画像',
                 reset: 'リセット',
                 save: '画像を保存',
+                download: '保存',
+                downloadAll: 'すべて保存',
+                clearBatch: 'バッチをクリア',
                 cancel: 'キャンセル',
                 cancelling: 'キャンセル中',
             },
@@ -341,6 +388,24 @@ window.I18N = {
             upload: {
                 drag: 'ここに画像をドラッグ、または',
                 click: 'クリックして選択',
+                batchHint: 'jpg / png / webp / bmp、複数選択に対応',
+            },
+            batch: {
+                title: 'バッチ処理',
+                summary: '{done} / {total} 完了',
+                running: '処理中',
+                busy: '別の処理が実行中です。完了後にバッチ画像を選択してください。',
+                queued: '{total} 枚の画像を順番に処理します。',
+                processing: '{current} / {total} を処理中: {name}',
+                done: 'バッチ完了: {done} / {total}',
+                cancelled: 'バッチ処理をキャンセルしました',
+                status: {
+                    pending: '待機中',
+                    processing: '処理中',
+                    done: '完了',
+                    error: '失敗',
+                    cancelled: 'キャンセル済み',
+                },
             },
             footer: {
                 version: 'バージョン',
@@ -379,6 +444,7 @@ window.I18N = {
             notify: {
                 success: '成功',
                 saved: '保存しました',
+                busy: '処理中',
             },
         },
     };

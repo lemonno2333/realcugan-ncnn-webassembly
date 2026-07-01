@@ -17,17 +17,17 @@
             location.replace(`https:${location.href.substring(location.protocol.length)}`);
         }
     </script>
-    <script src="vue.min.js?v=2026.06.05-alpha.23"></script>
+    <script src="vue.min.js?v=2026.06.05-alpha.25"></script>
     <!-- import CSS -->
-    <link rel="stylesheet" href="normalize.css?v=2026.06.05-alpha.23">
-    <link rel="stylesheet" href="element.css?v=2026.06.05-alpha.23">
-    <link rel="stylesheet" href="app.css?v=2026.06.05-alpha.23">
+    <link rel="stylesheet" href="normalize.css?v=2026.06.05-alpha.25">
+    <link rel="stylesheet" href="element.css?v=2026.06.05-alpha.25">
+    <link rel="stylesheet" href="app.css?v=2026.06.05-alpha.25">
     <!-- import JavaS/docs/doccnToNsFKaK01nwkKpHD5S4xbcript -->
-    <script src="element.js?v=2026.06.05-alpha.23"></script>
-    <script src="wasmFeatureDetect.js?v=2026.06.05-alpha.23"></script>
-    <script src="debugLogger.js?v=2026.06.05-alpha.23"></script>
-    <script src="modelManifest.js?v=2026.06.05-alpha.23"></script>
-    <script src="i18n.js?v=2026.06.05-alpha.23"></script>
+    <script src="element.js?v=2026.06.05-alpha.25"></script>
+    <script src="wasmFeatureDetect.js?v=2026.06.05-alpha.25"></script>
+    <script src="debugLogger.js?v=2026.06.05-alpha.25"></script>
+    <script src="modelManifest.js?v=2026.06.05-alpha.25"></script>
+    <script src="i18n.js?v=2026.06.05-alpha.25"></script>
 </head>
 
 <body>
@@ -162,9 +162,48 @@
 
                         <div class="control-section action-section">
                             <el-button type="plain" size="small" :loading="wasmLoading" v-if="!isProcessing && uploadPreviewWidth === 0" v-on:click="runTestCase">{{t('actions.sample')}}</el-button>
-                            <el-button type="plain" size="small" v-if="!isProcessing && uploadPreviewWidth !== 0" v-on:click="resetWorkspace">{{t('actions.reset')}}</el-button>
-                            <el-button type="primary" size="small" v-if="isProcessDone" v-on:click="saveOutput">{{t('actions.save')}}</el-button>
+                            <el-button type="plain" size="small" v-if="!isProcessing && uploadPreviewWidth !== 0" v-on:click="resetWorkspace">{{isBatchActive ? t('actions.clearBatch') : t('actions.reset')}}</el-button>
+                            <el-button type="primary" size="small" v-if="isProcessDone && !isBatchActive" v-on:click="saveOutput">{{t('actions.save')}}</el-button>
+                            <el-button type="primary" size="small" v-if="isBatchActive && batchDownloadCount > 0" v-on:click="downloadAllBatchResults">{{t('actions.downloadAll')}}</el-button>
                             <el-button type="plain" size="small" :loading="isCancelling" :disabled="isCancelling" v-if="isProcessing && !isProcessDone" v-on:click="stopProcess">{{isCancelling ? t('actions.cancelling') : t('actions.cancel')}}</el-button>
+                        </div>
+
+                        <div class="control-section batch-section" v-if="isBatchActive || batchItems.length > 0">
+                            <div class="section-title">{{t('batch.title')}}</div>
+                            <div class="batch-summary">
+                                <span>{{t('batch.summary', {done: batchDoneCount, total: batchItems.length})}}</span>
+                                <span v-if="isBatchProcessing">{{t('batch.running')}}</span>
+                            </div>
+                            <el-progress class="batch-progress" :percentage="batchProgressRate"></el-progress>
+                            <div class="batch-list" style="overflow-x: hidden; max-width: 100%; box-sizing: border-box;" v-if="batchItems.length > 0">
+                                <div
+                                        role="button"
+                                        tabindex="0"
+                                        class="batch-item"
+                                        :class="{'is-selected': selectedBatchItemId === item.id, 'is-done': item.status === 'done'}"
+                                        :style="getBatchItemStyle(item)"
+                                        :aria-label="item.name + ' ' + t('batch.status.' + item.status)"
+                                        v-for="item in batchItems"
+                                        :key="item.id"
+                                        v-on:click="selectBatchItem(item)"
+                                        v-on:keydown.enter.prevent="selectBatchItem(item)"
+                                        v-on:keydown.space.prevent="selectBatchItem(item)">
+                                    <span class="batch-item-name">{{item.name}}</span>
+                                    <span class="batch-item-action">
+                                        <el-tag class="batch-status-tag" size="mini" :type="getBatchTagType(item.status)">{{t('batch.status.' + item.status)}}</el-tag>
+                                        <button
+                                                type="button"
+                                                class="batch-download-button"
+                                                v-if="item.status === 'done'"
+                                                :style="getBatchDownloadButtonStyle(item)"
+                                                :aria-label="t('actions.download') + ': ' + item.filename"
+                                                :title="t('actions.download') + ': ' + item.filename"
+                                                v-on:click.stop="downloadBatchItem(item)">
+                                            <i class="el-icon-download" aria-hidden="true"></i>
+                                        </button>
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </aside>
 
@@ -201,6 +240,7 @@
                                     ref="imageUpload"
                                     class="large-upload"
                                     drag
+                                    multiple
                                     :auto-upload="false"
                                     :disabled="wasmLoading"
                                     accept="image/png,image/jpeg,image/webp,image/bmp"
@@ -225,7 +265,7 @@
                                 </svg>
                                 <div class="el-upload__text" v-if="!wasmLoading">
                                     {{t('upload.drag')}}<em>{{t('upload.click')}}</em>
-                                    <span class="upload-format-hint">jpg / png / webp / bmp</span>
+                                    <span class="upload-format-hint">{{t('upload.batchHint')}}</span>
                                 </div>
                             </el-upload>
                         </div>
@@ -427,6 +467,18 @@
                 stageLayoutFrame: null,
                 outputImgSrc: '',
                 outputObjectUrl: '',
+                processCompletionResolve: null,
+                processCompletionReject: null,
+                isBatchActive: false,
+                isBatchProcessing: false,
+                batchCancelRequested: false,
+                batchSelectionTimer: null,
+                pendingUploadFile: null,
+                pendingUploadFileList: [],
+                batchItems: [],
+                activeBatchItemId: null,
+                selectedBatchItemId: null,
+                batchRunId: 0,
                 extractedThemeColors: null,
                 // emscripten
                 wasmModuleLoaded: false,
@@ -450,6 +502,23 @@
                 appVersion: APP_VERSION,
                 processFailureDialogOpen: false,
             };
+        },
+
+        computed: {
+            batchDoneCount() {
+                return this.batchItems.filter((item) => item.status === 'done').length;
+            },
+
+            batchProgressRate() {
+                if (!this.batchItems.length) {
+                    return 0;
+                }
+                return Math.round((this.batchDoneCount / this.batchItems.length) * 100);
+            },
+
+            batchDownloadCount() {
+                return this.batchItems.filter((item) => !!item.objectUrl).length;
+            },
         },
 
         mounted() {
@@ -1257,9 +1326,126 @@
                 if (!file || !file.raw) {
                     return;
                 }
+                this.pendingUploadFile = file;
+                this.pendingUploadFileList = (fileList || []).slice();
+                if (this.batchSelectionTimer) {
+                    clearTimeout(this.batchSelectionTimer);
+                }
+                this.batchSelectionTimer = setTimeout(() => {
+                    let selectedFile = this.pendingUploadFile;
+                    let selectedList = this.pendingUploadFileList;
+                    this.batchSelectionTimer = null;
+                    this.pendingUploadFile = null;
+                    this.pendingUploadFileList = [];
+                    if (selectedList && selectedList.length > 1) {
+                        this.startBatchProcess(selectedList);
+                        return;
+                    }
+                    this.preloadSelectedModelAssets();
+                    this.ensureWasmLoaded()
+                        .then(() => this.readUploadedFile(selectedFile))
+                        .catch(() => {
+                            if (this.$refs.imageUpload) {
+                                this.$refs.imageUpload.clearFiles();
+                            }
+                        });
+                }, 120);
+            },
+
+            readUploadedFile(file) {
+                let canvas = document.getElementById('canvas-upload');
+                this.loadImageFileToCanvas(file, canvas)
+                    .then(() => {
+                        this.scheduleStageLayoutSync();
+                        this.scrollStageIntoView();
+                        return this.preflightProcess(canvas, canvas.width, canvas.height);
+                    })
+                    .catch((error) => {
+                        this.clearUploadPreviewUrl();
+                        this.handleProcessFailure(error || 'failed to decode input image');
+                    });
+            },
+
+            loadImageFileToCanvas(file, canvas, options) {
+                options = options || {};
+                return new Promise((resolve, reject) => {
+                    if (!file || !file.raw) {
+                        reject(new Error('missing input file'));
+                        return;
+                    }
+                    let ctx = canvas.getContext('2d');
+                    if (!options.keepUploadUrl) {
+                        this.clearUploadPreviewUrl();
+                    }
+                    this.uploadObjectUrl = options.objectUrl || URL.createObjectURL(file.raw);
+                    this.uploadImgSrc = this.uploadObjectUrl;
+                    let img = new Image();
+                    img.onload = () => {
+                        canvas.width = img.naturalWidth || img.width;
+                        canvas.height = img.naturalHeight || img.height;
+                        ctx.drawImage(img, 0, 0);
+                        this.uploadPreviewWidth = canvas.width;
+                        this.uploadPreviewHeight = canvas.height;
+                        this.uploadPreviewName = file.name;
+                        this.applyImageThemeFromCanvas(canvas);
+                        resolve();
+                    };
+                    img.onerror = () => {
+                        reject(new Error('failed to decode input image'));
+                    };
+                    img.src = this.uploadObjectUrl;
+                });
+            },
+
+            startProcessAndWait(sourceCanvas, w, h) {
+                return new Promise((resolve, reject) => {
+                    this.processCompletionResolve = resolve;
+                    this.processCompletionReject = reject;
+                    let processPromise = this.process(sourceCanvas, w, h);
+                    if (processPromise && processPromise.catch) {
+                        processPromise.catch((error) => {
+                            this.rejectCurrentProcess(error);
+                        });
+                    }
+                });
+            },
+
+            resolveCurrentProcess(result) {
+                let resolve = this.processCompletionResolve;
+                this.processCompletionResolve = null;
+                this.processCompletionReject = null;
+                if (resolve) {
+                    resolve(result);
+                }
+            },
+
+            rejectCurrentProcess(error) {
+                let reject = this.processCompletionReject;
+                this.processCompletionResolve = null;
+                this.processCompletionReject = null;
+                if (reject) {
+                    reject(error || new Error('processing failed'));
+                }
+            },
+
+            startBatchProcess(fileList) {
+                let files = (fileList || [])
+                    .map((file) => file && file.raw ? file : null)
+                    .filter(Boolean);
+                if (files.length <= 1) {
+                    return;
+                }
+                if (this.isProcessing || this.isBatchProcessing) {
+                    this.$notify({
+                        title: this.t('notify.busy'),
+                        message: this.t('batch.busy'),
+                        type: 'warning'
+                    });
+                    return;
+                }
                 this.preloadSelectedModelAssets();
                 this.ensureWasmLoaded()
-                    .then(() => this.readUploadedFile(file))
+                    .then(() => this.runBatchQueue(files))
                     .catch(() => {
                         if (this.$refs.imageUpload) {
                             this.$refs.imageUpload.clearFiles();
@@ -1267,33 +1453,270 @@
                     });
             },
 
-            readUploadedFile(file) {
+            async runBatchQueue(files) {
+                this.resetWorkspace({keepBatch: true});
+                this.batchRunId += 1;
+                let runId = this.batchRunId;
+                this.isBatchActive = true;
+                this.isBatchProcessing = true;
+                this.batchCancelRequested = false;
+                this.batchItems = files.map((file, index) => ({
+                    id: runId + '-' + index,
+                    file: file,
+                    name: file.name,
+                    status: 'pending',
+                    previewObjectUrl: URL.createObjectURL(file.raw),
+                    inputWidth: 0,
+                    inputHeight: 0,
+                    outputWidth: 0,
+                    outputHeight: 0,
+                    outputScale: 0,
+                    outputDenoise: 0,
+                    outputModelType: 'se',
+                    accentColor: '',
+                    accentSoftColor: '',
+                    accentTextColor: '',
+                    filename: '',
+                    objectUrl: '',
+                }));
+                this.selectedBatchItemId = this.batchItems.length ? this.batchItems[0].id : null;
+                this.progressTip = this.t('batch.queued', {total: this.batchItems.length});
+                this.scheduleStageLayoutSync();
+
                 let canvas = document.getElementById('canvas-upload');
-                let ctx = canvas.getContext('2d');
-                this.clearUploadPreviewUrl();
-                this.uploadObjectUrl = URL.createObjectURL(file.raw);
-                this.uploadImgSrc = this.uploadObjectUrl;
-                let img = new Image();
-                img.onload = () => {
-                    canvas.width = img.naturalWidth || img.width;
-                    canvas.height = img.naturalHeight || img.height;
-                    ctx.drawImage(img, 0, 0);
-                    this.uploadPreviewWidth = canvas.width;
-                    this.uploadPreviewHeight = canvas.height;
-                    this.uploadPreviewName = file.name;
-                    this.scheduleStageLayoutSync();
-                    this.applyImageThemeFromCanvas(canvas);
-                    this.scrollStageIntoView();
-                    this.preflightProcess(canvas, canvas.width, canvas.height);
+                for (let index = 0; index < this.batchItems.length; index++) {
+                    if (this.batchCancelRequested || runId !== this.batchRunId) {
+                        break;
+                    }
+                    let item = this.batchItems[index];
+                    this.activeBatchItemId = item.id;
+                    this.selectedBatchItemId = item.id;
+                    item.status = 'processing';
+                    this.progressTip = this.t('batch.processing', {
+                        current: index + 1,
+                        total: this.batchItems.length,
+                        name: item.name,
+                    });
+                    try {
+                        await this.loadImageFileToCanvas(item.file, canvas, {
+                            keepUploadUrl: true,
+                            objectUrl: item.previewObjectUrl,
+                        });
+                        item.inputWidth = canvas.width;
+                        item.inputHeight = canvas.height;
+                        this.applyBatchItemAccentFromCanvas(item, canvas);
+                        this.scheduleStageLayoutSync();
+                        this.scrollStageIntoView();
+                        await this.preflightProcess(canvas, canvas.width, canvas.height);
+                        item.status = 'done';
+                    } catch (error) {
+                        if (this.batchCancelRequested || this.isCancelling) {
+                            item.status = 'cancelled';
+                            break;
+                        }
+                        item.status = 'error';
+                        Logger.error('batch item failed:', item.name, error);
+                    }
+                }
+
+                this.isBatchProcessing = false;
+                this.activeBatchItemId = null;
+                if (this.batchCancelRequested) {
+                    this.progressTip = this.t('batch.cancelled');
+                } else {
+                    this.progressTip = this.t('batch.done', {
+                        done: this.batchDoneCount,
+                        total: this.batchItems.length,
+                    });
+                    this.$notify({
+                        title: this.t('notify.success'),
+                        message: this.progressTip,
+                        type: 'success'
+                    });
+                }
+                if (this.$refs.imageUpload) {
+                    this.$refs.imageUpload.clearFiles();
+                }
+            },
+
+            getOutputFilename() {
+                let filename = "realcugan-output";
+                if (this.uploadPreviewName && this.uploadPreviewName.length > 0) {
+                    filename = this.uploadPreviewName.replace(/\.[^/.]+$/, "");
+                }
+                filename += "-" + this.outputModelType + "-up" + this.outputScale + "x";
+                switch (this.outputDenoise) {
+                    case -1:
+                        filename += "-conservative.png";
+                        break;
+                    case 1:
+                        filename += "-denoise1x.png";
+                        break;
+                    case 2:
+                        filename += "-denoise2x.png";
+                        break;
+                    case 3:
+                        filename += "-denoise3x.png";
+                        break;
+                    default:
+                        filename += "-no-denoise.png";
+                }
+                return filename;
+            },
+
+            rememberBatchResult(objectUrl, outputWidth, outputHeight) {
+                if (!this.isBatchActive || !this.activeBatchItemId || !objectUrl) {
+                    return;
+                }
+                let item = this.batchItems.find((entry) => entry.id === this.activeBatchItemId);
+                if (!item) {
+                    return;
+                }
+                item.filename = this.getOutputFilename();
+                item.objectUrl = objectUrl;
+                item.outputWidth = outputWidth || this.outputPreviewWidth;
+                item.outputHeight = outputHeight || this.outputPreviewHeight;
+                item.outputScale = this.outputScale;
+                item.outputDenoise = this.outputDenoise;
+                item.outputModelType = this.outputModelType;
+            },
+
+            selectBatchItem(item) {
+                if (!item) {
+                    return;
+                }
+                this.selectedBatchItemId = item.id;
+                if (!item.inputWidth || !item.inputHeight) {
+                    return;
+                }
+                this.uploadPreviewName = item.name;
+                this.uploadPreviewWidth = item.inputWidth;
+                this.uploadPreviewHeight = item.inputHeight;
+                this.uploadImgSrc = item.previewObjectUrl || '';
+                this.uploadObjectUrl = item.previewObjectUrl || '';
+                this.outputScale = item.outputScale || this.scaleRadio;
+                this.outputDenoise = item.outputDenoise || this.denoiseRadio;
+                this.outputModelType = item.outputModelType || this.modelTypeRadio;
+                this.outputPreviewWidth = item.outputWidth || item.inputWidth * this.outputScale;
+                this.outputPreviewHeight = item.outputHeight || item.inputHeight * this.outputScale;
+                this.outputImgSrc = item.objectUrl || '';
+                this.outputObjectUrl = item.objectUrl || '';
+                this.isProcessDone = item.status === 'done' && !!item.objectUrl;
+                this.isResultRevealing = false;
+                this.previewOverlapRate = 50;
+                this.previewZoom = this.previewZoomMin;
+                this.resetPreviewPan();
+                this.scheduleStageLayoutSync();
+                this.syncPreviewViewport();
+            },
+
+            downloadBatchItem(item) {
+                if (!item || !item.objectUrl) {
+                    return;
+                }
+                this.triggerDownload(item.objectUrl, item.filename);
+            },
+
+            downloadAllBatchResults() {
+                this.batchItems.filter((item) => item.objectUrl).forEach((item, index) => {
+                    setTimeout(() => this.downloadBatchItem(item), index * 120);
+                });
+            },
+
+            triggerDownload(objectUrl, filename) {
+                var a = document.getElementById("download-link");
+                a.href = objectUrl;
+                a.download = filename;
+                a.click();
+            },
+
+            getBatchTagType(status) {
+                if (status === 'done') {
+                    return 'success';
+                }
+                if (status === 'error') {
+                    return 'danger';
+                }
+                if (status === 'processing') {
+                    return 'warning';
+                }
+                return 'info';
+            },
+
+            getBatchItemStyle(item) {
+                return {
+                    width: 'calc(100% - 2px)',
+                    maxWidth: 'calc(100% - 2px)',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden',
+                    marginRight: '0',
+                    flexShrink: '0',
                 };
-                img.onerror = () => {
-                    this.clearUploadPreviewUrl();
-                    this.handleProcessFailure('failed to decode input image');
+            },
+
+            getBatchDownloadButtonStyle(item) {
+                let fallbackAccent = 'var(--theme-primary)';
+                let fallbackSoft = 'var(--theme-primary-soft)';
+                let fallbackText = 'var(--theme-on-primary)';
+                if (!item || !item.accentColor) {
+                    return {
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '28px',
+                        height: '28px',
+                        minWidth: '28px',
+                        padding: '0',
+                        borderRadius: '50%',
+                        background: fallbackAccent,
+                        boxShadow: 'none',
+                        color: fallbackText,
+                    };
+                }
+                return {
+                    '--batch-download-accent': item.accentColor,
+                    '--batch-download-soft': item.accentSoftColor || item.accentColor,
+                    '--batch-download-on-accent': item.accentTextColor || '#ffffff',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '28px',
+                    height: '28px',
+                    minWidth: '28px',
+                    padding: '0',
+                    borderRadius: '50%',
+                    borderColor: item.accentColor,
+                    background: item.accentColor,
+                    boxShadow: 'none',
+                    color: item.accentTextColor || '#ffffff',
                 };
-                img.src = this.uploadObjectUrl;
+            },
+
+            applyBatchItemAccentFromCanvas(item, sourceCanvas) {
+                if (!item || !sourceCanvas || !sourceCanvas.width || !sourceCanvas.height) {
+                    return;
+                }
+                const sample = this.getCanvasThemeSample(sourceCanvas);
+                const colors = this.extractThemeColors(sample.imageData, 1);
+                sample.canvas.width = 0;
+                sample.canvas.height = 0;
+                const color = colors[0] || {r: 64, g: 158, b: 255};
+                const hsl = this.rgbToHsl(color.r, color.g, color.b);
+                const accent = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 46, 82), this.clampColorValue(hsl.l, 34, 56));
+                const soft = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 28, 64), this.getEffectiveTheme() === 'dark' ? 22 : 92);
+                item.accentColor = this.rgbCss(accent);
+                item.accentSoftColor = this.rgbCss(soft);
+                item.accentTextColor = this.getReadableTextOnColor(accent);
             },
 
             applyImageThemeFromCanvas(sourceCanvas) {
+                const sample = this.getCanvasThemeSample(sourceCanvas);
+                this.applyImageTheme(sample.imageData);
+                sample.canvas.width = 0;
+                sample.canvas.height = 0;
+            },
+
+            getCanvasThemeSample(sourceCanvas) {
                 const maxSampleSize = 96;
                 const scale = Math.min(1, maxSampleSize / Math.max(sourceCanvas.width, sourceCanvas.height));
                 const sampleWidth = Math.max(1, Math.round(sourceCanvas.width * scale));
@@ -1303,19 +1726,19 @@
                 sampleCanvas.height = sampleHeight;
                 const sampleContext = sampleCanvas.getContext('2d', {willReadFrequently: true});
                 sampleContext.drawImage(sourceCanvas, 0, 0, sampleWidth, sampleHeight);
-                this.applyImageTheme(sampleContext.getImageData(0, 0, sampleWidth, sampleHeight));
-                sampleCanvas.width = 0;
-                sampleCanvas.height = 0;
+                return {
+                    canvas: sampleCanvas,
+                    imageData: sampleContext.getImageData(0, 0, sampleWidth, sampleHeight),
+                };
             },
 
             preflightProcess(sourceCanvas, w, h) {
                 let risk = this.getProcessingRisk(w, h, this.scaleRadio);
                 if (risk.level === 'ok' || this.getPreference('skipSizeRiskWarning') === '1') {
-                    this.process(sourceCanvas, w, h);
-                    return;
+                    return this.startProcessAndWait(sourceCanvas, w, h);
                 }
                 let skipWarning = false;
-                this.$confirm(this.getSizeRiskMessageHtml(risk), this.t('dialog.sizeRiskTitle'), {
+                return this.$confirm(this.getSizeRiskMessageHtml(risk), this.t('dialog.sizeRiskTitle'), {
                         confirmButtonText: this.t('dialog.safeSettings'),
                         cancelButtonText: this.t('dialog.continue'),
                         type: 'warning',
@@ -1331,14 +1754,15 @@
                         this.savePreference('skipSizeRiskWarning', '1');
                     }
                     this.applySafeProcessingSettings();
-                    this.process(sourceCanvas, w, h);
+                    return this.startProcessAndWait(sourceCanvas, w, h);
                 }).catch((action) => {
                     if (skipWarning) {
                         this.savePreference('skipSizeRiskWarning', '1');
                     }
                     if (action === 'cancel') {
-                        this.process(sourceCanvas, w, h);
+                        return this.startProcessAndWait(sourceCanvas, w, h);
                     }
+                    throw new Error('processing cancelled before start');
                 });
             },
 
@@ -2411,14 +2835,17 @@
                 }
                 ctxOutput.putImageData(imageDataOutput, 0, 0);
                 Logger.debug('output size:', outputByteLength);
-                if (this.outputObjectUrl) {
+                if (this.outputObjectUrl && !this.isBatchManagedObjectUrl(this.outputObjectUrl)) {
                     URL.revokeObjectURL(this.outputObjectUrl);
-                    this.outputObjectUrl = '';
                 }
+                this.outputObjectUrl = '';
                 canvasOutput.toBlob((blob) => {
                     if (blob) {
                         this.outputObjectUrl = URL.createObjectURL(blob);
                         this.outputImgSrc = this.outputObjectUrl;
+                        if (this.isBatchActive && this.activeBatchItemId) {
+                            this.rememberBatchResult(URL.createObjectURL(blob), canvasOutput.width, canvasOutput.height);
+                        }
                     } else {
                         this.handleProcessFailure('failed to encode output image');
                         return;
@@ -2433,6 +2860,12 @@
                         this.scheduleAmbientGlowUpdate();
                     }, 260);
                     this.scrollStageIntoView();
+                    this.resolveCurrentProcess({
+                        filename: this.getOutputFilename(),
+                        objectUrl: this.outputObjectUrl,
+                        width: canvasOutput.width,
+                        height: canvasOutput.height,
+                    });
                 }, 'image/png');
 
                 this.releaseWasmBuffers();
@@ -2467,19 +2900,30 @@
             },
 
             clearOutputPreviewUrl() {
-                if (this.outputObjectUrl) {
+                if (this.outputObjectUrl && !this.isBatchManagedObjectUrl(this.outputObjectUrl)) {
                     URL.revokeObjectURL(this.outputObjectUrl);
-                    this.outputObjectUrl = '';
                 }
+                this.outputObjectUrl = '';
                 this.outputImgSrc = '';
             },
 
             clearUploadPreviewUrl() {
                 if (this.uploadObjectUrl) {
-                    URL.revokeObjectURL(this.uploadObjectUrl);
+                    if (!this.isBatchManagedObjectUrl(this.uploadObjectUrl)) {
+                        URL.revokeObjectURL(this.uploadObjectUrl);
+                    }
                     this.uploadObjectUrl = '';
                 }
                 this.uploadImgSrc = '';
+            },
+
+            isBatchManagedObjectUrl(objectUrl) {
+                if (!objectUrl || !this.batchItems || !this.batchItems.length) {
+                    return false;
+                }
+                return this.batchItems.some((item) => {
+                    return item.previewObjectUrl === objectUrl || item.objectUrl === objectUrl;
+                });
             },
 
             beginResultReveal() {
@@ -2577,6 +3021,7 @@
                     ? {message: error.message, raw: ''}
                     : this.getActionableProcessError(error);
                 this.restoreAfterProcessFailure();
+                this.rejectCurrentProcess(error);
                 if (this.processFailureDialogOpen) {
                     return;
                 }
@@ -2602,35 +3047,12 @@
             },
 
             saveOutput() {
-                var a = document.getElementById("download-link");
                 if (!this.outputObjectUrl) {
                     this.handleProcessFailure('missing output download blob');
                     return;
                 }
-                a.href = this.outputObjectUrl;
-                let filename = "realcugan-output";
-                if (this.uploadPreviewName && this.uploadPreviewName.length > 0) {
-                    filename = this.uploadPreviewName.replace(/\.[^/.]+$/, "");
-                }
-                filename += "-" + this.outputModelType + "-up" + this.outputScale + "x";
-                switch (this.outputDenoise) {
-                    case -1:
-                        filename += "-conservative.png";
-                        break;
-                    case 1:
-                        filename += "-denoise1x.png";
-                        break;
-                    case 2:
-                        filename += "-denoise2x.png";
-                        break;
-                    case 3:
-                        filename += "-denoise3x.png";
-                        break;
-                    default:
-                        filename += "-no-denoise.png";
-                }
-                a.download = filename;
-                a.click();
+                let filename = this.getOutputFilename();
+                this.triggerDownload(this.outputObjectUrl, filename);
                 this.$notify({
                     title: this.t('notify.saved'),
                     message: filename,
@@ -2643,6 +3065,9 @@
                     return;
                 }
                 this.isCancelling = true;
+                if (this.isBatchProcessing) {
+                    this.batchCancelRequested = true;
+                }
                 this.progressTip = this.t('progress.cancelling');
                 if (this.wasmUsesWorker) {
                     if (this.wasmWorker) {
@@ -2663,10 +3088,12 @@
             },
 
             onProcessCancelled() {
-                this.resetWorkspace();
+                this.rejectCurrentProcess(new Error('processing cancelled'));
+                this.resetWorkspace({keepBatch: this.isBatchActive});
             },
 
-            resetWorkspace() {
+            resetWorkspace(options) {
+                options = options || {};
                 this.clearResultReveal();
                 this.releaseWasmBuffers();
                 this.clearUploadPreviewUrl();
@@ -2690,6 +3117,16 @@
                 this.progressTip = '';
                 this.processFailureDialogOpen = false;
                 this.safeProcessingMode = false;
+                this.activeBatchItemId = null;
+                if (!options.keepBatch) {
+                    this.batchCancelRequested = false;
+                    this.clearBatchResults();
+                    this.isBatchActive = false;
+                    this.isBatchProcessing = false;
+                    this.batchItems = [];
+                    this.selectedBatchItemId = null;
+                    this.batchRunId += 1;
+                }
                 this.previewOverlapRate = 50;
                 this.previewZoom = this.previewZoomMin;
                 this.previewViewportWidth = 0;
@@ -2708,6 +3145,17 @@
                     outputCanvas.width = 0;
                     outputCanvas.height = 0;
                 }
+            },
+
+            clearBatchResults() {
+                this.batchItems.forEach((item) => {
+                    if (item.previewObjectUrl) {
+                        URL.revokeObjectURL(item.previewObjectUrl);
+                    }
+                    if (item.objectUrl) {
+                        URL.revokeObjectURL(item.objectUrl);
+                    }
+                });
             },
 
             handleOOM() {
