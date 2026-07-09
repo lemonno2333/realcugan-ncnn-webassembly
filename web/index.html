@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -21,17 +21,35 @@
     <!-- import CSS -->
     <link rel="stylesheet" href="normalize.css?v=2026.06.05-alpha.25">
     <link rel="stylesheet" href="element.css?v=2026.06.05-alpha.25">
-    <link rel="stylesheet" href="app.css?v=2026.06.05-alpha.25">
+    <link rel="stylesheet" href="app.css?v=2026.07.10-UX-UI">
     <!-- import JavaS/docs/doccnToNsFKaK01nwkKpHD5S4xbcript -->
     <script src="element.js?v=2026.06.05-alpha.25"></script>
     <script src="wasmFeatureDetect.js?v=2026.06.05-alpha.25"></script>
     <script src="debugLogger.js?v=2026.06.05-alpha.25"></script>
     <script src="modelManifest.js?v=2026.06.05-alpha.25"></script>
-    <script src="i18n.js?v=2026.06.05-alpha.25"></script>
+    <script src="i18n.js?v=2026.07.10-UX-UI"></script>
 </head>
 
 <body>
-    <div id="app"></div>
+    <div id="app">
+        <!-- Skeleton Loader before Vue mounts -->
+        <div class="app-skeleton">
+            <div class="skeleton-workspace">
+                <aside class="skeleton-panel">
+                    <div class="skeleton-item skeleton-brand"></div>
+                    <div class="skeleton-item skeleton-section" style="height: 80px;"></div>
+                    <div class="skeleton-item skeleton-section" style="height: 140px;"></div>
+                    <div class="skeleton-item skeleton-section" style="height: 50px;"></div>
+                </aside>
+                <section class="skeleton-stage">
+                    <div class="skeleton-toolbar"></div>
+                    <div class="skeleton-body">
+                        <div class="skeleton-upload-box"></div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
 </body>
 
 <script type="text/x-template" id="form">
@@ -63,8 +81,8 @@
             </div>
 
             <el-main ref="appMain" class="app-main" :class="getAppMainClass()">
-                <div class="app-ambient-glow app-ambient-glow-processing" v-if="isProcessing || isResultRevealing"></div>
-                <div ref="ambientPreviewGlow" class="app-ambient-glow app-ambient-glow-preview" v-if="isProcessDone"></div>
+                <div class="app-ambient-glow app-ambient-glow-processing" :class="{'is-active': isProcessing || isResultRevealing}"></div>
+                <div ref="ambientPreviewGlow" class="app-ambient-glow app-ambient-glow-preview" :class="{'is-active': isProcessDone}"></div>
                 <div ref="workspace" class="workspace" :class="getWorkspaceClass()" :style="getWorkspaceStyle()">
                     <aside ref="controlPanel" class="control-panel">
                         <div class="brand-block">
@@ -74,7 +92,7 @@
                                     <h1>{{t('app.heading')}}</h1>
                                     <el-popover
                                             v-model="projectInfoVisible"
-                                            placement="right-start"
+                                            :placement="infoPopoverPlacement"
                                             trigger="manual"
                                             popper-class="info-popover"
                                             width="300">
@@ -114,7 +132,7 @@
                                 <span>{{t('controls.params')}}</span>
                                 <el-popover
                                         v-model="paramsInfoVisible"
-                                        placement="right-start"
+                                        :placement="infoPopoverPlacement"
                                         trigger="manual"
                                         popper-class="info-popover"
                                         width="300">
@@ -145,7 +163,9 @@
                                 <el-radio-group v-model="scaleRadio" v-on:change="onScaleOptionChange" size="small">
                                     <el-radio-button :label="2">2X</el-radio-button>
                                     <el-radio-button :label="3">3X</el-radio-button>
-                                    <el-radio-button :disabled="modelTypeRadio==='pro'" :label="4">4X</el-radio-button>
+                                    <el-tooltip :disabled="modelTypeRadio!=='pro'" :content="t('controls.scaleTooltip')" placement="top">
+                                        <el-radio-button :disabled="modelTypeRadio==='pro'" :label="4">4X</el-radio-button>
+                                    </el-tooltip>
                                 </el-radio-group>
                             </div>
                             <div class="field-row">
@@ -153,8 +173,12 @@
                                 <el-radio-group v-model="denoiseRadio" v-on:change="onDenoiseOptionChange" size="small">
                                     <el-radio-button :disabled="isDenoiseDisabled(-1)" :label="-1">{{t('denoise.conservative')}}</el-radio-button>
                                     <el-radio-button :disabled="isDenoiseDisabled(0)" :label="0">{{t('denoise.none')}}</el-radio-button>
-                                    <el-radio-button :disabled="isDenoiseDisabled(1)" :label="1">1X</el-radio-button>
-                                    <el-radio-button :disabled="isDenoiseDisabled(2)" :label="2">2X</el-radio-button>
+                                    <el-tooltip :disabled="!isDenoiseDisabled(1)" :content="getDenoiseTooltipContent()" placement="top">
+                                        <el-radio-button :disabled="isDenoiseDisabled(1)" :label="1">1X</el-radio-button>
+                                    </el-tooltip>
+                                    <el-tooltip :disabled="!isDenoiseDisabled(2)" :content="getDenoiseTooltipContent()" placement="top">
+                                        <el-radio-button :disabled="isDenoiseDisabled(2)" :label="2">2X</el-radio-button>
+                                    </el-tooltip>
                                     <el-radio-button :label="3">3X</el-radio-button>
                                 </el-radio-group>
                             </div>
@@ -188,6 +212,9 @@
                                         v-on:click="selectBatchItem(item)"
                                         v-on:keydown.enter.prevent="selectBatchItem(item)"
                                         v-on:keydown.space.prevent="selectBatchItem(item)">
+                                    <div class="batch-item-thumb" v-if="item.previewObjectUrl">
+                                        <img :src="item.previewObjectUrl" alt="" />
+                                    </div>
                                     <span class="batch-item-name">{{item.name}}</span>
                                     <span class="batch-item-action">
                                         <el-tag class="batch-status-tag" size="mini" :type="getBatchTagType(item.status)">{{t('batch.status.' + item.status)}}</el-tag>
@@ -235,105 +262,123 @@
                             </div>
                         </div>
 
-                        <div ref="emptyStageSurface" class="stage-body" :class="getStageSurfaceClass('empty')" :style="getStageSurfaceStyle('empty')" v-if="uploadPreviewWidth === 0 && !isProcessDone">
-                            <el-upload
-                                    ref="imageUpload"
-                                    class="large-upload"
-                                    drag
-                                    multiple
-                                    :auto-upload="false"
-                                    :disabled="wasmLoading"
-                                    accept="image/png,image/jpeg,image/webp,image/bmp"
-                                    :on-change="onUploadChange"
-                                    action="https://jsonplaceholder.typicode.com/posts/">
-                                <div class="upload-loading-state" v-if="wasmLoading" aria-live="polite">
-                                    <div class="upload-loading-orb" aria-hidden="true">
-                                        <span></span>
-                                        <span></span>
+                        <div ref="stageSurface"
+                             class="stage-body"
+                             :class="[
+                                 getStageSurfaceClass(getCurrentStageKind()),
+                                 {
+                                     'processing-stage': uploadPreviewWidth !== 0 && !isProcessDone,
+                                     'result-stage': isProcessDone,
+                                     'result-overlap': isProcessDone,
+                                     'is-revealing': isResultRevealing
+                                 }
+                             ]"
+                             :style="getStageSurfaceStyle(getCurrentStageKind())">
+
+                            <!-- Empty Upload State -->
+                            <div v-if="uploadPreviewWidth === 0 && !isProcessDone" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                                <el-upload
+                                        ref="imageUpload"
+                                        class="large-upload"
+                                        drag
+                                        multiple
+                                        :auto-upload="false"
+                                        :disabled="wasmLoading"
+                                        accept="image/png,image/jpeg,image/webp,image/bmp"
+                                        :on-change="onUploadChange"
+                                        action="https://jsonplaceholder.typicode.com/posts/">
+                                    <div class="upload-loading-state" v-if="wasmLoading" aria-live="polite">
+                                        <div class="upload-loading-orb" aria-hidden="true">
+                                            <span></span>
+                                            <span></span>
+                                        </div>
+                                        <div class="upload-loading-title">{{t('stage.loadingAssets')}}</div>
+                                        <div class="upload-loading-progress">{{getWasmLoadingText()}}</div>
+                                        <div class="upload-loading-bar" :class="{'is-indeterminate': !hasStableWasmProgress()}" aria-hidden="true">
+                                            <span :style="{width: wasmLoadingProgress + '%'}"></span>
+                                        </div>
                                     </div>
-                                    <div class="upload-loading-title">{{t('stage.loadingAssets')}}</div>
-                                <div class="upload-loading-progress">{{getWasmLoadingText()}}</div>
-                                <div class="upload-loading-bar" :class="{'is-indeterminate': !hasStableWasmProgress()}" aria-hidden="true">
-                                    <span :style="{width: wasmLoadingProgress + '%'}"></span>
-                                </div>
-                                </div>
-                                <svg v-if="!wasmLoading" xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor"
-                                     class="el-icon-upload" viewBox="0 0 16 16">
-                                    <path fill-rule="evenodd"
-                                          d="M7.646 5.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2z"/>
-                                    <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383zm.653.757c-.757.653-1.153 1.44-1.153 2.056v.448l-.445.049C2.064 6.805 1 7.952 1 9.318 1 10.785 2.23 12 3.781 12h8.906C13.98 12 15 10.988 15 9.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 4.825 10.328 3 8 3a4.53 4.53 0 0 0-2.941 1.1z"/>
-                                </svg>
-                                <div class="el-upload__text" v-if="!wasmLoading">
-                                    {{t('upload.drag')}}<em>{{t('upload.click')}}</em>
-                                    <span class="upload-format-hint">{{t('upload.batchHint')}}</span>
-                                </div>
-                            </el-upload>
-                        </div>
-
-                        <div ref="inputStageSurface" class="stage-body processing-stage" :class="[{'is-processing': isProcessing}, getStageSurfaceClass('input')]" :style="getStageSurfaceStyle('input')" v-if="uploadPreviewWidth !== 0 && !isProcessDone">
-                            <div class="processing-gradient" v-if="isProcessing">
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                                <span></span>
+                                    <svg v-if="!wasmLoading" xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor"
+                                         class="el-icon-upload" viewBox="0 0 16 16">
+                                        <path fill-rule="evenodd"
+                                              d="M7.646 5.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2z"/>
+                                        <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383zm.653.757c-.757.653-1.153 1.44-1.153 2.056v.448l-.445.049C2.064 6.805 1 7.952 1 9.318 1 10.785 2.23 12 3.781 12h8.906C13.98 12 15 10.988 15 9.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 4.825 10.328 3 8 3a4.53 4.53 0 0 0-2.941 1.1z"/>
+                                    </svg>
+                                    <div class="el-upload__text" v-if="!wasmLoading">
+                                        {{t('upload.drag')}}<em>{{t('upload.click')}}</em>
+                                        <span class="upload-format-hint">{{t('upload.batchHint')}}</span>
+                                    </div>
+                                </el-upload>
                             </div>
-                            <el-image
-                                    v-if="!isProcessing"
-                                    class="processing-preview"
-                                    :preview-src-list="[uploadImgSrc]"
-                                    :src="uploadImgSrc"
-                                    :style="{width: getInputPreviewSize().width + 'px', height: getInputPreviewSize().height + 'px'}">
-                            </el-image>
-                        </div>
 
-                        <div ref="resultStageSurface" class="result-stage result-overlap" :class="[{'is-revealing': isResultRevealing}, getStageSurfaceClass('result')]" :style="getStageSurfaceStyle('result')" v-if="isProcessDone">
-                            <div class="result-reveal-gradient" v-if="isResultRevealing">
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                            </div>
-                            <div ref="previewViewport" class="preview-pan-viewport"
-                                 :style="getPreviewViewportStyle()"
-                                 :class="{'is-draggable': previewZoom > previewZoomMin, 'is-dragging': previewDragging}"
-                                 v-on:mousedown="startPreviewPan"
-                                 v-on:mousemove="movePreviewPan"
-                                 v-on:mouseup="endPreviewPan"
-                                 v-on:mouseleave="endPreviewPan"
-                                 v-on:touchstart="startPreviewPan"
-                                 v-on:touchmove="movePreviewPan"
-                                 v-on:touchend="endPreviewPan"
-                                 v-on:touchcancel="endPreviewPan"
-                                 v-on:wheel.prevent="onPreviewWheel">
-                                <div class="preview-pan-content"
-                                     :style="{transform: 'translate(' + previewPanX + 'px, ' + getPreviewContentTranslateY() + 'px)'}">
-                                    <div class="preview-overlap-container"
-                                         :style="{width: getZoomedPreviewSize().outputImgWidth + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
-                                        <img
-                                                draggable="false"
-                                                class="preview-overlap-origin"
-                                                :src="uploadImgSrc"
-                                                :style="{width: getZoomedPreviewSize().outputImgWidth + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
-                                        <div
-                                                class="preview-overlap-output"
-                                                :style="{width: getPreviewSplitLocalX() + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
+                            <!-- Input Processing State -->
+                            <template v-if="uploadPreviewWidth !== 0 && !isProcessDone">
+                                <div class="processing-gradient" v-if="isProcessing">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                                <el-image
+                                        v-if="!isProcessing"
+                                        class="processing-preview"
+                                        :preview-src-list="[uploadImgSrc]"
+                                        :src="uploadImgSrc"
+                                        :style="{width: getInputPreviewSize().width + 'px', height: getInputPreviewSize().height + 'px'}">
+                                </el-image>
+                            </template>
+
+                            <!-- Result State -->
+                            <template v-if="isProcessDone">
+                                <div class="result-reveal-gradient" v-if="isResultRevealing">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                                <div ref="previewViewport" class="preview-pan-viewport"
+                                     :style="getPreviewViewportStyle()"
+                                     :class="{'is-draggable': previewZoom > previewZoomMin, 'is-dragging': previewDragging}"
+                                     v-on:mousedown="startPreviewPan"
+                                     v-on:mousemove="movePreviewPan"
+                                     v-on:mouseup="endPreviewPan"
+                                     v-on:mouseleave="endPreviewPan"
+                                     v-on:touchstart="startPreviewPan"
+                                     v-on:touchmove="movePreviewPan"
+                                     v-on:touchend="endPreviewPan"
+                                     v-on:touchcancel="endPreviewPan"
+                                     v-on:wheel.prevent="onPreviewWheel">
+                                    <div class="preview-pan-content"
+                                         :style="{transform: 'translate(' + previewPanX + 'px, ' + getPreviewContentTranslateY() + 'px)'}">
+                                        <div class="preview-overlap-container"
+                                             :style="{width: getZoomedPreviewSize().outputImgWidth + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
                                             <img
                                                     draggable="false"
-                                                    class="preview-overlap-result"
-                                                    :src="outputImgSrc"
+                                                    class="preview-overlap-origin"
+                                                    :src="uploadImgSrc"
                                                     :style="{width: getZoomedPreviewSize().outputImgWidth + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
+                                            <div
+                                                    class="preview-overlap-output"
+                                                    :style="{width: getPreviewSplitLocalX() + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
+                                                <img
+                                                        draggable="false"
+                                                        class="preview-overlap-result"
+                                                        :src="outputImgSrc"
+                                                        :style="{width: getZoomedPreviewSize().outputImgWidth + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="preview-split-indicator"
+                                         :style="{left: getPreviewSplitViewportX() + 'px'}">
+                                        <div class="preview-split-handle"
+                                             v-on:mousedown.stop.prevent="startSplitDrag"
+                                             v-on:touchstart.stop.prevent="startSplitDrag">
+                                            <i class="el-icon-caret-left" style="margin-right: -2px;"></i>
+                                            <i class="el-icon-caret-right" style="margin-left: -2px;"></i>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="preview-split-indicator"
-                                     :style="{left: getPreviewSplitViewportX() + 'px'}"></div>
-                                <el-slider
-                                        ref="previewSlider"
-                                        class="preview-overlap-slider"
-                                        v-model="previewOverlapRate"
-                                        :show-tooltip="false">
-                                </el-slider>
-                            </div>
+                            </template>
                         </div>
 
                         <div style="display: none;">
@@ -434,6 +479,7 @@
                 previewPanX: 0,
                 previewPanY: 0,
                 previewDragging: false,
+                splitDragging: false,
                 previewDragStartX: 0,
                 previewDragStartY: 0,
                 previewDragOriginX: 0,
@@ -518,6 +564,10 @@
 
             batchDownloadCount() {
                 return this.batchItems.filter((item) => !!item.objectUrl).length;
+            },
+
+            infoPopoverPlacement() {
+                return this.windowWidth <= 768 ? 'bottom' : 'right-start';
             },
         },
 
@@ -621,6 +671,32 @@
             };
             document.addEventListener('mousedown', this.handleInfoPopoverOutside);
             document.addEventListener('touchstart', this.handleInfoPopoverOutside, {passive: true});
+
+            this.handlePasteEvent = (event) => {
+                if (this.isProcessing || this.isBatchProcessing) {
+                    return;
+                }
+                const clipboardData = event.clipboardData || window.clipboardData;
+                if (!clipboardData) {
+                    return;
+                }
+                const items = clipboardData.items;
+                let file = null;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image/') === 0) {
+                        file = items[i].getAsFile();
+                        break;
+                    }
+                }
+                if (file) {
+                    let fakeFile = {
+                        name: 'pasted-image-' + Date.now() + '.png',
+                        raw: file
+                    };
+                    this.onUploadChange(fakeFile, [fakeFile]);
+                }
+            };
+            document.addEventListener('paste', this.handlePasteEvent);
         },
 
         beforeDestroy() {
@@ -634,6 +710,9 @@
             }
             document.removeEventListener('mousedown', this.handleInfoPopoverOutside);
             document.removeEventListener('touchstart', this.handleInfoPopoverOutside);
+            if (this.handlePasteEvent) {
+                document.removeEventListener('paste', this.handlePasteEvent);
+            }
         },
 
         methods: {
@@ -644,9 +723,7 @@
             },
 
             getStageSurfaceElement() {
-                return this.getRefElement('resultStageSurface')
-                    || this.getRefElement('inputStageSurface')
-                    || this.getRefElement('emptyStageSurface');
+                return this.getRefElement('stageSurface');
             },
 
             getPreviewViewportElement() {
@@ -851,6 +928,13 @@
                     return false;
                 }
                 return denoise === 1 || denoise === 2;
+            },
+
+            getDenoiseTooltipContent() {
+                if (this.modelTypeRadio === 'pro') {
+                    return this.t('controls.denoiseTooltipPro');
+                }
+                return this.t('controls.denoiseTooltipScale');
             },
 
             normalizeModelOptions() {
@@ -2251,8 +2335,7 @@
             },
 
             getPreviewSliderReserveHeight() {
-                let sliderHeight = this.previewSliderHeight || ADAPTIVE_LAYOUT.previewSliderFallbackHeight;
-                return sliderHeight + ADAPTIVE_LAYOUT.previewSliderBottom + ADAPTIVE_LAYOUT.previewSliderGap;
+                return 0;
             },
 
             getPreviewImageAreaHeight(viewportHeight) {
@@ -2298,7 +2381,7 @@
                 if (!viewportWidth) {
                     return 0;
                 }
-                return this.previewSliderInset + (viewportWidth - this.previewSliderInset * 2) * this.previewOverlapRate / 100;
+                return viewportWidth * this.previewOverlapRate / 100;
             },
 
             getPreviewSplitLocalX() {
@@ -2319,10 +2402,6 @@
                         if (viewport && viewport.clientWidth) {
                             this.previewViewportWidth = viewport.clientWidth;
                             this.previewViewportHeight = viewport.clientHeight;
-                            let slider = this.getRefElement('previewSlider');
-                            if (slider && slider.getBoundingClientRect) {
-                                this.previewSliderHeight = Math.max(ADAPTIVE_LAYOUT.previewSliderFallbackHeight, slider.getBoundingClientRect().height);
-                            }
                             this.clampPreviewPan();
                         }
                     };
@@ -2491,6 +2570,38 @@
                     x: point.clientX,
                     y: point.clientY,
                 };
+            },
+
+            startSplitDrag(event) {
+                let point = this.getPanEventPoint(event);
+                this.splitDragging = true;
+                this.splitDragStartX = point.x;
+                this.splitDragStartRate = this.previewOverlapRate;
+
+                const moveHandler = (e) => {
+                    if (!this.splitDragging) return;
+                    let p = this.getPanEventPoint(e);
+                    let deltaX = p.x - this.splitDragStartX;
+                    let viewport = this.getPreviewViewportElement();
+                    let viewportWidth = this.previewViewportWidth || (viewport ? viewport.clientWidth : 0);
+                    if (!viewportWidth) return;
+                    let deltaRate = (deltaX / viewportWidth) * 100;
+                    let nextRate = Math.max(0, Math.min(100, this.splitDragStartRate + deltaRate));
+                    this.previewOverlapRate = nextRate;
+                };
+
+                const endHandler = () => {
+                    this.splitDragging = false;
+                    document.removeEventListener('mousemove', moveHandler);
+                    document.removeEventListener('mouseup', endHandler);
+                    document.removeEventListener('touchmove', moveHandler);
+                    document.removeEventListener('touchend', endHandler);
+                };
+
+                document.addEventListener('mousemove', moveHandler);
+                document.addEventListener('mouseup', endHandler);
+                document.addEventListener('touchmove', moveHandler, { passive: false });
+                document.addEventListener('touchend', endHandler);
             },
 
             startPreviewPan(event) {
