@@ -52,7 +52,9 @@ function postModelLoading(modelFiles, backend, progress, file) {
 
 async function fetchModelAsset(path, expectedBytes, progress, backend, modelFiles) {
     postModelLoading(modelFiles, backend, Math.max(0, progress - 10), path);
-    const response = await fetch(versionedUrl('models/' + path));
+    // Same cache mode as the main-thread preload so a raced/failed preload
+    // doesn't force a full re-download of a multi-MB model.
+    const response = await fetch(versionedUrl('models/' + path), {cache: 'force-cache'});
     if (!response.ok) {
         throw new Error('model_file_not_found: ' + path);
     }
@@ -243,7 +245,35 @@ async function loadBackend(backend, version) {
         if (!wasmResponse.ok) {
             throw new Error('WASM resource not found: ' + backend);
         }
-        const wasmBinary = await wasmResponse.arrayBuffer();
+        // Stream the download so loading progress moves 3 → 40 instead of jumping.
+        const totalBytes = Number(wasmResponse.headers.get('content-length')) || 0;
+        let wasmBinary;
+        if (wasmResponse.body && totalBytes) {
+            const reader = wasmResponse.body.getReader();
+            const chunks = [];
+            let receivedBytes = 0;
+            for (;;) {
+                const {done, value} = await reader.read();
+                if (done) {
+                    break;
+                }
+                chunks.push(value);
+                receivedBytes += value.length;
+                post('loading', {
+                    progress: 3 + Math.round((receivedBytes / totalBytes) * 37),
+                    backend
+                });
+            }
+            const merged = new Uint8Array(receivedBytes);
+            let offset = 0;
+            for (const chunk of chunks) {
+                merged.set(chunk, offset);
+                offset += chunk.length;
+            }
+            wasmBinary = merged.buffer;
+        } else {
+            wasmBinary = await wasmResponse.arrayBuffer();
+        }
         post('loading', {progress: 40, backend});
 
         Module = {
@@ -251,7 +281,6 @@ async function loadBackend(backend, version) {
             print: (text) => {
                 if (text) {
                     Logger.debug('[emscripten]', text);
-                    post('stdout', {text: String(text)});
                 }
             },
             printErr: (text) => {
@@ -411,7 +440,10 @@ self.onmessage = (event) => {
     } else if (message.type === 'start') {
         startTask(message);
     } else if (message.type === 'cancel') {
-        if (Module && typeof Module._cancel_process === 'function') {
+        // _process_image blocks this event loop, so a cancel can only be
+        // handled between tasks. The guard keeps a late cancel from setting
+        // the backend's cancel flag while idle, which would abort the NEXT run.
+        if (processing && Module && typeof Module._cancel_process === 'function') {
             Module._cancel_process();
         }
         post('cancel-requested', {imageId: message.imageId});

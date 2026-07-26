@@ -2,32 +2,44 @@
 <html lang="zh-CN">
 
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta charset="utf-8">
-    <meta name="renderer" content="webkit" />
-    <title>Real-CUGAN Anime Image Upscaler</title>
-    <meta name="force-rendering" content="webkit" />
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
-    <meta name="description" content="realcugan-ncnn-assembly - browser-based anime image super-resolution">
-    <!-- <script src="vue.js"></script> -->
     <script>
         if (location.protocol !== 'https:' && location.href.includes('real-cugan')) {
             location.replace(`https:${location.href.substring(location.protocol.length)}`);
         }
     </script>
-    <script src="vue.min.js?v=2026.06.05-alpha.25"></script>
-    <!-- import CSS -->
-    <link rel="stylesheet" href="normalize.css?v=2026.06.05-alpha.25">
-    <link rel="stylesheet" href="element.css?v=2026.06.05-alpha.25">
-    <link rel="stylesheet" href="app.css?v=2026.07.10-UX-UI">
-    <!-- import JavaS/docs/doccnToNsFKaK01nwkKpHD5S4xbcript -->
-    <script src="element.js?v=2026.06.05-alpha.25"></script>
-    <script src="wasmFeatureDetect.js?v=2026.06.05-alpha.25"></script>
-    <script src="debugLogger.js?v=2026.06.05-alpha.25"></script>
-    <script src="modelManifest.js?v=2026.06.05-alpha.25"></script>
-    <script src="i18n.js?v=2026.07.10-UX-UI"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="renderer" content="webkit" />
+    <title>Real-CUGAN Anime Image Upscaler</title>
+    <meta name="force-rendering" content="webkit" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
+    <meta name="description" content="realcugan-ncnn-assembly - browser-based anime image super-resolution">
+    <meta name="theme-color" content="#120a18">
+    <link rel="icon" href="favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Weights trimmed to what the CSS actually uses:
+         Space Grotesk only 700 (brand/decor), Zen Maru 500 default + 700,
+         JetBrains Mono 400 + 700, Instrument Serif regular only (no italic
+         used). Noto Sans SC keeps 500 for Element UI dialog buttons. -->
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Space+Grotesk:wght@700&family=Zen+Maru+Gothic:wght@500;700&family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif+SC:wght@700;900&display=swap" rel="stylesheet" />
+    <!-- defer: parsing continues and the skeleton paints while ~1MB of JS
+         downloads; execution order among deferred scripts is preserved, and
+         the inline app script below waits for DOMContentLoaded. -->
+    <script defer src="vue.min.js?v=2026.07.26-unified.3"></script>
+    <link rel="stylesheet" href="normalize.css?v=2026.07.26-unified.3">
+    <link rel="stylesheet" href="element.css?v=2026.07.26-unified.3">
+    <link rel="stylesheet" href="app.css?v=2026.07.26-unified.3">
+    <script defer src="element.js?v=2026.07.26-unified.3"></script>
+    <script defer src="wasmFeatureDetect.js?v=2026.07.26-unified.3"></script>
+    <script defer src="debugLogger.js?v=2026.07.26-unified.3"></script>
+    <script defer src="modelManifest.js?v=2026.07.26-unified.3"></script>
+    <script defer src="zipStore.js?v=2026.07.26-unified.3"></script>
+    <script defer src="i18n.js?v=2026.07.26-unified.3"></script>
 </head>
 
 <body>
@@ -53,147 +65,132 @@
 </body>
 
 <script type="text/x-template" id="form">
-    <div>
+    <div class="rel design-root" style="min-height:100vh;min-height:100dvh">
+        <div class="ambient-proc" :class="{'is-on': isProcessing || isResultRevealing}" aria-hidden="true"><span></span><span></span><span></span></div>
+        <svg class="grain-svg" aria-hidden="true"><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix type="saturate" values="0"></feColorMatrix></filter><rect width="100%" height="100%" filter="url(#grain)"></rect></svg>
+        <span class="vc vc-tl"></span><span class="vc vc-tr"></span><span class="vc vc-bl"></span><span class="vc vc-br"></span>
+        <span data-parallax="2.4" class="float-word decor-upscale">UPSCALE</span>
+        <span data-parallax="2.8" class="float-word decor-device">ON_DEVICE</span>
+        <div class="fill design-sparkles" aria-hidden="true">
+            <span class="sparkle" style="left:8%;top:22%;color:var(--c-primary)"><span class="fl" style="--fd:6s"><span class="tw" style="--td:3s"><span class="sparkle-glyph">✦</span></span></span></span>
+            <span class="sparkle" style="left:90%;top:30%;color:var(--c-tertiary)"><span class="fl" style="--fd:7s"><span class="tw" style="--td:2.4s"><span class="sparkle-glyph">✧</span></span></span></span>
+            <span class="sparkle" style="left:78%;top:70%;color:var(--c-secondary)"><span class="fl" style="--fd:8s"><span class="tw" style="--td:3.6s"><span class="sparkle-glyph">✦</span></span></span></span>
+            <span class="sparkle" style="left:16%;top:78%;color:var(--c-primary)"><span class="fl" style="--fd:6.5s"><span class="tw" style="--td:2.8s"><span class="sparkle-glyph">✧</span></span></span></span>
+            <span class="sparkle" style="left:52%;top:12%;color:var(--c-tertiary)"><span class="fl" style="--fd:5.5s"><span class="tw" style="--td:2.2s"><span class="sparkle-glyph">✦</span></span></span></span>
+            <span class="sparkle" style="left:40%;top:88%;color:var(--c-secondary)"><span class="fl" style="--fd:7.5s"><span class="tw" style="--td:3.2s"><span class="sparkle-glyph">✧</span></span></span></span>
+        </div>
+        <div ref="cursorDot" class="cur-dot" :class="{'is-processing': isProcessing}"></div>
+        <div ref="cursorWrap" class="cur-wrap" :class="{'is-processing': isProcessing}"><div ref="cursorRing" class="cur-ring"><span ref="cursorLabel"></span></div></div>
         <el-container>
-            <div class="floating-preferences">
+            <div class="floating-preferences topnav">
                 <el-dropdown trigger="click" v-on:command="setLanguage">
-                    <button type="button" class="floating-preference-button icon-only-button" :aria-label="t('nav.language') + ': ' + getLanguageLabel()" :title="t('nav.language') + ': ' + getLanguageLabel()">
-                        <svg viewBox="0 0 24 24" width="1.2em" height="1.2em" aria-hidden="true">
-                            <path fill="currentColor" d="m18.5 10l4.4 11h-2.155l-1.201-3h-4.09l-1.199 3h-2.154L16.5 10zM10 2v2h6v2h-1.968a18.2 18.2 0 0 1-3.62 6.301a15 15 0 0 0 2.335 1.707l-.75 1.878A17 17 0 0 1 9 13.725a16.7 16.7 0 0 1-6.201 3.548l-.536-1.929a14.7 14.7 0 0 0 5.327-3.042A18 18 0 0 1 4.767 8h2.24A16 16 0 0 0 9 10.877a16.2 16.2 0 0 0 2.91-4.876L2 6V4h6V2zm7.5 10.885L16.253 16h2.492z"></path>
+                    <el-button circle class="topnav-btn" :aria-label="t('nav.language') + ': ' + getLanguageLabel()" :title="t('nav.language') + ': ' + getLanguageLabel()">
+                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                            <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></g>
                         </svg>
-                    </button>
+                    </el-button>
                     <el-dropdown-menu slot="dropdown">
-                        <el-dropdown-item command="zh">中文</el-dropdown-item>
-                        <el-dropdown-item command="en">English</el-dropdown-item>
-                        <el-dropdown-item command="ja">日本語</el-dropdown-item>
+                        <el-dropdown-item command="zh" :class="{'is-current': language === 'zh'}">中文</el-dropdown-item>
+                        <el-dropdown-item command="en" :class="{'is-current': language === 'en'}">English</el-dropdown-item>
+                        <el-dropdown-item command="ja" :class="{'is-current': language === 'ja'}">日本語</el-dropdown-item>
                     </el-dropdown-menu>
                 </el-dropdown>
                 <el-dropdown trigger="click" v-on:command="setThemeMode">
-                    <button type="button" class="floating-preference-button icon-only-button" :aria-label="t('nav.theme') + ': ' + getThemeModeLabel()" :title="t('nav.theme') + ': ' + getThemeModeLabel()">
-                        <i :class="getThemeIconClass()"></i>
-                    </button>
+                    <el-button circle class="topnav-btn" :aria-label="t('nav.theme') + ': ' + getThemeModeLabel()" :title="t('nav.theme') + ': ' + getThemeModeLabel()">
+                        <svg v-if="getEffectiveTheme() === 'dark'" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path></svg>
+                        <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg>
+                    </el-button>
                     <el-dropdown-menu slot="dropdown">
-                        <el-dropdown-item command="auto">{{t('theme.auto')}}</el-dropdown-item>
-                        <el-dropdown-item command="light">{{t('theme.light')}}</el-dropdown-item>
-                        <el-dropdown-item command="dark">{{t('theme.dark')}}</el-dropdown-item>
+                        <el-dropdown-item command="auto" :class="{'is-current': themeMode === 'auto'}">{{t('theme.auto')}}</el-dropdown-item>
+                        <el-dropdown-item command="light" :class="{'is-current': themeMode === 'light'}">{{t('theme.light')}}</el-dropdown-item>
+                        <el-dropdown-item command="dark" :class="{'is-current': themeMode === 'dark'}">{{t('theme.dark')}}</el-dropdown-item>
                     </el-dropdown-menu>
                 </el-dropdown>
             </div>
 
-            <el-main ref="appMain" class="app-main" :class="getAppMainClass()">
-                <div class="app-ambient-glow app-ambient-glow-processing" :class="{'is-active': isProcessing || isResultRevealing}"></div>
-                <div ref="ambientPreviewGlow" class="app-ambient-glow app-ambient-glow-preview" :class="{'is-active': isProcessDone}"></div>
-                <div ref="workspace" class="workspace" :class="getWorkspaceClass()" :style="getWorkspaceStyle()">
-                    <aside ref="controlPanel" class="control-panel">
-                        <div class="brand-block">
-                            <div>
-                                <div class="eyebrow">Real-CUGAN Web</div>
-                                <div class="heading-row">
-                                    <h1>{{t('app.heading')}}</h1>
-                                    <el-popover
-                                            v-model="projectInfoVisible"
-                                            :placement="infoPopoverPlacement"
-                                            trigger="manual"
-                                            popper-class="info-popover"
-                                            width="300">
-                                        <div class="info-popover-content">
-                                            <p>{{t('help.localPrefix')}}<b>{{t('help.localStrong')}}</b>{{t('help.localSuffix')}}</p>
-                                            <p><b>{{t('help.noticeTitle')}}</b>{{t('help.noticeText')}}</p>
-                                        </div>
-                                        <button
-                                                slot="reference"
-                                                type="button"
-                                                class="info-button"
-                                                :aria-label="t('help.projectInfoLabel')"
-                                                v-on:mouseenter="showInfoPopover('project')"
-                                                v-on:mouseleave="hideInfoPopover('project')"
-                                                v-on:touchstart.stop.prevent="toggleInfoPopover('project')"
-                                                v-on:click.stop="toggleInfoPopover('project')">i</button>
-                                    </el-popover>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="control-section">
-                            <div class="section-title">{{t('controls.run')}}</div>
-                            <div class="field-row">
-                                <span class="option-title">{{t('controls.backendMode')}}</span>
-                                <el-radio-group v-model="backendMode" v-on:change="onBackendModeChange" size="small">
-                                    <el-radio-button label="auto">{{t('backend.auto')}}</el-radio-button>
-                                    <el-radio-button label="simd-threads">{{t('backend.threads')}}</el-radio-button>
-                                    <el-radio-button label="simd">SIMD</el-radio-button>
-                                    <el-radio-button label="basic">{{t('backend.basic')}}</el-radio-button>
-                                </el-radio-group>
-                            </div>
-                        </div>
-
-                        <div class="control-section">
-                            <div class="section-title section-title-with-info">
-                                <span>{{t('controls.params')}}</span>
-                                <el-popover
-                                        v-model="paramsInfoVisible"
-                                        :placement="infoPopoverPlacement"
-                                        trigger="manual"
-                                        popper-class="info-popover"
-                                        width="300">
+            <el-main ref="appMain" class="app-main shell app-main-adaptive">
+                <header class="shell-head" data-reveal="up">
+                    <h1 class="brand-stroke" data-parallax="1.2" style="user-select:none">
+                        <span>REAL—CUGAN</span>
+                        <span class="brand-solid">{{t('app.brandSuffix')}}</span>
+                    </h1>
+                </header>
+                <div ref="workspace" class="workspace console-grid workspace-adaptive" :style="getWorkspaceStyle()">
+                    <aside ref="controlPanel" class="control-panel card card-ctl ctl" data-reveal="up"
+                           :class="{'mobile-drawer-open': isMobile && mobileSettingsVisible}"
+                           :role="isMobile && mobileSettingsVisible ? 'dialog' : null"
+                           :aria-modal="isMobile && mobileSettingsVisible ? 'true' : null">
+                        <div class="card-head">
+                            <div class="lay lay-ic g2">
+                                <svg class="c-sig" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 4.8L18.7 9.7 13.9 11.6 12 16.4 10.1 11.6 5.3 9.7 10.1 7.8z"></path><path d="M19 14l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"></path></svg>
+                                <span class="ml c-sig">{{t('controls.params')}}</span>
+                                <el-popover v-model="projectInfoVisible" :placement="infoPopoverPlacement" trigger="manual" popper-class="info-popover" width="300">
                                     <div class="info-popover-content">
+                                        <p>{{t('help.localPrefix')}}<b>{{t('help.localStrong')}}</b>{{t('help.localSuffix')}}</p>
+                                        <p><b>{{t('help.noticeTitle')}}</b>{{t('help.noticeText')}}</p>
                                         <p><b>{{t('help.scaleTitle')}}</b>{{t('help.scaleText')}}</p>
                                         <p><b>{{t('help.denoiseTitle')}}</b>{{t('help.denoiseText')}}</p>
                                     </div>
-                                    <button
-                                            slot="reference"
-                                            type="button"
-                                            class="info-button"
-                                            :aria-label="t('help.paramsInfoLabel')"
-                                            v-on:mouseenter="showInfoPopover('params')"
-                                            v-on:mouseleave="hideInfoPopover('params')"
-                                            v-on:touchstart.stop.prevent="toggleInfoPopover('params')"
-                                            v-on:click.stop="toggleInfoPopover('params')">i</button>
+                                    <button slot="reference" type="button" class="info-button" :aria-label="t('help.projectInfoLabel')" v-on:mouseenter="showInfoPopover" v-on:mouseleave="hideInfoPopover" v-on:touchstart.stop.prevent="toggleInfoPopover" v-on:click.stop="toggleInfoPopover">i</button>
                                 </el-popover>
                             </div>
-                            <div class="field-row">
-                                <span class="option-title">{{t('controls.model')}}</span>
-                                <el-radio-group v-model="modelTypeRadio" v-on:change="onModelTypeOptionChange" size="small">
-                                    <el-radio-button label="se">{{t('model.se')}}</el-radio-button>
-                                    <el-radio-button label="pro">{{t('model.pro')}}</el-radio-button>
-                                </el-radio-group>
-                            </div>
-                            <div class="field-row">
-                                <span class="option-title">{{t('controls.scale')}}</span>
-                                <el-radio-group v-model="scaleRadio" v-on:change="onScaleOptionChange" size="small">
-                                    <el-radio-button :label="2">2X</el-radio-button>
-                                    <el-radio-button :label="3">3X</el-radio-button>
-                                    <el-tooltip :disabled="modelTypeRadio!=='pro'" :content="t('controls.scaleTooltip')" placement="top">
-                                        <el-radio-button :disabled="modelTypeRadio==='pro'" :label="4">4X</el-radio-button>
-                                    </el-tooltip>
-                                </el-radio-group>
-                            </div>
-                            <div class="field-row">
-                                <span class="option-title">{{t('controls.denoise')}}</span>
-                                <el-radio-group v-model="denoiseRadio" v-on:change="onDenoiseOptionChange" size="small">
-                                    <el-radio-button :disabled="isDenoiseDisabled(-1)" :label="-1">{{t('denoise.conservative')}}</el-radio-button>
-                                    <el-radio-button :disabled="isDenoiseDisabled(0)" :label="0">{{t('denoise.none')}}</el-radio-button>
-                                    <el-tooltip :disabled="!isDenoiseDisabled(1)" :content="getDenoiseTooltipContent()" placement="top">
-                                        <el-radio-button :disabled="isDenoiseDisabled(1)" :label="1">1X</el-radio-button>
-                                    </el-tooltip>
-                                    <el-tooltip :disabled="!isDenoiseDisabled(2)" :content="getDenoiseTooltipContent()" placement="top">
-                                        <el-radio-button :disabled="isDenoiseDisabled(2)" :label="2">2X</el-radio-button>
-                                    </el-tooltip>
-                                    <el-radio-button :label="3">3X</el-radio-button>
-                                </el-radio-group>
+                            <div class="lay lay-ic g2">
+                                <span class="ml-sm c-mute">/ 01</span>
+                                <button v-if="isMobile" ref="drawerCloseButton" type="button" class="mobile-drawer-close" v-on:click="closeMobileSettings" :aria-label="t('actions.close')"><i class="el-icon-close" aria-hidden="true"></i></button>
                             </div>
                         </div>
+                        <div class="card-div"></div>
 
-                        <div class="control-section action-section">
-                            <el-button type="plain" size="small" :loading="wasmLoading" v-if="!isProcessing && uploadPreviewWidth === 0" v-on:click="runTestCase">{{t('actions.sample')}}</el-button>
-                            <el-button type="plain" size="small" v-if="!isProcessing && uploadPreviewWidth !== 0" v-on:click="resetWorkspace">{{isBatchActive ? t('actions.clearBatch') : t('actions.reset')}}</el-button>
-                            <el-button type="primary" size="small" v-if="isProcessDone && !isBatchActive" v-on:click="saveOutput">{{t('actions.save')}}</el-button>
-                            <el-button type="primary" size="small" v-if="isBatchActive && batchDownloadCount > 0" v-on:click="downloadAllBatchResults">{{t('actions.downloadAll')}}</el-button>
-                            <el-button type="plain" size="small" :loading="isCancelling" :disabled="isCancelling" v-if="isProcessing && !isProcessDone" v-on:click="stopProcess">{{isCancelling ? t('actions.cancelling') : t('actions.cancel')}}</el-button>
-                        </div>
+                        <div class="card-body">
+                            <div class="field">
+                                <div class="field-l">{{t('controls.model')}}</div>
+                                <el-radio-group v-model="modelTypeRadio" v-on:change="onModelTypeOptionChange" size="small" class="w100" style="display:flex">
+                                    <el-radio-button label="se" style="flex:1">{{t('model.se')}}</el-radio-button>
+                                    <el-radio-button label="pro" style="flex:1">{{t('model.pro')}}</el-radio-button>
+                                </el-radio-group>
+                            </div>
 
-                        <div class="control-section batch-section" v-if="isBatchActive || batchItems.length > 0">
-                            <div class="section-title">{{t('batch.title')}}</div>
+                            <div class="field">
+                                <div class="field-l">{{t('controls.scale')}}</div>
+                                <div class="scale-row">
+                                    <div v-for="scale in [2, 3, 4]" :key="scale" class="scale-cell" :style="{width: isDesignScaleHidden(scale) ? '0px' : '33.333%', maxWidth: isDesignScaleHidden(scale) ? '0px' : '100px', opacity: isDesignScaleHidden(scale) ? 0 : 1, transform: isDesignScaleHidden(scale) ? 'scale(0.7)' : 'scale(1)', pointerEvents: isDesignScaleHidden(scale) ? 'none' : 'auto'}">
+                                        <button type="button" class="scale-num" :class="{'is-on': scaleRadio === scale}" :tabindex="isDesignScaleHidden(scale) ? -1 : 0" v-on:click="setDesignScale(scale)">{{scale}}<sup>×</sup></button>
+                                    </div>
+                                    <div class="scale-bar-track" aria-hidden="true"><div class="scale-bar" :style="{left: getDesignScaleBarLeft() + '%', width: (100 / getVisibleDesignScales().length) + '%'}"></div></div>
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <div class="field-l">{{t('controls.denoise')}}</div>
+                                <div class="denoise-row" :class="{'is-scrub': designDenoiseScrubbing}" v-on:pointerdown="startDesignDenoiseScrub" v-on:pointermove="moveDesignDenoiseScrub" v-on:pointerup="endDesignDenoiseScrub" v-on:pointercancel="endDesignDenoiseScrub">
+                                    <div v-for="option in getDesignDenoiseOptions()" :key="option.value" class="denoise-cell" :style="{maxWidth: isDenoiseDisabled(option.value) ? '0px' : '120px', opacity: isDenoiseDisabled(option.value) ? 0 : 1, transform: isDenoiseDisabled(option.value) ? 'scale(0.7) translateY(8px)' : 'scale(1) translateY(0)', pointerEvents: isDenoiseDisabled(option.value) ? 'none' : 'auto'}">
+                                        <button type="button" class="tick" :class="{'is-on': denoiseRadio === option.value}" :tabindex="isDenoiseDisabled(option.value) ? -1 : 0" v-on:click="setDesignDenoise(option.value)"><span class="bar"></span><span style="font-size:10.5px">{{option.label}}</span></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <div class="field-l">{{t('controls.backendMode')}}</div>
+                                <el-radio-group v-model="backendMode" v-on:change="onBackendModeChange" size="small" class="w100" style="display:flex">
+                                    <el-radio-button label="auto" style="flex:1">{{t('backend.auto')}}</el-radio-button>
+                                    <el-radio-button label="simd-threads" style="flex:1">{{t('backend.threads')}}</el-radio-button>
+                                    <el-radio-button label="simd" style="flex:1">SIMD</el-radio-button>
+                                    <el-radio-button label="basic" style="flex:1">{{t('backend.basic')}}</el-radio-button>
+                                </el-radio-group>
+                            </div>
+
+                            <div class="ctl-foot">
+                                <div class="lay g2 w100 action-section">
+                                    <el-button size="small" round class="eb" style="flex:1" :loading="wasmLoading" v-if="!isProcessing && uploadPreviewWidth === 0" v-on:click="runTestCase(); mobileSettingsVisible = false"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="13" height="13" rx="2"></rect><path d="M21 8v11a2 2 0 0 1-2 2H8"></path><circle cx="8" cy="8" r="1.4"></circle><path d="M3 13l3-3 4 4"></path></svg><span>{{t('actions.sample')}}</span></el-button>
+                                    <el-button size="small" round class="eb" style="flex:1" v-if="!isProcessing && uploadPreviewWidth !== 0" v-on:click="resetWorkspace(); mobileSettingsVisible = false"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"></path><path d="M3 3v5h5"></path></svg><span>{{isBatchActive ? t('actions.clearBatch') : t('actions.reset')}}</span></el-button>
+                                    <el-button size="small" round class="eb-accent save-cta" style="flex:1" v-if="isProcessDone && !isBatchActive" v-on:click="saveOutput(); mobileSettingsVisible = false"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg><span>{{t('actions.save')}}</span></el-button>
+                                    <el-button size="small" round class="eb-accent" style="flex:1" v-if="isBatchActive && batchDownloadCount > 0" v-on:click="downloadAllBatchResults(); mobileSettingsVisible = false"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg><span>{{t('actions.downloadAll')}}</span></el-button>
+                                    <el-button size="small" round class="eb" style="flex:1" :loading="isCancelling" :disabled="isCancelling" v-if="isProcessing && !isProcessDone" v-on:click="stopProcess(); mobileSettingsVisible = false"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg><span>{{isCancelling ? t('actions.cancelling') : t('actions.cancel')}}</span></el-button>
+                                </div>
+                            </div>
+
+                            <div class="field batch-section" v-if="isBatchActive || batchItems.length > 0">
+                                <div class="field-l">{{t('batch.title')}}</div>
                             <div class="batch-summary">
                                 <span>{{t('batch.summary', {done: batchDoneCount, total: batchItems.length})}}</span>
                                 <span v-if="isBatchProcessing">{{t('batch.running')}}</span>
@@ -214,8 +211,14 @@
                                         v-on:keydown.space.prevent="selectBatchItem(item)">
                                     <div class="batch-item-thumb" v-if="item.previewObjectUrl">
                                         <img :src="item.previewObjectUrl" alt="" />
+                                        <span class="batch-thumb-check" v-if="item.status === 'done'" aria-hidden="true"><i class="el-icon-check"></i></span>
                                     </div>
-                                    <span class="batch-item-name">{{item.name}}</span>
+                                    <span class="batch-item-name">
+                                        {{item.name}}
+                                        <span class="batch-item-progress" v-if="item.status === 'processing' && progressRate > 0" aria-hidden="true">
+                                            <span :style="{width: progressRate + '%'}"></span>
+                                        </span>
+                                    </span>
                                     <span class="batch-item-action">
                                         <el-tag class="batch-status-tag" size="mini" :type="getBatchTagType(item.status)">{{t('batch.status.' + item.status)}}</el-tag>
                                         <button
@@ -228,42 +231,58 @@
                                                 v-on:click.stop="downloadBatchItem(item)">
                                             <i class="el-icon-download" aria-hidden="true"></i>
                                         </button>
+                                        <button
+                                                type="button"
+                                                class="batch-download-button"
+                                                v-if="(item.status === 'error' || item.status === 'cancelled') && !isBatchProcessing && !isProcessing"
+                                                :aria-label="t('actions.retry') + ': ' + item.name"
+                                                :title="t('actions.retry') + ': ' + item.name"
+                                                v-on:click.stop="retryBatchItem(item)">
+                                            <i class="el-icon-refresh-right" aria-hidden="true"></i>
+                                        </button>
                                     </span>
                                 </div>
+                            </div>
                             </div>
                         </div>
                     </aside>
 
-                    <section ref="stagePanel" class="stage-panel" :class="getStagePanelClass()" :style="getStagePanelStyle()">
-                        <div ref="stageToolbar" class="stage-toolbar">
-                            <div>
-                                <div class="stage-title">{{uploadPreviewName || t('stage.workspace')}}</div>
-                                <div class="stage-meta" v-if="uploadPreviewWidth !== 0">
-                                    {{uploadPreviewWidth}} × {{uploadPreviewHeight}} -> {{outputPreviewWidth || uploadPreviewWidth * scaleRadio}} × {{outputPreviewHeight || uploadPreviewHeight * scaleRadio}}
+                    <section ref="stagePanel" class="stage-panel card stage-panel-adaptive" data-reveal="up" style="--d:120ms"
+                             :class="{'is-charging': isProcessing && progressRate > 0}"
+                             :style="[getStagePanelStyle(), {'--charge': progressRate + '%'}]">
+                        <div ref="stageToolbar" class="stage-toolbar stage-head">
+                            <div class="lay lay-ic g3 wrap">
+                                <svg class="slowspin c-sig" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m14.3 8 5.7 9.9"></path><path d="M9.7 8h11.5"></path><path d="m7.4 12 5.7-9.9"></path><path d="M9.7 16 4 6.1"></path><path d="M14.3 16H2.8"></path><path d="m16.6 12-5.7 9.9"></path></svg>
+                                <div>
+                                    <div class="stage-eyebrow" v-if="isMobile && !uploadPreviewName">Real-CUGAN Web</div>
+                                    <div class="stage-title">
+                                        <template v-if="uploadPreviewName">{{uploadPreviewName}}</template>
+                                        <template v-else-if="isMobile">{{t('app.heading')}}</template>
+                                        <template v-else>{{t('stage.workspace')}}</template>
+                                    </div>
+                                    <div class="stage-meta" v-if="uploadPreviewWidth !== 0">
+                                        {{uploadPreviewWidth}} × {{uploadPreviewHeight}} -> {{outputPreviewWidth || uploadPreviewWidth * scaleRadio}} × {{outputPreviewHeight || uploadPreviewHeight * scaleRadio}}
+                                    </div>
+                                    <div class="stage-meta" v-else>
+                                        <span v-if="wasmLoading">{{getWasmLoadingText()}}</span>
+                                        <span v-else>{{getCurrentParamsText}}</span>
+                                    </div>
+                                    <div class="stage-status" role="status" aria-live="polite" v-if="isProcessing || isProcessDone">
+                                        {{progressTip}}
+                                    </div>
                                 </div>
-                                <div class="stage-meta" v-else>
-                                    {{wasmLoading ? getWasmLoadingText() : t('stage.waiting')}}
-                                </div>
-                                <div class="stage-status" v-if="isProcessing || isProcessDone">
-                                    {{progressTip}}
-                                </div>
-                            </div>
-                            <div class="toolbar-progress-wrap" v-if="isProcessing">
-                                <el-progress class="toolbar-progress" :percentage="progressRate"></el-progress>
-                                <div class="toolbar-progress-meta" v-if="!isProcessDone && procRemainingTime > 0">
-                                    {{t('progress.remaining', {seconds: procRemainingTime})}}
-                                </div>
+                                <span class="pill" style="width:6px;height:6px" :style="{background: isProcessing ? 'var(--c-primary)' : isProcessDone ? 'var(--c-secondary)' : 'var(--mute)', boxShadow: isProcessing ? '0 0 8px var(--c-primary)' : 'none'}"></span>
                             </div>
                             <div class="preview-tools" v-if="isProcessDone">
                                 <el-button size="mini" v-on:click="zoomOutPreview" :disabled="previewZoom <= previewZoomMin">{{t('preview.zoomOut')}}</el-button>
-                                <span>{{previewZoom}}%</span>
+                                <button type="button" class="zoom-readout" :title="'100%'" v-on:click="resetPreviewZoom">{{Math.round(previewZoom)}}%</button>
                                 <el-button size="mini" v-on:click="zoomInPreview" :disabled="previewZoom >= previewZoomMax">{{t('preview.zoomIn')}}</el-button>
-                                <el-button size="mini" type="plain" v-on:click="resetPreviewZoom" :disabled="previewZoom === previewZoomMin">{{t('actions.reset')}}</el-button>
                             </div>
                         </div>
+                        <div class="stage-line"></div>
 
                         <div ref="stageSurface"
-                             class="stage-body"
+                             class="stage-body stage-vp"
                              :class="[
                                  getStageSurfaceClass(getCurrentStageKind()),
                                  {
@@ -274,9 +293,33 @@
                                  }
                              ]"
                              :style="getStageSurfaceStyle(getCurrentStageKind())">
+                            <span class="hud" style="top:10px;left:10px;border-top:2px solid;border-left:2px solid"></span>
+                            <span class="hud" style="top:10px;right:10px;border-top:2px solid;border-right:2px solid"></span>
+                            <span class="hud" style="bottom:10px;left:10px;border-bottom:2px solid;border-left:2px solid"></span>
+                            <span class="hud" style="bottom:10px;right:10px;border-bottom:2px solid;border-right:2px solid"></span>
+                            <div class="mesh liquid is-on"
+                                 v-if="isProcessing || isResultRevealing"
+                                 :class="{'is-reveal': isResultRevealing}"
+                                 aria-hidden="true">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                            <div class="dot-grid"
+                                 v-if="isProcessing || isResultRevealing"
+                                 :class="{'dots-fade': isResultRevealing}"
+                                 aria-hidden="true">
+                                <span v-for="(dot, index) in designDots"
+                                      :key="index"
+                                      class="dot-pop"
+                                      :style="{left: dot.nx * 100 + '%', top: dot.ny * 100 + '%', background: dot.color, '--delay': dot.delay + 's', boxShadow: '0 0 5px ' + dot.color}">
+                                </span>
+                            </div>
 
                             <!-- Empty Upload State -->
                             <div v-if="uploadPreviewWidth === 0 && !isProcessDone" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                                <div class="focus-lines" aria-hidden="true"></div>
                                 <el-upload
                                         ref="imageUpload"
                                         class="large-upload"
@@ -298,12 +341,11 @@
                                             <span :style="{width: wasmLoadingProgress + '%'}"></span>
                                         </div>
                                     </div>
-                                    <svg v-if="!wasmLoading" xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor"
-                                         class="el-icon-upload" viewBox="0 0 16 16">
-                                        <path fill-rule="evenodd"
-                                              d="M7.646 5.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2z"/>
-                                        <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383zm.653.757c-.757.653-1.153 1.44-1.153 2.056v.448l-.445.049C2.064 6.805 1 7.952 1 9.318 1 10.785 2.23 12 3.781 12h8.906C13.98 12 15 10.988 15 9.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 4.825 10.328 3 8 3a4.53 4.53 0 0 0-2.941 1.1z"/>
-                                    </svg>
+                                    <div v-if="!wasmLoading" class="run mb4" style="pointer-events:none" aria-hidden="true">
+                                        <svg class="ring" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="48" stroke="currentColor" stroke-width="1.4" stroke-dasharray="2 6"></circle></svg>
+                                        <svg class="ring2" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="48" stroke="currentColor" stroke-width="1.4" stroke-dasharray="14 10"></circle></svg>
+                                        <span class="core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"></path></svg></span>
+                                    </div>
                                     <div class="el-upload__text" v-if="!wasmLoading">
                                         {{t('upload.drag')}}<em>{{t('upload.click')}}</em>
                                         <span class="upload-format-hint">{{t('upload.batchHint')}}</span>
@@ -313,70 +355,90 @@
 
                             <!-- Input Processing State -->
                             <template v-if="uploadPreviewWidth !== 0 && !isProcessDone">
-                                <div class="processing-gradient" v-if="isProcessing">
-                                    <span></span>
-                                    <span></span>
-                                    <span></span>
-                                    <span></span>
-                                </div>
                                 <el-image
-                                        v-if="!isProcessing"
+                                        v-if="uploadImgSrc"
                                         class="processing-preview"
+                                        :class="{'lowres': isProcessing}"
                                         :preview-src-list="[uploadImgSrc]"
                                         :src="uploadImgSrc"
                                         :style="{width: getInputPreviewSize().width + 'px', height: getInputPreviewSize().height + 'px'}">
                                 </el-image>
+                                <div v-if="!isProcessing" class="ready-vignette"></div>
+                                <div v-if="!isProcessing" class="wipe-stack">
+                                    <div v-for="(txt, index) in getReadyWipeLines()" :key="txt" class="wipe-line" :style="'--d1:' + (0.12 + index * 0.46) + 's;--d2:' + (0.4 + index * 0.46) + 's'">
+                                        <span class="wipe-mark"></span>
+                                        <span class="wipe-bg"></span>
+                                        <span class="wipe-base">{{txt}}</span>
+                                        <span class="wipe-on">{{txt}}</span>
+                                    </div>
+                                </div>
+                                <div v-if="!isProcessing" class="fill lay lay-c ready-action-layer">
+                                    <div class="ready-isle">
+                                        <div class="ready-badge">✓ {{t('stage.ready')}}</div>
+                                        <button type="button" class="btn-run" v-on:click="startReadyProcess">✦ {{t('stage.start')}}</button>
+                                    </div>
+                                </div>
+                                <div class="abs-c tc processing-hud" v-if="isProcessing">
+                                    <div class="processing-number">{{progressRate}}<span>%</span></div>
+                                    <!-- aria-hidden: same text as the live stage-status region; avoid double announcements -->
+                                    <div class="processing-status" aria-hidden="true">{{progressTip}}</div>
+                                    <el-button class="processing-cancel" size="mini" round :loading="isCancelling" :disabled="isCancelling" v-on:click.stop="stopProcess">{{isCancelling ? t('actions.cancelling') : t('actions.cancel')}}</el-button>
+                                </div>
                             </template>
 
                             <!-- Result State -->
                             <template v-if="isProcessDone">
-                                <div class="result-reveal-gradient" v-if="isResultRevealing">
-                                    <span></span>
-                                    <span></span>
-                                    <span></span>
-                                    <span></span>
-                                </div>
-                                <div ref="previewViewport" class="preview-pan-viewport"
-                                     :style="getPreviewViewportStyle()"
+                                <!-- ambient backdrop: blurred copy of the result bleeding its colours into the stage -->
+                                <img v-if="outputImgSrc" class="stage-ambient-img" :src="outputImgSrc" alt="" aria-hidden="true" />
+                                <div ref="previewViewport" class="preview-pan-viewport result-in"
                                      :class="{'is-draggable': previewZoom > previewZoomMin, 'is-dragging': previewDragging}"
                                      v-on:mousedown="startPreviewPan"
-                                     v-on:mousemove="movePreviewPan"
-                                     v-on:mouseup="endPreviewPan"
-                                     v-on:mouseleave="endPreviewPan"
+                                     v-on:dblclick.prevent="onPreviewDoubleClick"
                                      v-on:touchstart="startPreviewPan"
                                      v-on:touchmove="movePreviewPan"
                                      v-on:touchend="endPreviewPan"
                                      v-on:touchcancel="endPreviewPan"
-                                     v-on:wheel.prevent="onPreviewWheel">
+                                     v-on:wheel.stop.prevent="onPreviewWheel">
                                     <div class="preview-pan-content"
-                                         :style="{transform: 'translate(' + previewPanX + 'px, ' + getPreviewContentTranslateY() + 'px)'}">
+                                         :style="{transform: 'translate(' + previewPanX + 'px, ' + previewPanY + 'px)'}">
                                         <div class="preview-overlap-container"
-                                             :style="{width: getZoomedPreviewSize().outputImgWidth + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
+                                             :style="{width: zoomedPreviewSize.outputImgWidth + 'px', height: zoomedPreviewSize.outputImgHeight + 'px'}">
                                             <img
                                                     draggable="false"
                                                     class="preview-overlap-origin"
                                                     :src="uploadImgSrc"
-                                                    :style="{width: getZoomedPreviewSize().outputImgWidth + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
+                                                    :alt="t('preview.before') + ' — ' + uploadPreviewName"
+                                                    :style="{width: zoomedPreviewSize.outputImgWidth + 'px', height: zoomedPreviewSize.outputImgHeight + 'px'}">
                                             <div
                                                     class="preview-overlap-output"
-                                                    :style="{width: getPreviewSplitLocalX() + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
+                                                    :style="{width: getPreviewSplitLocalX() + 'px', height: zoomedPreviewSize.outputImgHeight + 'px'}">
                                                 <img
                                                         draggable="false"
                                                         class="preview-overlap-result"
                                                         :src="outputImgSrc"
-                                                        :style="{width: getZoomedPreviewSize().outputImgWidth + 'px', height: getZoomedPreviewSize().outputImgHeight + 'px'}">
+                                                        :alt="t('preview.after') + ' — ' + uploadPreviewName"
+                                                        :style="{width: zoomedPreviewSize.outputImgWidth + 'px', height: zoomedPreviewSize.outputImgHeight + 'px'}">
                                             </div>
                                         </div>
                                     </div>
                                     <div class="preview-split-indicator"
                                          :style="{left: getPreviewSplitViewportX() + 'px'}">
                                         <div class="preview-split-handle"
+                                             role="slider"
+                                             tabindex="0"
+                                             :aria-label="t('preview.before') + ' / ' + t('preview.after')"
+                                             :aria-valuenow="Math.round(previewOverlapRate)"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100"
                                              v-on:mousedown.stop.prevent="startSplitDrag"
-                                             v-on:touchstart.stop.prevent="startSplitDrag">
-                                            <i class="el-icon-caret-left" style="margin-right: -2px;"></i>
-                                            <i class="el-icon-caret-right" style="margin-left: -2px;"></i>
+                                             v-on:touchstart.stop.prevent="startSplitDrag"
+                                             v-on:keydown="onSplitHandleKeydown">
+                                            <i class="el-icon-caret-left" style="margin-right: -2px;" aria-hidden="true"></i>
+                                            <i class="el-icon-caret-right" style="margin-left: -2px;" aria-hidden="true"></i>
                                         </div>
                                     </div>
+                                    <span class="chip compare-chip compare-before">{{t('preview.before')}}</span>
+                                    <span class="chip compare-chip compare-after">{{t('preview.after')}}</span>
                                 </div>
                             </template>
                         </div>
@@ -388,6 +450,20 @@
                         </div>
                     </section>
                 </div>
+
+                <!-- Mobile Settings Drawer Backdrop -->
+                <div class="mobile-drawer-backdrop" v-if="isMobile && mobileSettingsVisible" v-on:click="closeMobileSettings" v-on:touchmove.prevent></div>
+
+                <!-- Floating Settings Action Button for Mobile -->
+                <button
+                    type="button"
+                    ref="mobileSettingsFab"
+                    class="mobile-settings-fab"
+                    v-if="isMobile && !mobileSettingsVisible"
+                    v-on:click="openMobileSettings"
+                    :aria-label="t('controls.params')">
+                    <i class="el-icon-setting" aria-hidden="true"></i>
+                </button>
             </el-main>
             <el-footer class="app-footer">
                 <span>{{t('footer.version')}}: {{appVersion}}</span>
@@ -403,7 +479,10 @@
 </script>
 
 <script>
-    const APP_VERSION = '2026.06.06-alpha.46';
+// Deferred head scripts (Vue, Element, i18n, ...) finish before
+// DOMContentLoaded fires, so everything they define is available here.
+window.addEventListener('DOMContentLoaded', function () {
+    const APP_VERSION = '2026.07.26-unified.3';
     const Logger = window.RealCuganLogger || {
         debug() {},
         info() {},
@@ -434,38 +513,36 @@
         emptyUploadWidth: 620,
         emptyUploadHeight: 330,
         fallbackToolbarHeight: 76,
+        stagePanelChromeHeight: 93,
         minStageWidth: 320,
         narrowViewportGutter: 48,
         wideViewportGutter: 420,
         fallbackViewportHeightOffset: 300,
-        nonAdaptiveHorizontalInset: 44,
-        nonAdaptiveVerticalInset: 112,
-        previewSliderFallbackHeight: 44,
-        previewSliderBottom: 18,
-        previewSliderGap: 10,
     };
     const MODEL_FILES = window.MODEL_FILES;
 
     const I18N = window.I18N;
     let srcInteractedData = null;
     let dstInteractedData = null;
-    var Module = null;
+    // Must stay a real global: the dynamically injected emscripten backend
+    // script reads its config from window.Module. Bare `Module = ...`
+    // assignments below keep writing this window property.
+    window.Module = null;
 
     let app = new Vue({
         el: '#app',
         template: '#form',
         data: function () {
             return {
-                activeIndex: '1',
                 language: 'zh',
                 themeMode: 'auto',
+                systemPrefersDark: false,
                 projectInfoVisible: false,
                 projectInfoPinned: false,
-                paramsInfoVisible: false,
-                paramsInfoPinned: false,
                 modelTypeRadio: 'se',
                 scaleRadio: 2,
                 denoiseRadio: 3,
+                designDenoiseScrubbing: false,
                 backendMode: 'auto',
                 previewOverlapRate: 50,
                 previewZoom: 100,
@@ -474,8 +551,6 @@
                 previewZoomStep: 25,
                 previewViewportWidth: 0,
                 previewViewportHeight: 0,
-                previewSliderHeight: ADAPTIVE_LAYOUT.previewSliderFallbackHeight,
-                previewSliderInset: 18,
                 previewPanX: 0,
                 previewPanY: 0,
                 previewDragging: false,
@@ -484,7 +559,8 @@
                 previewDragStartY: 0,
                 previewDragOriginX: 0,
                 previewDragOriginY: 0,
-                ambientUpdateTimer: null,
+                previewPinchStartDistance: 0,
+                previewPinchStartZoom: 100,
                 uploadImgSrc: '',
                 uploadObjectUrl: '',
                 uploadPreviewWidth: 0,
@@ -494,10 +570,8 @@
                 isCancelling: false,
                 isProcessDone: false,
                 isResultRevealing: false,
-                resultRevealTimer: null,
+                mobileSettingsVisible: false,
                 progressRate: 0,
-                procTotalCost: 0,
-                procRemainingTime: 0,
                 procFinalCostSeconds: null,
                 progressTip: '',
                 // output param
@@ -508,17 +582,12 @@
                 outputModelType: 'se',
                 windowWidth: 0,
                 windowHeight: 0,
-                windowResizeHandler: null,
                 stageLayoutTick: 0,
-                stageLayoutFrame: null,
                 outputImgSrc: '',
                 outputObjectUrl: '',
-                processCompletionResolve: null,
-                processCompletionReject: null,
                 isBatchActive: false,
                 isBatchProcessing: false,
                 batchCancelRequested: false,
-                batchSelectionTimer: null,
                 pendingUploadFile: null,
                 pendingUploadFileList: [],
                 batchItems: [],
@@ -526,6 +595,7 @@
                 selectedBatchItemId: null,
                 batchRunId: 0,
                 extractedThemeColors: null,
+                designDots: [],
                 // emscripten
                 wasmModuleLoaded: false,
                 wasmLoading: false,
@@ -543,7 +613,6 @@
                 modelLoadingProgress: 0,
                 modelLoadingName: '',
                 modelLoadingFile: '',
-                modelLoadingTimer: null,
                 modelAssetCache: {},
                 appVersion: APP_VERSION,
                 processFailureDialogOpen: false,
@@ -566,12 +635,48 @@
                 return this.batchItems.filter((item) => !!item.objectUrl).length;
             },
 
+            // Cached render hot path: the template references this up to ~10
+            // times per render, and during pan drags the component re-renders
+            // every frame. As a computed it is evaluated once per dependency
+            // change (stageLayoutTick / zoom / image sizes — notably NOT
+            // previewPanX), instead of walking down to getBoundingClientRect
+            // on every access.
+            zoomedPreviewSize() {
+                return this.getZoomedPreviewSize();
+            },
+
             infoPopoverPlacement() {
                 return this.windowWidth <= 768 ? 'bottom' : 'right-start';
+            },
+
+            isMobile() {
+                return this.windowWidth <= 1120;
+            },
+
+            getCurrentParamsText() {
+                let model = this.modelTypeRadio === 'pro' ? this.t('model.pro') : this.t('model.se');
+                let scale = this.scaleRadio + 'X';
+                let denoiseLabel = this.getDenoiseLabel(this.denoiseRadio);
+                return `${model} • ${scale} • ${denoiseLabel}`;
             },
         },
 
         mounted() {
+            // Non-reactive scratch state (timers, rAF ids, handlers, promise
+            // resolvers): plain instance properties, deliberately NOT in
+            // data() — nothing renders from them, so Vue reactivity would be
+            // pure overhead.
+            this.panVelocitySamples = [];
+            this.panGlideFrame = null;
+            this.revealWipeFrame = null;
+            this.resultRevealTimer = null;
+            this.windowResizeHandler = null;
+            this.stageLayoutFrame = null;
+            this.processCompletionResolve = null;
+            this.processCompletionReject = null;
+            this.batchSelectionTimer = null;
+            this.modelLoadingTimer = null;
+
             this.language = this.getInitialLanguage();
             this.applyLanguage();
 
@@ -581,10 +686,30 @@
             this.windowResizeHandler = () => {
                 this.windowWidth = window.innerWidth;
                 this.windowHeight = window.innerHeight;
+                // Leaving the mobile layout closes the drawer; otherwise the stale
+                // flag would reopen it unexpectedly when shrinking back down.
+                if (!this.isMobile && this.mobileSettingsVisible) {
+                    this.closeMobileSettings();
+                }
+                this.syncDrawerScrollLock();
                 this.scheduleStageLayoutSync();
                 this.syncPreviewViewport();
             };
             window.addEventListener("resize", this.windowResizeHandler);
+            this.handleDrawerKeydown = (event) => {
+                if (event.key !== 'Escape') {
+                    return;
+                }
+                if (this.isMobile && this.mobileSettingsVisible) {
+                    this.closeMobileSettings();
+                    return;
+                }
+                // Viewer convention: Escape resets a zoomed result preview.
+                if (this.isProcessDone && this.previewZoom > this.previewZoomMin) {
+                    this.resetPreviewZoom();
+                }
+            };
+            document.addEventListener('keydown', this.handleDrawerKeydown);
             this.scheduleStageLayoutSync();
 
             // load preferences
@@ -593,26 +718,34 @@
             let modelType = this.getPreference('modelType');
             let backendMode = this.getPreference('backendMode');
             let themeMode = this.getPreference('themeMode');
-            if (scale) {
+            // Whitelist every persisted value: stale/hand-edited storage entries
+            // (e.g. scale "5", backendMode "webgpu") would otherwise break the
+            // controls and 404 the model asset paths.
+            if (scale && [2, 3, 4].includes(scale * 1)) {
                 this.scaleRadio = scale * 1;
             }
-            if (denoise) {
+            // Truthiness guard matters: null/'' coerce to 0, which is a valid
+            // denoise level — an unset preference must not select "none".
+            if (denoise && [-1, 1, 2, 3].includes(denoise * 1) || denoise === '0') {
                 this.denoiseRadio = denoise * 1;
             }
             if (modelType === 'se' || modelType === 'pro') {
                 this.modelTypeRadio = modelType;
             }
             this.normalizeModelOptions();
-            if (backendMode) {
+            if (['auto', 'basic', 'simd', 'simd-threads'].includes(backendMode)) {
                 this.backendMode = backendMode;
             }
             if (themeMode === 'auto' || themeMode === 'light' || themeMode === 'dark') {
                 this.themeMode = themeMode;
             }
-            this.applyThemeMode();
             if (window.matchMedia) {
                 let darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                // Seed BEFORE the first applyThemeMode() below, or auto mode
+                // starts light regardless of the OS setting.
+                this.systemPrefersDark = darkQuery.matches;
                 let onSystemThemeChange = () => {
+                    this.systemPrefersDark = darkQuery.matches;
                     if (this.themeMode === 'auto') {
                         this.applyThemeMode();
                         if (this.extractedThemeColors) {
@@ -625,7 +758,15 @@
                 } else if (darkQuery.addListener) {
                     darkQuery.addListener(onSystemThemeChange);
                 }
+                this.removeDarkQueryListener = () => {
+                    if (darkQuery.removeEventListener) {
+                        darkQuery.removeEventListener('change', onSystemThemeChange);
+                    } else if (darkQuery.removeListener) {
+                        darkQuery.removeListener(onSystemThemeChange);
+                    }
+                };
             }
+            this.applyThemeMode();
 
             // init emscripten
             Module = {
@@ -697,6 +838,29 @@
                 }
             };
             document.addEventListener('paste', this.handlePasteEvent);
+            this.initWebReMotion();
+
+            // Offline support: cache-first for versioned assets, so repeat
+            // visits work without a network (fits the fully-local processing).
+            // The ?v= ties the SW (and its cache name) to this deploy: a new
+            // version registers a byte-different SW URL, which installs fresh
+            // and prunes the previous version's cache on activate.
+            if ('serviceWorker' in navigator && location.protocol === 'https:') {
+                navigator.serviceWorker.register(this.versionedUrl('sw.js')).catch(() => {});
+            }
+
+            // Warm the HTTP cache for the likely WASM backend and the selected
+            // model during idle time, so the first upscale skips the multi-MB
+            // downloads. Deliberately NOT ensureWasmLoaded(): that would flip
+            // wasmLoading and disable the upload control while it runs.
+            if (!(navigator.connection && navigator.connection.saveData)) {
+                let warmUp = () => this.prefetchBackendAssets();
+                if (typeof requestIdleCallback === 'function') {
+                    requestIdleCallback(warmUp, {timeout: 8000});
+                } else {
+                    setTimeout(warmUp, 3000);
+                }
+            }
         },
 
         beforeDestroy() {
@@ -713,9 +877,158 @@
             if (this.handlePasteEvent) {
                 document.removeEventListener('paste', this.handlePasteEvent);
             }
+            if (this.handleDrawerKeydown) {
+                document.removeEventListener('keydown', this.handleDrawerKeydown);
+            }
+            document.body.style.overflow = '';
+            this.stopProcessWatchdog();
+            this.cancelPanGlide();
+            this.cancelRevealWipeSweep();
+            if (this.removeDarkQueryListener) {
+                this.removeDarkQueryListener();
+            }
+            if (this.wasmWorker) {
+                this.wasmWorker.terminate();
+                this.wasmWorker = null;
+            }
+            this.destroyWebReMotion();
         },
 
         methods: {
+            initWebReMotion() {
+                let revealNodes = this.$el.querySelectorAll('[data-reveal]');
+                // Release will-change once the reveal transition completes so the
+                // browser can drop the compositor layers (same visuals, less GPU memory).
+                let releaseWillChange = (node) => {
+                    node.addEventListener('transitionend', function handler(event) {
+                        if (event.target === node && event.propertyName === 'opacity') {
+                            node.style.willChange = 'auto';
+                            node.removeEventListener('transitionend', handler);
+                        }
+                    });
+                };
+                // Reveal via an attribute, NOT a class: some reveal targets also
+                // carry Vue :class bindings, and Vue rewrites the whole class
+                // attribute on re-render — wiping an externally added class and
+                // snapping the element back to opacity 0 mid-session.
+                if ('IntersectionObserver' in window) {
+                    this.webReRevealObserver = new IntersectionObserver((entries) => {
+                        entries.forEach((entry) => {
+                            if (entry.isIntersecting) {
+                                releaseWillChange(entry.target);
+                                entry.target.setAttribute('data-reveal-shown', '');
+                                this.webReRevealObserver.unobserve(entry.target);
+                            }
+                        });
+                    }, {threshold: 0.05});
+                    revealNodes.forEach((node) => this.webReRevealObserver.observe(node));
+                } else {
+                    revealNodes.forEach((node) => {
+                        node.setAttribute('data-reveal-shown', '');
+                        node.style.willChange = 'auto';
+                    });
+                }
+
+                if (
+                    !window.matchMedia ||
+                    window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+                    !window.matchMedia('(min-width: 1121px) and (hover: hover) and (pointer: fine)').matches
+                ) {
+                    return;
+                }
+                document.body.classList.add('has-cursor');
+                this.webReParallaxNodes = Array.from(this.$el.querySelectorAll('[data-parallax]'));
+                this.webReCursorX = -100;
+                this.webReCursorY = -100;
+                this.webReCursorTargetX = -100;
+                this.webReCursorTargetY = -100;
+                // Cache parallax depths once; getAttribute per pointermove is wasted work.
+                let parallaxDepths = this.webReParallaxNodes.map((node) => Number(node.getAttribute('data-parallax')) || 1);
+                let pointerDirty = false;
+                let cursorFrame = () => {
+                    if (this.isProcessing) {
+                        this.webReCursorX = this.webReCursorTargetX;
+                        this.webReCursorY = this.webReCursorTargetY;
+                        pointerDirty = false;
+                        if (this.$refs.cursorDot) {
+                            this.$refs.cursorDot.style.transform = `translate3d(${this.webReCursorX}px, ${this.webReCursorY}px, 0)`;
+                        }
+                        this.webReCursorFrame = null;
+                        return;
+                    }
+                    this.webReCursorX += (this.webReCursorTargetX - this.webReCursorX) * 0.18;
+                    this.webReCursorY += (this.webReCursorTargetY - this.webReCursorY) * 0.18;
+                    if (this.$refs.cursorWrap) {
+                        this.$refs.cursorWrap.style.transform = `translate3d(${this.webReCursorX}px, ${this.webReCursorY}px, 0)`;
+                    }
+                    if (pointerDirty) {
+                        pointerDirty = false;
+                        if (this.$refs.cursorDot) {
+                            this.$refs.cursorDot.style.transform = `translate3d(${this.webReCursorTargetX}px, ${this.webReCursorTargetY}px, 0)`;
+                        }
+                        let nx = this.webReCursorTargetX / window.innerWidth - 0.5;
+                        let ny = this.webReCursorTargetY / window.innerHeight - 0.5;
+                        this.webReParallaxNodes.forEach((node, i) => {
+                            let depth = parallaxDepths[i];
+                            node.style.transform = `translate3d(${nx * depth * 20}px, ${ny * depth * 20}px, 0)`;
+                        });
+                    }
+                    if (
+                        pointerDirty ||
+                        Math.abs(this.webReCursorTargetX - this.webReCursorX) > 0.1 ||
+                        Math.abs(this.webReCursorTargetY - this.webReCursorY) > 0.1
+                    ) {
+                        this.webReCursorFrame = requestAnimationFrame(cursorFrame);
+                    } else {
+                        this.webReCursorFrame = null;
+                    }
+                };
+                this.webRePointerMove = (event) => {
+                    this.webReCursorTargetX = event.clientX;
+                    this.webReCursorTargetY = event.clientY;
+                    pointerDirty = true;
+                    if (!this.webReCursorFrame) {
+                        this.webReCursorFrame = requestAnimationFrame(cursorFrame);
+                    }
+                };
+                this.webRePointerOver = (event) => {
+                    if (this.isProcessing) {
+                        if (this.$refs.cursorRing) {
+                            this.$refs.cursorRing.classList.remove('is-hover');
+                        }
+                        return;
+                    }
+                    let interactive = event.target.closest && event.target.closest('button, a, [role="button"], .el-upload');
+                    if (this.$refs.cursorRing) {
+                        this.$refs.cursorRing.classList.toggle('is-hover', !!interactive);
+                    }
+                };
+                this.webRePointerDown = () => this.$refs.cursorRing && this.$refs.cursorRing.classList.add('is-down');
+                this.webRePointerUp = () => this.$refs.cursorRing && this.$refs.cursorRing.classList.remove('is-down');
+                window.addEventListener('pointermove', this.webRePointerMove, {passive: true});
+                document.addEventListener('pointerover', this.webRePointerOver, {passive: true});
+                window.addEventListener('pointerdown', this.webRePointerDown, {passive: true});
+                window.addEventListener('pointerup', this.webRePointerUp, {passive: true});
+            },
+
+            destroyWebReMotion() {
+                if (this.webReRevealObserver) {
+                    this.webReRevealObserver.disconnect();
+                }
+                if (this.webReCursorFrame) {
+                    cancelAnimationFrame(this.webReCursorFrame);
+                    this.webReCursorFrame = null;
+                }
+                if (this.webRePointerMove) {
+                    window.removeEventListener('pointermove', this.webRePointerMove);
+                    document.removeEventListener('pointerover', this.webRePointerOver);
+                    window.removeEventListener('pointerdown', this.webRePointerDown);
+                    window.removeEventListener('pointerup', this.webRePointerUp);
+                }
+                this.webReParallaxNodes = null;
+                document.body.classList.remove('has-cursor');
+            },
+
             getRefElement(refName) {
                 let ref = this.$refs[refName];
                 ref = Array.isArray(ref) ? ref[0] : ref;
@@ -730,8 +1043,39 @@
                 return this.getRefElement('previewViewport');
             },
 
-            getAmbientPreviewGlowElement() {
-                return this.getRefElement('ambientPreviewGlow');
+            openMobileSettings() {
+                this.mobileSettingsVisible = true;
+                this.syncDrawerScrollLock();
+                // Move keyboard/SR focus into the sheet; the FAB it came from
+                // is removed by v-if the moment the drawer opens.
+                this.$nextTick(() => {
+                    let closeButton = this.getRefElement('drawerCloseButton');
+                    if (closeButton && closeButton.focus) {
+                        closeButton.focus();
+                    }
+                });
+            },
+
+            closeMobileSettings() {
+                this.mobileSettingsVisible = false;
+                this.syncDrawerScrollLock();
+                this.$nextTick(() => {
+                    let fab = this.getRefElement('mobileSettingsFab');
+                    if (fab && fab.focus) {
+                        fab.focus();
+                    }
+                });
+            },
+
+            toggleMobileSettings() {
+                this.mobileSettingsVisible = !this.mobileSettingsVisible;
+                this.syncDrawerScrollLock();
+            },
+
+            syncDrawerScrollLock() {
+                // Lock the page behind the open bottom sheet.
+                let locked = this.isMobile && this.mobileSettingsVisible;
+                document.body.style.overflow = locked ? 'hidden' : '';
             },
 
             t(key, params) {
@@ -751,7 +1095,9 @@
                 }
                 if (params) {
                     Object.keys(params).forEach((name) => {
-                        value = value.replace(new RegExp('\\{' + name + '\\}', 'g'), params[name]);
+                        // Function replacement: raw error text in params may
+                        // contain $& / $' which String.replace would expand.
+                        value = value.replace(new RegExp('\\{' + name + '\\}', 'g'), () => params[name]);
                     });
                 }
                 return value;
@@ -772,6 +1118,10 @@
             applyLanguage() {
                 document.documentElement.lang = this.language === 'ja' ? 'ja' : (this.language === 'en' ? 'en' : 'zh-CN');
                 document.title = this.t('app.title');
+                let descriptionMeta = document.querySelector('meta[name="description"]');
+                if (descriptionMeta) {
+                    descriptionMeta.setAttribute('content', this.t('app.description'));
+                }
             },
 
             setLanguage(language) {
@@ -794,52 +1144,29 @@
                 return 'English';
             },
 
-            showInfoPopover(type) {
-                if (type === 'project') {
-                    this.paramsInfoVisible = false;
-                    this.paramsInfoPinned = false;
-                    this.projectInfoVisible = true;
-                } else {
+            showInfoPopover() {
+                this.projectInfoVisible = true;
+            },
+
+            hideInfoPopover() {
+                if (!this.projectInfoPinned) {
                     this.projectInfoVisible = false;
-                    this.projectInfoPinned = false;
-                    this.paramsInfoVisible = true;
                 }
             },
 
-            hideInfoPopover(type) {
-                if (type === 'project' && !this.projectInfoPinned) {
-                    this.projectInfoVisible = false;
-                }
-                if (type === 'params' && !this.paramsInfoPinned) {
-                    this.paramsInfoVisible = false;
-                }
-            },
-
-            toggleInfoPopover(type) {
-                if (type === 'project') {
-                    let nextVisible = !(this.projectInfoVisible && this.projectInfoPinned);
-                    this.projectInfoVisible = nextVisible;
-                    this.projectInfoPinned = nextVisible;
-                    this.paramsInfoVisible = false;
-                    this.paramsInfoPinned = false;
-                } else {
-                    let nextVisible = !(this.paramsInfoVisible && this.paramsInfoPinned);
-                    this.paramsInfoVisible = nextVisible;
-                    this.paramsInfoPinned = nextVisible;
-                    this.projectInfoVisible = false;
-                    this.projectInfoPinned = false;
-                }
+            toggleInfoPopover() {
+                let nextVisible = !(this.projectInfoVisible && this.projectInfoPinned);
+                this.projectInfoVisible = nextVisible;
+                this.projectInfoPinned = nextVisible;
             },
 
             closeInfoPopovers() {
                 this.projectInfoVisible = false;
                 this.projectInfoPinned = false;
-                this.paramsInfoVisible = false;
-                this.paramsInfoPinned = false;
             },
 
             handleInfoPopoverOutside(event) {
-                if (!this.projectInfoVisible && !this.paramsInfoVisible) {
+                if (!this.projectInfoVisible) {
                     return;
                 }
                 let target = event && event.target;
@@ -857,28 +1184,66 @@
                 if (this.themeMode === 'dark' || this.themeMode === 'light') {
                     return this.themeMode;
                 }
-                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    return 'dark';
-                }
-                return 'light';
+                // Reactive prop (kept in sync by the matchMedia listener) so the
+                // theme toggle icon re-renders when the OS theme flips.
+                return this.systemPrefersDark ? 'dark' : 'light';
             },
 
             applyThemeMode() {
                 let effectiveTheme = this.getEffectiveTheme();
                 document.documentElement.setAttribute('data-theme', effectiveTheme);
                 document.documentElement.setAttribute('data-theme-mode', this.themeMode);
+                // app.css has a set of `.dark ...` rules (starfield, card
+                // shadows, ambient blend modes); without this class they never
+                // applied and dark mode silently lost those styles.
+                document.documentElement.classList.toggle('dark', effectiveTheme === 'dark');
             },
 
             setThemeMode(themeMode) {
                 if (themeMode !== 'auto' && themeMode !== 'light' && themeMode !== 'dark') {
                     return;
                 }
-                this.themeMode = themeMode;
-                this.savePreference('themeMode', themeMode);
-                this.applyThemeMode();
-                if (this.extractedThemeColors) {
-                    this.applyExtractedThemeColors(this.extractedThemeColors);
+                let previousEffective = this.getEffectiveTheme();
+                let apply = () => {
+                    this.themeMode = themeMode;
+                    this.savePreference('themeMode', themeMode);
+                    this.applyThemeMode();
+                    if (this.extractedThemeColors) {
+                        this.applyExtractedThemeColors(this.extractedThemeColors);
+                    }
+                };
+                // Circular reveal from the toggle button (View Transitions API).
+                // Falls back to the plain CSS variable cross-fade elsewhere.
+                let toggleButton = document.querySelector('.topnav-btn[aria-label*="' + this.t('nav.theme') + '"]');
+                let willChange = (themeMode === 'dark' || themeMode === 'light')
+                    ? themeMode !== previousEffective
+                    : (this.systemPrefersDark ? 'dark' : 'light') !== previousEffective;
+                if (!document.startViewTransition || !toggleButton || !willChange
+                    || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+                    apply();
+                    return;
                 }
+                let rect = toggleButton.getBoundingClientRect();
+                let cx = rect.left + rect.width / 2;
+                let cy = rect.top + rect.height / 2;
+                let radius = Math.hypot(
+                    Math.max(cx, window.innerWidth - cx),
+                    Math.max(cy, window.innerHeight - cy)
+                );
+                let transition = document.startViewTransition(apply);
+                transition.ready.then(() => {
+                    document.documentElement.animate(
+                        {clipPath: [
+                            'circle(0px at ' + cx + 'px ' + cy + 'px)',
+                            'circle(' + Math.ceil(radius) + 'px at ' + cx + 'px ' + cy + 'px)',
+                        ]},
+                        {
+                            duration: 480,
+                            easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                            pseudoElement: '::view-transition-new(root)',
+                        }
+                    );
+                }).catch(() => {});
             },
 
             getThemeModeLabel() {
@@ -899,25 +1264,91 @@
                 }
             },
 
-            onScaleOptionChange() {
-                this.normalizeModelOptions();
-                this.savePreference('scale', '' + this.scaleRadio);
-                this.savePreference('denoise', '' + this.denoiseRadio);
-                this.preloadSelectedModelAssets();
-            },
-
-            onDenoiseOptionChange() {
-                this.normalizeModelOptions();
-                this.savePreference('denoise', '' + this.denoiseRadio);
-                this.preloadSelectedModelAssets();
-            },
-
-            onModelTypeOptionChange() {
+            // Shared tail for every model-option change: normalize combinations,
+            // persist all three prefs (current values, so always safe), prefetch.
+            persistModelOptions() {
                 this.normalizeModelOptions();
                 this.savePreference('scale', '' + this.scaleRadio);
                 this.savePreference('denoise', '' + this.denoiseRadio);
                 this.savePreference('modelType', this.modelTypeRadio);
                 this.preloadSelectedModelAssets();
+            },
+
+            onScaleOptionChange() {
+                this.persistModelOptions();
+            },
+
+            isDesignScaleHidden(scale) {
+                return this.modelTypeRadio === 'pro' && scale === 4;
+            },
+
+            getVisibleDesignScales() {
+                return this.modelTypeRadio === 'pro' ? [2, 3] : [2, 3, 4];
+            },
+
+            getDesignScaleBarLeft() {
+                let visibleScales = this.getVisibleDesignScales();
+                let index = Math.max(0, visibleScales.indexOf(this.scaleRadio));
+                return index * (100 / visibleScales.length);
+            },
+
+            setDesignScale(scale) {
+                if (this.isDesignScaleHidden(scale)) {
+                    return;
+                }
+                this.scaleRadio = scale;
+                this.onScaleOptionChange();
+            },
+
+            onDenoiseOptionChange() {
+                this.persistModelOptions();
+            },
+
+            getDesignDenoiseOptions() {
+                return [
+                    {value: -1, label: this.t('denoise.conservative')},
+                    {value: 0, label: this.t('denoise.none')},
+                    {value: 1, label: '1'},
+                    {value: 2, label: '2'},
+                    {value: 3, label: '3'},
+                ];
+            },
+
+            setDesignDenoise(denoise) {
+                if (this.isDenoiseDisabled(denoise)) {
+                    return;
+                }
+                this.denoiseRadio = denoise;
+                this.onDenoiseOptionChange();
+            },
+
+            startDesignDenoiseScrub(event) {
+                this.designDenoiseScrubbing = true;
+                if (event.currentTarget.setPointerCapture) {
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                }
+                this.pickDesignDenoise(event.clientX, event.currentTarget);
+            },
+
+            moveDesignDenoiseScrub(event) {
+                if (this.designDenoiseScrubbing) {
+                    this.pickDesignDenoise(event.clientX, event.currentTarget);
+                }
+            },
+
+            endDesignDenoiseScrub() {
+                this.designDenoiseScrubbing = false;
+            },
+
+            pickDesignDenoise(clientX, element) {
+                let visibleOptions = this.getDesignDenoiseOptions().filter((option) => !this.isDenoiseDisabled(option.value));
+                let rect = element.getBoundingClientRect();
+                let index = Math.max(0, Math.min(visibleOptions.length - 1, Math.floor(((clientX - rect.left) / rect.width) * visibleOptions.length)));
+                this.setDesignDenoise(visibleOptions[index].value);
+            },
+
+            onModelTypeOptionChange() {
+                this.persistModelOptions();
             },
 
             isDenoiseDisabled(denoise) {
@@ -928,13 +1359,6 @@
                     return false;
                 }
                 return denoise === 1 || denoise === 2;
-            },
-
-            getDenoiseTooltipContent() {
-                if (this.modelTypeRadio === 'pro') {
-                    return this.t('controls.denoiseTooltipPro');
-                }
-                return this.t('controls.denoiseTooltipScale');
             },
 
             normalizeModelOptions() {
@@ -958,17 +1382,34 @@
                 }
             },
 
+            // try/catch: merely touching window.localStorage throws SecurityError
+            // when site data is blocked (Chrome setting, old Safari private mode),
+            // and getPreference runs at the very top of mounted().
+            // Keys carry an 'rc:' prefix to avoid collisions on shared origins;
+            // reads fall back to (and migrate) the legacy bare keys.
             savePreference(key, val) {
-                if (localStorage && localStorage.setItem) {
-                    localStorage.setItem(key, val);
+                try {
+                    localStorage.setItem('rc:' + key, val);
+                } catch (error) {
+                    // Storage unavailable — preferences just don't persist.
                 }
             },
 
-            getPreference(key, val) {
-                if (localStorage && localStorage.getItem) {
-                    return localStorage.getItem(key, val);
+            getPreference(key) {
+                try {
+                    let value = localStorage.getItem('rc:' + key);
+                    if (value !== null) {
+                        return value;
+                    }
+                    let legacy = localStorage.getItem(key);
+                    if (legacy !== null) {
+                        localStorage.setItem('rc:' + key, legacy);
+                        localStorage.removeItem(key);
+                    }
+                    return legacy;
+                } catch (error) {
+                    return null;
                 }
-                return null;
             },
 
             clampColorValue(value, min, max) {
@@ -1051,6 +1492,26 @@
                 return this.getRelativeLuminance(color) > 0.36 ? '#111827' : '#ffffff';
             },
 
+            getContrastingHueColor(color, background, minimumRatio) {
+                let hsl = this.rgbToHsl(color.r, color.g, color.b);
+                let backgroundLuminance = this.getRelativeLuminance(background);
+                let direction = backgroundLuminance < 0.5 ? 1 : -1;
+                let contrastRatio = (candidate) => {
+                    let candidateLuminance = this.getRelativeLuminance(candidate);
+                    let lighter = Math.max(candidateLuminance, backgroundLuminance);
+                    let darker = Math.min(candidateLuminance, backgroundLuminance);
+                    return (lighter + 0.05) / (darker + 0.05);
+                };
+                let candidate = color;
+                for (let lightness = hsl.l; lightness >= 8 && lightness <= 92; lightness += direction * 4) {
+                    candidate = this.hslToRgb(hsl.h, hsl.s, lightness);
+                    if (contrastRatio(candidate) >= minimumRatio) {
+                        return candidate;
+                    }
+                }
+                return this.hslToRgb(hsl.h, hsl.s, direction > 0 ? 92 : 8);
+            },
+
             extractThemeColors(imageData, limit) {
                 let data = imageData.data;
                 let pixelCount = imageData.width * imageData.height;
@@ -1111,7 +1572,7 @@
                     selected.push({r: 64, g: 158, b: 255});
                 }
                 while (selected.length < limit) {
-                    let base = selected[selected.length % selected.length];
+                    let base = selected[0];
                     let hsl = this.rgbToHsl(base.r, base.g, base.b);
                     let next = this.hslToRgb((hsl.h + selected.length * 38) % 360, this.clampColorValue(hsl.s, 35, 76), this.clampColorValue(hsl.l + (selected.length % 2 === 0 ? 12 : -8), 36, 72));
                     selected.push(next);
@@ -1126,6 +1587,7 @@
                 let soft = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 24, 58), isDarkTheme ? 14 : 94);
                 let border = this.hslToRgb(hsl.h, this.clampColorValue(hsl.s, 20, 52), isDarkTheme ? 28 : 78);
                 let textStrong = isDarkTheme ? this.hslToRgb(hsl.h, 24, 92) : this.hslToRgb(hsl.h, 28, 20);
+                let readyBadge = this.getContrastingHueColor(primary, {r: 20, g: 12, b: 24}, 4.5);
                 let fluidColors = colors.map((themeColor) => {
                     let colorHsl = this.rgbToHsl(themeColor.r, themeColor.g, themeColor.b);
                     let fluid = this.hslToRgb(colorHsl.h, this.clampColorValue(colorHsl.s, 45, 82), isDarkTheme ? this.clampColorValue(colorHsl.l - 8, 28, 50) : this.clampColorValue(colorHsl.l, 46, 68));
@@ -1138,6 +1600,7 @@
                     surfaceTint: 'rgba(' + primary.r + ', ' + primary.g + ', ' + primary.b + ', ' + (isDarkTheme ? '0.14' : '0.08') + ')',
                     textStrong: this.rgbCss(textStrong),
                     onPrimary: this.getReadableTextOnColor(primary),
+                    readyBadge: this.rgbCss(readyBadge),
                     fluidColors: fluidColors,
                 };
             },
@@ -1153,6 +1616,13 @@
                 palette.fluidColors.forEach((color, index) => {
                     root.style.setProperty('--fluid-color-' + (index + 1), color);
                 });
+                root.style.setProperty('--c-primary', palette.primary);
+                root.style.setProperty('--c-on-primary', palette.onPrimary);
+                root.style.setProperty('--c-secondary', palette.fluidColors[1] || palette.fluidColors[0] || palette.primary);
+                root.style.setProperty('--c-tertiary', palette.fluidColors[2] || palette.fluidColors[0] || palette.primary);
+                root.style.setProperty('--c-surface-tint', palette.primary);
+                root.style.setProperty('--brand-suffix-color', palette.primary);
+                root.style.setProperty('--ready-badge-color', palette.readyBadge);
             },
 
             applyImageTheme(imageData) {
@@ -1178,6 +1648,13 @@
                     '--fluid-color-2',
                     '--fluid-color-3',
                     '--fluid-color-4',
+                    '--c-primary',
+                    '--c-on-primary',
+                    '--c-secondary',
+                    '--c-tertiary',
+                    '--c-surface-tint',
+                    '--brand-suffix-color',
+                    '--ready-badge-color',
                 ].forEach((name) => document.documentElement.style.removeProperty(name));
                 this.extractedThemeColors = null;
             },
@@ -1229,6 +1706,7 @@
             },
 
             startModelLoading(files, progress, file) {
+                this.feedProcessWatchdog();
                 this.modelLoadingProgress = progress;
                 this.modelLoadingName = files && files.label ? files.label : '';
                 this.modelLoadingFile = file || '';
@@ -1327,16 +1805,7 @@
             },
 
             preloadSelectedModelAssets() {
-                let files;
-                try {
-                    files = this.getSelectedModelFiles(this.scaleRadio, this.denoiseRadio, this.modelTypeRadio);
-                } catch (error) {
-                    return Promise.resolve(null);
-                }
-                return this.getModelAssetCacheEntry(files).promise.catch((error) => {
-                    Logger.warn('model preload skipped:', error);
-                    return null;
-                });
+                return this.preloadModelAssets(this.scaleRadio, this.denoiseRadio, this.modelTypeRadio);
             },
 
             ensureModelDirectory(path) {
@@ -1442,7 +1911,7 @@
                     .then(() => {
                         this.scheduleStageLayoutSync();
                         this.scrollStageIntoView();
-                        return this.preflightProcess(canvas, canvas.width, canvas.height);
+                        this.progressTip = '';
                     })
                     .catch((error) => {
                         this.clearUploadPreviewUrl();
@@ -1467,11 +1936,19 @@
                     img.onload = () => {
                         canvas.width = img.naturalWidth || img.width;
                         canvas.height = img.naturalHeight || img.height;
+                        if (!canvas.width || !canvas.height) {
+                            // e.g. SVG without intrinsic size: drawImage from a
+                            // 0x0 canvas throws later inside theme sampling and
+                            // the promise would never settle.
+                            reject(new Error('failed to decode input image'));
+                            return;
+                        }
                         ctx.drawImage(img, 0, 0);
                         this.uploadPreviewWidth = canvas.width;
                         this.uploadPreviewHeight = canvas.height;
                         this.uploadPreviewName = file.name;
                         this.applyImageThemeFromCanvas(canvas);
+                        this.buildWebReDots(canvas);
                         resolve();
                     };
                     img.onerror = () => {
@@ -1479,6 +1956,62 @@
                     };
                     img.src = this.uploadObjectUrl;
                 });
+            },
+
+            getReadyWipeLines() {
+                return [
+                    `${this.scaleRadio}X：${this.uploadPreviewWidth}×${this.uploadPreviewHeight} → ${this.uploadPreviewWidth * this.scaleRadio}×${this.uploadPreviewHeight * this.scaleRadio}`,
+                    `${this.getDenoiseLabel(this.denoiseRadio)} ${this.t('controls.denoise')}`,
+                    `${this.modelTypeRadio === 'pro' ? this.t('model.pro') : this.t('model.se')} ${this.t('controls.model')}`,
+                ];
+            },
+
+            startReadyProcess() {
+                if (!this.uploadPreviewWidth || this.isProcessing || this.isProcessDone) {
+                    return;
+                }
+                let canvas = document.getElementById('canvas-upload');
+                this.preflightProcess(canvas, canvas.width, canvas.height).catch((error) => {
+                    // Covers both 'processing cancelled before start' (declined
+                    // the size-risk dialog) and 'processing cancelled' (user hit
+                    // cancel mid-run) — neither is a failure to report.
+                    if (error && error.message && error.message.indexOf('processing cancelled') === 0) {
+                        return;
+                    }
+                    this.handleProcessFailure(error || 'failed to start processing');
+                });
+            },
+
+            buildWebReDots(sourceCanvas) {
+                // Half density on mobile: 912 animated blurred dots compete with
+                // the WASM worker for CPU/GPU exactly while it is saturated.
+                const width = this.isMobile ? 19 : 38;
+                const height = this.isMobile ? 12 : 24;
+                const sample = document.createElement('canvas');
+                sample.width = width;
+                sample.height = height;
+                const context = sample.getContext('2d', {willReadFrequently: true});
+                context.drawImage(sourceCanvas, 0, 0, width, height);
+                const pixels = context.getImageData(0, 0, width, height).data;
+                const dots = [];
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const offset = (y * width + x) * 4;
+                        const nx = x / (width - 1);
+                        const ny = y / (height - 1);
+                        const distance = Math.hypot(nx - 0.5, ny - 0.5) * Math.SQRT2;
+                        dots.push({
+                            color: `rgb(${pixels[offset]}, ${pixels[offset + 1]}, ${pixels[offset + 2]})`,
+                            nx: nx,
+                            ny: ny,
+                            delay: Number((distance * 0.75).toFixed(3)),
+                        });
+                    }
+                }
+                // Freeze so Vue skips reactive observation of ~900 static dot objects.
+                this.designDots = Object.freeze(dots);
+                sample.width = 0;
+                sample.height = 0;
             },
 
             startProcessAndWait(sourceCanvas, w, h) {
@@ -1539,6 +2072,9 @@
 
             async runBatchQueue(files) {
                 this.resetWorkspace({keepBatch: true});
+                // Revoke the previous batch's object URLs before replacing
+                // batchItems; resetWorkspace({keepBatch: true}) skips this.
+                this.clearBatchResults();
                 this.batchRunId += 1;
                 let runId = this.batchRunId;
                 this.isBatchActive = true;
@@ -1567,11 +2103,27 @@
                 this.progressTip = this.t('batch.queued', {total: this.batchItems.length});
                 this.scheduleStageLayoutSync();
 
+                // Snapshot the model options: every item in this batch processes
+                // with the settings from when it started, even if the user
+                // changes the controls mid-run (they'd otherwise silently apply
+                // to the remaining items — inconsistent output, and a mid-batch
+                // jump to 4X can OOM).
+                let batchOptions = {
+                    scale: this.scaleRadio,
+                    denoise: this.denoiseRadio,
+                    modelType: this.modelTypeRadio,
+                };
+
                 let canvas = document.getElementById('canvas-upload');
                 for (let index = 0; index < this.batchItems.length; index++) {
                     if (this.batchCancelRequested || runId !== this.batchRunId) {
                         break;
                     }
+                    // Restore the snapshot before each item; the controls visibly
+                    // snap back, signalling that batch settings are locked.
+                    this.scaleRadio = batchOptions.scale;
+                    this.denoiseRadio = batchOptions.denoise;
+                    this.modelTypeRadio = batchOptions.modelType;
                     let item = this.batchItems[index];
                     this.activeBatchItemId = item.id;
                     this.selectedBatchItemId = item.id;
@@ -1606,16 +2158,25 @@
                 this.isBatchProcessing = false;
                 this.activeBatchItemId = null;
                 if (this.batchCancelRequested) {
+                    // Items never reached stay "pending" forever otherwise,
+                    // which reads as "still queued" after a cancel.
+                    this.batchItems.forEach((entry) => {
+                        if (entry.status === 'pending') {
+                            entry.status = 'cancelled';
+                        }
+                    });
                     this.progressTip = this.t('batch.cancelled');
                 } else {
-                    this.progressTip = this.t('batch.done', {
+                    let failedCount = this.batchItems.filter((entry) => entry.status === 'error').length;
+                    this.progressTip = this.t(failedCount ? 'batch.doneWithErrors' : 'batch.done', {
                         done: this.batchDoneCount,
                         total: this.batchItems.length,
+                        failed: failedCount,
                     });
                     this.$notify({
                         title: this.t('notify.success'),
                         message: this.progressTip,
-                        type: 'success'
+                        type: failedCount ? 'warning' : 'success'
                     });
                 }
                 if (this.$refs.imageUpload) {
@@ -1679,7 +2240,10 @@
                 this.uploadImgSrc = item.previewObjectUrl || '';
                 this.uploadObjectUrl = item.previewObjectUrl || '';
                 this.outputScale = item.outputScale || this.scaleRadio;
-                this.outputDenoise = item.outputDenoise || this.denoiseRadio;
+                // outputScale doubles as the "has a stored result" sentinel
+                // (0 until processed): plain `||` would drop denoise 0 ("none")
+                // and -1 ("conservative") for processed items.
+                this.outputDenoise = item.outputScale ? item.outputDenoise : this.denoiseRadio;
                 this.outputModelType = item.outputModelType || this.modelTypeRadio;
                 this.outputPreviewWidth = item.outputWidth || item.inputWidth * this.outputScale;
                 this.outputPreviewHeight = item.outputHeight || item.inputHeight * this.outputScale;
@@ -1701,10 +2265,81 @@
                 this.triggerDownload(item.objectUrl, item.filename);
             },
 
-            downloadAllBatchResults() {
-                this.batchItems.filter((item) => item.objectUrl).forEach((item, index) => {
-                    setTimeout(() => this.downloadBatchItem(item), index * 120);
+            // Re-run a single failed/cancelled batch item without redoing the
+            // whole batch. Mirrors the per-item steps of runBatchQueue.
+            async retryBatchItem(item) {
+                if (!item || !item.file || this.isProcessing || this.isBatchProcessing) {
+                    return;
+                }
+                this.isBatchProcessing = true;
+                this.batchCancelRequested = false;
+                this.activeBatchItemId = item.id;
+                this.selectedBatchItemId = item.id;
+                item.status = 'processing';
+                this.progressTip = this.t('batch.processing', {
+                    current: 1,
+                    total: 1,
+                    name: item.name,
                 });
+                let canvas = document.getElementById('canvas-upload');
+                try {
+                    await this.loadImageFileToCanvas(item.file, canvas, {
+                        keepUploadUrl: true,
+                        objectUrl: item.previewObjectUrl,
+                    });
+                    item.inputWidth = canvas.width;
+                    item.inputHeight = canvas.height;
+                    this.applyBatchItemAccentFromCanvas(item, canvas);
+                    this.scheduleStageLayoutSync();
+                    this.scrollStageIntoView();
+                    await this.preflightProcess(canvas, canvas.width, canvas.height);
+                    item.status = 'done';
+                } catch (error) {
+                    item.status = this.isCancelling || this.batchCancelRequested ? 'cancelled' : 'error';
+                    Logger.error('batch item retry failed:', item.name, error);
+                } finally {
+                    this.isBatchProcessing = false;
+                    this.activeBatchItemId = null;
+                    this.progressTip = this.t('batch.done', {
+                        done: this.batchDoneCount,
+                        total: this.batchItems.length,
+                    });
+                }
+            },
+
+            async downloadAllBatchResults() {
+                let items = this.batchItems.filter((item) => item.objectUrl);
+                if (!items.length) {
+                    return;
+                }
+                try {
+                    // One ZIP instead of N sequential a.click() downloads, which
+                    // Safari drops and Chrome gates behind a permission prompt.
+                    let entries = await Promise.all(items.map(async (item) => {
+                        let response = await fetch(item.objectUrl);
+                        let buffer = await response.arrayBuffer();
+                        return {name: item.filename, bytes: new Uint8Array(buffer)};
+                    }));
+                    // Duplicate names would silently overwrite inside the zip.
+                    let seen = {};
+                    entries.forEach((entry) => {
+                        let original = entry.name;
+                        let count = seen[original] || 0;
+                        seen[original] = count + 1;
+                        if (count > 0) {
+                            entry.name = original.replace(/(\.[a-z0-9]+)?$/i, '-' + count + '$1');
+                        }
+                    });
+                    let zipBlob = window.buildStoreZip(entries, new Date());
+                    let zipUrl = URL.createObjectURL(zipBlob);
+                    this.triggerDownload(zipUrl, 'realcugan-batch.zip');
+                    setTimeout(() => URL.revokeObjectURL(zipUrl), 60000);
+                } catch (error) {
+                    Logger.error('zip download failed, falling back to sequential:', error);
+                    items.forEach((item, index) => {
+                        setTimeout(() => this.downloadBatchItem(item), index * 300);
+                    });
+                }
             },
 
             triggerDownload(objectUrl, filename) {
@@ -1818,6 +2453,40 @@
 
             preflightProcess(sourceCanvas, w, h) {
                 let risk = this.getProcessingRisk(w, h, this.scaleRadio);
+                let outputPixels = (w * this.scaleRadio) * (h * this.scaleRadio);
+                let overCanvasLimit = outputPixels > this.getCanvasPixelLimit() || w * h > this.getCanvasPixelLimit();
+                if (this.isBatchProcessing) {
+                    // Batch runs unattended: never show per-item dialogs. Items
+                    // over the hard canvas limit fail (guaranteed-corrupt output);
+                    // warn-level items proceed as if the user chose "continue".
+                    if (overCanvasLimit) {
+                        return Promise.reject(new Error('image exceeds platform canvas limit'));
+                    }
+                    return this.startProcessAndWait(sourceCanvas, w, h);
+                }
+                if (overCanvasLimit) {
+                    // Hard block: above the platform canvas limit the output is
+                    // guaranteed corrupt, so "continue anyway" must not be offered.
+                    return this.$confirm(this.getSizeRiskMessageHtml(risk), this.t('dialog.sizeRiskTitle'), {
+                        confirmButtonText: this.t('dialog.safeSettings'),
+                        cancelButtonText: this.t('dialog.ok'),
+                        type: 'error',
+                        dangerouslyUseHTMLString: true,
+                        showCancelButton: true,
+                    }).then(() => {
+                        this.applySafeProcessingSettings();
+                        if ((w * this.scaleRadio) * (h * this.scaleRadio) > this.getCanvasPixelLimit()) {
+                            // Even SE / 2X still exceeds the limit — the input is too large.
+                            throw new Error('processing cancelled before start');
+                        }
+                        return this.startProcessAndWait(sourceCanvas, w, h);
+                    }).catch((error) => {
+                        if (error instanceof Error) {
+                            throw error;
+                        }
+                        throw new Error('processing cancelled before start');
+                    });
+                }
                 if (risk.level === 'ok' || this.getPreference('skipSizeRiskWarning') === '1') {
                     return this.startProcessAndWait(sourceCanvas, w, h);
                 }
@@ -1850,8 +2519,35 @@
                 });
             },
 
+            // Narrow-viewport check for UI behaviors only (popover placement,
+            // scroll-into-view). Memory/runtime decisions use isMobileDevice()
+            // instead; the CSS layout breakpoints are 1120/640 in app.css.
             isMobileViewport() {
                 return this.windowWidth <= 768;
+            },
+
+            isIOSDevice() {
+                // iPadOS 13+ masquerades as MacIntel; distinguish via touch points.
+                return /iPhone|iPad|iPod/.test(navigator.userAgent)
+                    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            },
+
+            isMobileDevice() {
+                // Capability-based: viewport width misclassifies landscape phones and tablets.
+                return this.isIOSDevice() || /Android|Mobile/i.test(navigator.userAgent);
+            },
+
+            getDeviceMemoryGiB(isMobileDevice) {
+                let reported = Number(navigator.deviceMemory) || (isMobileDevice ? 4 : 8);
+                let clamped = Math.max(2, Math.min(8, reported));
+                // Safari never implements navigator.deviceMemory; without the clamp
+                // iOS devices would default to 8 GiB and skip every memory warning.
+                return this.isIOSDevice() ? Math.min(clamped, 4) : clamped;
+            },
+
+            getCanvasPixelLimit() {
+                // iOS Safari silently blanks canvases above ~16.7M px (4096x4096).
+                return this.isIOSDevice() ? 16777216 : Infinity;
             },
 
             scrollStageIntoView() {
@@ -1892,12 +2588,17 @@
                 let message = risk.level === 'block'
                     ? this.t('dialog.sizeRiskBlockText', risk)
                     : this.t('dialog.sizeRiskText', risk);
+                // No skip checkbox on hard blocks: that dialog has no
+                // beforeClose reading it, and a hard block must not be skippable.
+                let skipHtml = risk.level === 'block'
+                    ? ''
+                    : '<label class="size-risk-skip"><input id="size-risk-skip-checkbox" type="checkbox"> '
+                        + this.escapeHtml(this.t('dialog.dontShowAgain')) + '</label>';
                 return '<div class="size-risk-dialog-text">'
                     + '<p>' + this.escapeHtml(message) + '</p>'
                     + (risk.mobile ? '<p>' + this.escapeHtml(this.t('dialog.sizeRiskMobileHint')) + '</p>' : '')
                     + '<p>' + this.escapeHtml(this.t('dialog.sizeRiskSafeText')) + '</p>'
-                    + '<label class="size-risk-skip"><input id="size-risk-skip-checkbox" type="checkbox"> '
-                    + this.escapeHtml(this.t('dialog.dontShowAgain')) + '</label>'
+                    + skipHtml
                     + '</div>';
             },
 
@@ -1906,7 +2607,7 @@
                 let outputHeight = h * scale;
                 let inputPixels = w * h;
                 let outputPixels = outputWidth * outputHeight;
-                let isMobileViewport = this.windowWidth <= 768;
+                let isMobileDevice = this.isMobileDevice();
                 let gibibyte = 1024 * 1024 * 1024;
                 let measuredBackendWorkingSet = (scale === 4 ? 1150 : (scale === 3 ? 1050 : 950)) * 1024 * 1024;
                 let inputBytes = inputPixels * 4;
@@ -1916,29 +2617,32 @@
                     + inputBytes * 2
                     + outputBytes * 2
                     + transparentAlphaAllowance;
-                let reportedDeviceMemory = Number(navigator.deviceMemory) || (isMobileViewport ? 4 : 8);
-                let deviceMemoryGiB = Math.max(2, Math.min(8, reportedDeviceMemory));
-                let practicalBudgetBytes = deviceMemoryGiB * gibibyte * (isMobileViewport ? 0.24 : 0.30);
+                let deviceMemoryGiB = this.getDeviceMemoryGiB(isMobileDevice);
+                let practicalBudgetBytes = deviceMemoryGiB * gibibyte * (isMobileDevice ? 0.24 : 0.30);
                 let warnBytes = Math.min(
-                    (isMobileViewport ? 1200 : 1800) * 1024 * 1024,
+                    (isMobileDevice ? 1200 : 1800) * 1024 * 1024,
                     Math.max(
-                        (isMobileViewport ? 700 : 1100) * 1024 * 1024,
+                        (isMobileDevice ? 700 : 1100) * 1024 * 1024,
                         practicalBudgetBytes * 0.72
                     )
                 );
                 let blockBytes = Math.min(
-                    (isMobileViewport ? 1600 : 2600) * 1024 * 1024,
+                    (isMobileDevice ? 1600 : 2600) * 1024 * 1024,
                     Math.max(
-                        (isMobileViewport ? 1100 : 1700) * 1024 * 1024,
+                        (isMobileDevice ? 1100 : 1700) * 1024 * 1024,
                         practicalBudgetBytes
                     )
                 );
                 let level = 'ok';
-                if (estimatedBytes >= blockBytes) {
+                if (outputPixels > this.getCanvasPixelLimit() || inputPixels > this.getCanvasPixelLimit()) {
+                    // Above the platform canvas limit the output canvas silently
+                    // renders blank, so the export would be corrupt regardless of memory.
+                    level = 'block';
+                } else if (estimatedBytes >= blockBytes) {
                     level = 'block';
                 } else if (estimatedBytes >= warnBytes) {
                     level = 'warn';
-                } else if (isMobileViewport && scale >= 4 && deviceMemoryGiB <= 4) {
+                } else if (isMobileDevice && scale >= 4 && deviceMemoryGiB <= 4) {
                     level = 'warn';
                 }
                 return {
@@ -1946,22 +2650,21 @@
                     width: outputWidth,
                     height: outputHeight,
                     memory: Math.ceil(estimatedBytes / 1024 / 1024),
-                    mobile: isMobileViewport,
+                    mobile: isMobileDevice,
                 };
             },
 
             getRuntimeSettings(w, h, scale) {
                 let hardwareConcurrency = Math.max(1, Math.floor(Number(navigator.hardwareConcurrency) || 4));
-                let isMobileViewport = this.windowWidth <= 768;
-                let reportedDeviceMemory = Number(navigator.deviceMemory) || (isMobileViewport ? 4 : 8);
-                let deviceMemoryGiB = Math.max(2, Math.min(8, reportedDeviceMemory));
+                let isMobileDevice = this.isMobileDevice();
+                let deviceMemoryGiB = this.getDeviceMemoryGiB(isMobileDevice);
                 let inputPixels = w * h;
                 let workerFallback = this.shouldUseWorkerBackend(this.wasmBackend);
                 let threadCap = 4;
 
                 if (workerFallback) {
                     threadCap = 1;
-                } else if (isMobileViewport) {
+                } else if (isMobileDevice) {
                     threadCap = deviceMemoryGiB <= 3 ? 2 : 4;
                 } else {
                     threadCap = 4;
@@ -1969,15 +2672,15 @@
 
                 let threadCount = Math.max(1, Math.min(hardwareConcurrency, threadCap));
                 let tileSize = 200;
-                let memoryConstrained = deviceMemoryGiB <= 4 || (isMobileViewport && deviceMemoryGiB <= 6);
-                let latencySensitive = workerFallback || isMobileViewport;
+                let memoryConstrained = deviceMemoryGiB <= 4 || (isMobileDevice && deviceMemoryGiB <= 6);
+                let latencySensitive = workerFallback || isMobileDevice;
                 if (memoryConstrained || (scale >= 4 && inputPixels >= 1280 * 720)) {
                     tileSize = 128;
                 } else if (latencySensitive || deviceMemoryGiB <= 6) {
                     tileSize = 160;
                 }
                 if (this.safeProcessingMode) {
-                    threadCount = Math.min(threadCount, isMobileViewport ? 2 : 4);
+                    threadCount = Math.min(threadCount, isMobileDevice ? 2 : 4);
                     tileSize = Math.min(tileSize, 128);
                 }
 
@@ -1996,14 +2699,22 @@
                 this.progressTip = this.t('progress.starting');
                 this.processFailureDialogOpen = false;
                 this.isProcessing = true;
+                if (this.$refs.cursorRing) {
+                    this.$refs.cursorRing.classList.remove('is-hover', 'is-down');
+                }
+                if (this.webReParallaxNodes) {
+                    this.webReParallaxNodes.forEach((node) => {
+                        node.style.transform = '';
+                    });
+                }
+                this.startProcessWatchdog();
                 this.isCancelling = false;
                 this.isProcessDone = false;
+                this.isResultRevealing = false;
                 this.previewOverlapRate = 50;
                 this.previewZoom = this.previewZoomMin;
                 this.resetPreviewPan();
                 this.progressRate = 0;
-                this.procTotalCost = 0;
-                this.procRemainingTime = 0;
                 this.procFinalCostSeconds = null;
                 // init output params
                 this.outputScale = this.scaleRadio;
@@ -2117,19 +2828,20 @@
             getStageViewportSize() {
                 this.stageLayoutTick;
                 let layout = ADAPTIVE_LAYOUT;
-                if (this.isAdaptiveStageViewport() && this.uploadPreviewWidth && this.uploadPreviewHeight) {
+                if (this.uploadPreviewWidth && this.uploadPreviewHeight) {
                     let size = this.getAdaptiveStageSurfaceSize(this.getCurrentStageKind());
+                    let paddingSize = this.isMobile ? 20 : layout.stagePadding * 2;
                     return {
-                        width: Math.max(layout.minPreviewWidth, size.width - layout.stagePadding * 2),
-                        height: Math.max(layout.minPreviewHeight, size.height - layout.stagePadding * 2),
+                        width: Math.max(layout.minPreviewWidth, size.width - paddingSize),
+                        height: Math.max(layout.minPreviewHeight, size.height - paddingSize),
                     };
                 }
                 let stage = this.getStageSurfaceElement();
                 if (stage) {
-                    let inset = stage.classList.contains('stage-surface-adaptive') ? layout.stagePadding * 2 : 0;
+                    let inset = layout.stagePadding * 2;
                     return {
-                        width: Math.max(layout.minPreviewWidth, stage.clientWidth - (inset || layout.nonAdaptiveHorizontalInset)),
-                        height: Math.max(layout.minPreviewHeight, stage.clientHeight - (inset || layout.nonAdaptiveVerticalInset)),
+                        width: Math.max(layout.minPreviewWidth, stage.clientWidth - inset),
+                        height: Math.max(layout.minPreviewHeight, stage.clientHeight - inset),
                     };
                 }
                 let gutter = this.windowWidth > 1180 ? layout.wideViewportGutter : layout.narrowViewportGutter;
@@ -2150,10 +2862,6 @@
                 });
             },
 
-            isAdaptiveStageViewport() {
-                return this.windowWidth > ADAPTIVE_LAYOUT.breakpoint;
-            },
-
             getCurrentStageKind() {
                 if (this.isProcessDone) {
                     return 'result';
@@ -2164,20 +2872,8 @@
                 return 'empty';
             },
 
-            getStagePanelClass() {
-                return this.isAdaptiveStageViewport() ? 'stage-panel-adaptive' : '';
-            },
-
-            getAppMainClass() {
-                return this.isAdaptiveStageViewport() ? 'app-main-adaptive' : '';
-            },
-
-            getWorkspaceClass() {
-                return this.isAdaptiveStageViewport() ? 'workspace-adaptive' : '';
-            },
-
             getWorkspaceStyle() {
-                if (!this.isAdaptiveStageViewport()) {
+                if (this.isMobile) {
                     return {};
                 }
                 let controlWidth = ADAPTIVE_LAYOUT.controlPanelWidth;
@@ -2191,9 +2887,6 @@
             },
 
             getStageSurfaceClass(kind) {
-                if (!this.isAdaptiveStageViewport()) {
-                    return '';
-                }
                 return 'stage-surface-adaptive stage-surface-' + kind;
             },
 
@@ -2202,23 +2895,31 @@
                 let layout = ADAPTIVE_LAYOUT;
                 let appMain = this.getRefElement('appMain');
                 let controlPanel = this.getRefElement('controlPanel');
-                let toolbar = this.getRefElement('stageToolbar');
                 let appMainRect = appMain ? appMain.getBoundingClientRect() : null;
                 let controlRect = controlPanel ? controlPanel.getBoundingClientRect() : null;
-                let toolbarHeight = toolbar ? toolbar.getBoundingClientRect().height : layout.fallbackToolbarHeight;
-                let appMainHorizontalPadding = this.windowWidth > layout.breakpoint ? layout.appMainDesktopPaddingX : layout.appMainCompactPaddingX;
+                let toolbarHeight = layout.fallbackToolbarHeight;
+                let appMainHorizontalPadding = this.isMobile ? 28 : (this.windowWidth > layout.breakpoint ? layout.appMainDesktopPaddingX : layout.appMainCompactPaddingX);
                 let controlWidth = controlRect ? controlRect.width : layout.controlPanelWidth;
                 let workspaceLimit = Math.min(layout.maxWorkspaceWidth, this.windowWidth - appMainHorizontalPadding);
-                let maxPanelHeight = appMainRect
-                    ? Math.max(layout.minPanelHeight, appMainRect.height - layout.appMainDesktopPaddingX)
-                    : Math.max(layout.minPanelHeight, this.windowHeight - layout.appMainDesktopPaddingX * 2);
-                let maxBodyWidth = Math.max(layout.minBodyWidth, workspaceLimit - controlWidth - layout.panelGap);
+                
+                let maxPanelHeight;
+                if (this.isMobile) {
+                    // Break circular layout loop by using windowHeight directly on mobile
+                    maxPanelHeight = Math.max(layout.minPanelHeight, this.windowHeight - 54 - 44 - 18);
+                } else {
+                    maxPanelHeight = appMainRect
+                        ? Math.max(layout.minPanelHeight, appMainRect.height - layout.appMainDesktopPaddingX)
+                        : Math.max(layout.minPanelHeight, this.windowHeight - layout.appMainDesktopPaddingX * 2);
+                }
+                
+                let maxBodyWidth = this.isMobile
+                    ? workspaceLimit
+                    : Math.max(layout.minBodyWidth, workspaceLimit - controlWidth - layout.panelGap);
                 let maxBodyHeight = Math.max(layout.minBodyHeight, maxPanelHeight - toolbarHeight);
+                let paddingSize = this.isMobile ? 20 : layout.stagePadding * 2;
                 return {
-                    minSurfaceWidth: layout.minBodyWidth,
-                    minSurfaceHeight: layout.minBodyHeight,
-                    maxBodyWidth: maxBodyWidth,
-                    maxBodyHeight: maxBodyHeight,
+                    minSurfaceWidth: layout.minPreviewWidth + paddingSize,
+                    minSurfaceHeight: layout.minPreviewHeight + paddingSize,
                     maxSurfaceWidth: maxBodyWidth,
                     maxSurfaceHeight: maxBodyHeight,
                 };
@@ -2227,17 +2928,17 @@
             getAdaptiveStageSurfaceSize(kind) {
                 let layout = ADAPTIVE_LAYOUT;
                 let bounds = this.getAdaptiveStageBounds();
+                let paddingSize = this.isMobile ? 20 : layout.stagePadding * 2;
                 if (kind === 'empty' || !this.uploadPreviewWidth || !this.uploadPreviewHeight) {
                     return {
-                        width: layout.emptyUploadWidth + layout.stagePadding * 2,
-                        height: Math.min(bounds.maxBodyHeight, layout.emptyUploadHeight + layout.stagePadding * 2),
+                        width: Math.min(bounds.maxSurfaceWidth, (this.isMobile ? 320 : layout.emptyUploadWidth) + paddingSize),
+                        height: Math.min(bounds.maxSurfaceHeight, (this.isMobile ? 240 : layout.emptyUploadHeight) + paddingSize),
                     };
                 }
 
                 let targetScale = this.outputScale || this.scaleRadio;
                 let imageWidth = this.outputPreviewWidth || this.uploadPreviewWidth * targetScale;
                 let imageHeight = this.outputPreviewHeight || this.uploadPreviewHeight * targetScale;
-                let paddingSize = layout.stagePadding * 2;
                 let naturalWidth = imageWidth + paddingSize;
                 let naturalHeight = imageHeight + paddingSize;
                 let scale = Math.min(
@@ -2255,6 +2956,8 @@
                     width *= minScale;
                     height *= minScale;
                 }
+                // Reachable for extreme aspect ratios: the min-scale bump above
+                // can push the other axis back over its max bound.
                 if (width > bounds.maxSurfaceWidth || height > bounds.maxSurfaceHeight) {
                     let maxScale = Math.min(
                         bounds.maxSurfaceWidth / Math.max(1, width),
@@ -2263,28 +2966,26 @@
                     width *= maxScale;
                     height *= maxScale;
                 }
+                // Keep the floor from overflowing narrow viewports (320px-class
+                // devices): the shell adds ~16px of horizontal padding.
+                let minStageWidth = Math.min(layout.minStageWidth, Math.max(240, this.windowWidth - 24));
                 return {
-                    width: Math.max(layout.minStageWidth, Math.floor(width)),
+                    width: Math.max(minStageWidth, Math.floor(width)),
                     height: Math.max(layout.minBodyHeight, Math.floor(height)),
                 };
             },
 
             getStagePanelStyle() {
                 this.stageLayoutTick;
-                if (!this.isAdaptiveStageViewport()) {
-                    return {};
-                }
                 let size = this.getAdaptiveStageSurfaceSize(this.getCurrentStageKind());
                 return {
                     width: Math.floor(size.width) + 'px',
+                    height: Math.floor(size.height + ADAPTIVE_LAYOUT.stagePanelChromeHeight) + 'px',
                 };
             },
 
             getStageSurfaceStyle(kind) {
                 this.stageLayoutTick;
-                if (!this.isAdaptiveStageViewport()) {
-                    return {};
-                }
                 let size = this.getAdaptiveStageSurfaceSize(kind);
                 return {
                     width: Math.floor(size.width) + 'px',
@@ -2334,34 +3035,8 @@
                 };
             },
 
-            getPreviewSliderReserveHeight() {
-                return 0;
-            },
-
             getPreviewImageAreaHeight(viewportHeight) {
-                let height = viewportHeight || this.previewViewportHeight;
-                if (!height) {
-                    return Math.max(ADAPTIVE_LAYOUT.minPreviewHeight, height || 0);
-                }
-                return Math.max(ADAPTIVE_LAYOUT.minPreviewHeight, height - this.getPreviewSliderReserveHeight());
-            },
-
-            getPreviewImageAreaOffsetY(viewportHeight) {
-                let height = viewportHeight || this.previewViewportHeight;
-                if (!height) {
-                    return 0;
-                }
-                return -this.getPreviewSliderReserveHeight() / 2;
-            },
-
-            getPreviewViewportStyle() {
-                return {
-                    '--preview-image-area-offset-y': this.getPreviewImageAreaOffsetY() + 'px',
-                };
-            },
-
-            getPreviewContentTranslateY() {
-                return this.previewPanY + this.getPreviewImageAreaOffsetY();
+                return Math.max(ADAPTIVE_LAYOUT.minPreviewHeight, viewportHeight || this.previewViewportHeight || 0);
             },
 
             getZoomedPreviewSize() {
@@ -2375,22 +3050,30 @@
                 };
             },
 
-            getPreviewSplitViewportX() {
-                let viewport = this.getPreviewViewportElement();
-                let viewportWidth = this.previewViewportWidth || (viewport ? viewport.clientWidth : 0);
-                if (!viewportWidth) {
-                    return 0;
+            // These run in style bindings every frame during split/pan drags;
+            // prefer the cached previewViewportWidth (kept fresh by
+            // syncPreviewViewport) over live clientWidth, which forces layout
+            // mid-render.
+            getViewportWidthCached() {
+                if (this.previewViewportWidth) {
+                    return this.previewViewportWidth;
                 }
-                return viewportWidth * this.previewOverlapRate / 100;
+                let viewport = this.getPreviewViewportElement();
+                return viewport ? viewport.clientWidth : 0;
+            },
+
+            getPreviewSplitViewportX() {
+                let viewportWidth = this.getViewportWidthCached();
+                return viewportWidth ? viewportWidth * this.previewOverlapRate / 100 : 0;
             },
 
             getPreviewSplitLocalX() {
-                let viewport = this.getPreviewViewportElement();
-                if (!viewport) {
+                let viewportWidth = this.getViewportWidthCached();
+                if (!viewportWidth) {
                     return 0;
                 }
-                let size = this.getZoomedPreviewSize();
-                let imageLeft = (viewport.clientWidth - size.outputImgWidth) / 2 + this.previewPanX;
+                let size = this.zoomedPreviewSize;
+                let imageLeft = (viewportWidth - size.outputImgWidth) / 2 + this.previewPanX;
                 let splitX = this.getPreviewSplitViewportX() - imageLeft;
                 return Math.max(0, Math.min(size.outputImgWidth, splitX));
             },
@@ -2421,21 +3104,66 @@
                 this.setPreviewZoom(this.previewZoom - this.previewZoomStep);
             },
 
-            resetPreviewZoom() {
-                this.previewZoom = this.previewZoomMin;
-                this.resetPreviewPan();
-            },
-
-            setPreviewZoom(nextZoom) {
+            // focal (optional): viewport-relative point {x, y} measured from the
+            // viewport center. The pan is adjusted so the image content under
+            // that point stays put — cursor/pinch-anchored zoom. Without it,
+            // zoom is about the center (toolbar buttons).
+            setPreviewZoom(nextZoom, focal) {
+                let previousZoom = this.previewZoom;
+                // Keep fractional zoom internally — rounding here would swallow
+                // small trackpad deltas (100 * 0.998 rounds straight back to
+                // 100). The readout rounds at display time instead.
                 this.previewZoom = Math.max(this.previewZoomMin, Math.min(this.previewZoomMax, nextZoom));
+                if (focal && previousZoom > 0 && this.previewZoom !== previousZoom) {
+                    let ratio = this.previewZoom / previousZoom;
+                    // Keep the image point under the focal fixed:
+                    // newPan = focal - (focal - oldPan) * ratio
+                    this.previewPanX = focal.x - (focal.x - this.previewPanX) * ratio;
+                    this.previewPanY = focal.y - (focal.y - this.previewPanY) * ratio;
+                }
                 this.$nextTick(() => {
                     this.clampPreviewPan();
                 });
             },
 
+            // Convert a client-coordinate event point into a viewport-center-
+            // relative focal for setPreviewZoom.
+            getZoomFocalPoint(clientX, clientY) {
+                let viewport = this.getPreviewViewportElement();
+                if (!viewport) {
+                    return null;
+                }
+                let rect = viewport.getBoundingClientRect();
+                return {
+                    x: clientX - rect.left - rect.width / 2,
+                    y: clientY - rect.top - rect.height / 2,
+                };
+            },
+
+            // Image-viewer conventions: double-click toggles 100% <-> 200%
+            // about the clicked point; the % readout resets zoom on click.
+            onPreviewDoubleClick(event) {
+                let target = this.previewZoom > this.previewZoomMin ? this.previewZoomMin : 200;
+                this.setPreviewZoom(target, this.getZoomFocalPoint(event.clientX, event.clientY));
+            },
+
+            resetPreviewZoom() {
+                this.setPreviewZoom(this.previewZoomMin);
+                this.resetPreviewPan();
+            },
+
             onPreviewWheel(event) {
-                let direction = event.deltaY < 0 ? 1 : -1;
-                this.setPreviewZoom(this.previewZoom + direction * this.previewZoomStep);
+                // Continuous, delta-proportional zoom. A trackpad emits dozens
+                // of small deltaY events per swipe — fixed 25% steps made each
+                // one jump a whole notch, slamming to min/max instantly.
+                // Mouse wheels emit large deltas (~100/notch) and land near the
+                // old step size; deltaMode 1 (lines) is normalized to pixels.
+                let deltaY = event.deltaY * (event.deltaMode === 1 ? 16 : 1);
+                let factor = Math.exp(-deltaY * 0.0022);
+                this.setPreviewZoom(
+                    this.previewZoom * factor,
+                    this.getZoomFocalPoint(event.clientX, event.clientY)
+                );
             },
 
             resetPreviewPan() {
@@ -2445,14 +3173,21 @@
             },
 
             getPreviewPanBounds() {
-                let viewport = this.getPreviewViewportElement();
-                if (!viewport) {
+                // Cached viewport dims + cached zoomed size: this runs on every
+                // pointermove during a pan drag.
+                let viewportWidth = this.getViewportWidthCached();
+                let viewportHeight = this.previewViewportHeight;
+                if (!viewportHeight) {
+                    let viewport = this.getPreviewViewportElement();
+                    viewportHeight = viewport ? viewport.clientHeight : 0;
+                }
+                if (!viewportWidth || !viewportHeight) {
                     return {maxX: 0, maxY: 0};
                 }
-                let size = this.getZoomedPreviewSize();
-                let imageAreaHeight = this.getPreviewImageAreaHeight(viewport.clientHeight);
+                let size = this.zoomedPreviewSize;
+                let imageAreaHeight = this.getPreviewImageAreaHeight(viewportHeight);
                 return {
-                    maxX: Math.max(0, (size.outputImgWidth - viewport.clientWidth) / 2),
+                    maxX: Math.max(0, (size.outputImgWidth - viewportWidth) / 2),
                     maxY: Math.max(0, (size.outputImgHeight - imageAreaHeight) / 2),
                 };
             },
@@ -2463,105 +3198,6 @@
                 this.previewPanY = Math.max(-bounds.maxY, Math.min(bounds.maxY, this.previewPanY));
             },
 
-            averageImageDataEdge(imageData, edge) {
-                let data = imageData.data;
-                let width = imageData.width;
-                let height = imageData.height;
-                let r = 0;
-                let g = 0;
-                let b = 0;
-                let count = 0;
-                let sampleStep = Math.max(1, Math.floor((edge === 'top' || edge === 'bottom' ? width : height) / 80));
-                if (edge === 'top' || edge === 'bottom') {
-                    let y = edge === 'top' ? 0 : height - 1;
-                    for (let x = 0; x < width; x += sampleStep) {
-                        let idx = (y * width + x) * 4;
-                        r += data[idx];
-                        g += data[idx + 1];
-                        b += data[idx + 2];
-                        count++;
-                    }
-                } else {
-                    let x = edge === 'left' ? 0 : width - 1;
-                    for (let y = 0; y < height; y += sampleStep) {
-                        let idx = (y * width + x) * 4;
-                        r += data[idx];
-                        g += data[idx + 1];
-                        b += data[idx + 2];
-                        count++;
-                    }
-                }
-                if (!count) {
-                    return 'rgba(64, 158, 255, 0.24)';
-                }
-                let alpha = this.getEffectiveTheme() === 'dark' ? 0.62 : 0.28;
-                return 'rgba(' + Math.round(r / count) + ', ' + Math.round(g / count) + ', ' + Math.round(b / count) + ', ' + alpha + ')';
-            },
-
-            scheduleAmbientGlowUpdate() {
-                if (!this.isProcessDone) {
-                    return;
-                }
-                if (this.ambientUpdateTimer) {
-                    clearTimeout(this.ambientUpdateTimer);
-                }
-                this.ambientUpdateTimer = setTimeout(() => {
-                    this.updatePreviewAmbientGlow();
-                }, 120);
-            },
-
-            primePreviewAmbientGlow() {
-                this.$nextTick(() => {
-                    let glow = this.getAmbientPreviewGlowElement();
-                    if (!glow) {
-                        return;
-                    }
-                    glow.style.setProperty('--ambient-top', 'var(--fluid-color-1)');
-                    glow.style.setProperty('--ambient-right', 'var(--fluid-color-2)');
-                    glow.style.setProperty('--ambient-bottom', 'var(--fluid-color-3)');
-                    glow.style.setProperty('--ambient-left', 'var(--fluid-color-4)');
-                });
-            },
-
-            updatePreviewAmbientGlow() {
-                this.ambientUpdateTimer = null;
-                let glow = this.getAmbientPreviewGlowElement();
-                let canvasOutput = document.getElementById('canvas-output');
-                let viewport = this.getPreviewViewportElement();
-                if (!glow || !canvasOutput || !viewport || !canvasOutput.width || !canvasOutput.height) {
-                    return;
-                }
-                let size = this.getZoomedPreviewSize();
-                let viewportWidth = viewport.clientWidth;
-                let viewportHeight = viewport.clientHeight;
-                let imageLeft = (viewportWidth - size.outputImgWidth) / 2 + this.previewPanX;
-                let imageTop = (viewportHeight - size.outputImgHeight) / 2 + this.getPreviewContentTranslateY();
-                let visibleLeft = Math.max(0, -imageLeft);
-                let visibleTop = Math.max(0, -imageTop);
-                let visibleRight = Math.min(size.outputImgWidth, viewportWidth - imageLeft);
-                let visibleBottom = Math.min(size.outputImgHeight, viewportHeight - imageTop);
-                let scaleToCanvasX = canvasOutput.width / Math.max(1, size.outputImgWidth);
-                let scaleToCanvasY = canvasOutput.height / Math.max(1, size.outputImgHeight);
-                let sx = Math.max(0, Math.floor(visibleLeft * scaleToCanvasX));
-                let sy = Math.max(0, Math.floor(visibleTop * scaleToCanvasY));
-                let sw = Math.max(1, Math.min(canvasOutput.width - sx, Math.ceil((visibleRight - visibleLeft) * scaleToCanvasX)));
-                let sh = Math.max(1, Math.min(canvasOutput.height - sy, Math.ceil((visibleBottom - visibleTop) * scaleToCanvasY)));
-                if (sw <= 0 || sh <= 0) {
-                    return;
-                }
-                let sampleCanvas = document.createElement('canvas');
-                let sampleSize = 48;
-                sampleCanvas.width = sampleSize;
-                sampleCanvas.height = sampleSize;
-                let sampleCtx = sampleCanvas.getContext('2d');
-                sampleCtx.drawImage(canvasOutput, sx, sy, sw, sh, 0, 0, sampleSize, sampleSize);
-                let imageData = sampleCtx.getImageData(0, 0, sampleSize, sampleSize);
-                glow.style.setProperty('--ambient-top', this.averageImageDataEdge(imageData, 'top'));
-                glow.style.setProperty('--ambient-right', this.averageImageDataEdge(imageData, 'right'));
-                glow.style.setProperty('--ambient-bottom', this.averageImageDataEdge(imageData, 'bottom'));
-                glow.style.setProperty('--ambient-left', this.averageImageDataEdge(imageData, 'left'));
-            },
-
             getPanEventPoint(event) {
                 let touch = event.touches && event.touches.length > 0 ? event.touches[0] : null;
                 let changedTouch = event.changedTouches && event.changedTouches.length > 0 ? event.changedTouches[0] : null;
@@ -2570,6 +3206,28 @@
                     x: point.clientX,
                     y: point.clientY,
                 };
+            },
+
+            onSplitHandleKeydown(event) {
+                let step = event.shiftKey ? 10 : 2;
+                let delta = 0;
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+                    delta = -step;
+                } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+                    delta = step;
+                } else if (event.key === 'Home') {
+                    this.previewOverlapRate = 0;
+                    event.preventDefault();
+                    return;
+                } else if (event.key === 'End') {
+                    this.previewOverlapRate = 100;
+                    event.preventDefault();
+                    return;
+                } else {
+                    return;
+                }
+                this.previewOverlapRate = Math.max(0, Math.min(100, this.previewOverlapRate + delta));
+                event.preventDefault();
             },
 
             startSplitDrag(event) {
@@ -2596,16 +3254,32 @@
                     document.removeEventListener('mouseup', endHandler);
                     document.removeEventListener('touchmove', moveHandler);
                     document.removeEventListener('touchend', endHandler);
+                    document.removeEventListener('touchcancel', endHandler);
                 };
 
                 document.addEventListener('mousemove', moveHandler);
                 document.addEventListener('mouseup', endHandler);
                 document.addEventListener('touchmove', moveHandler, { passive: false });
                 document.addEventListener('touchend', endHandler);
+                document.addEventListener('touchcancel', endHandler);
+            },
+
+            getTouchPinchDistance(event) {
+                let a = event.touches[0];
+                let b = event.touches[1];
+                return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
             },
 
             startPreviewPan(event) {
                 if (event.target.closest && event.target.closest('.el-slider')) {
+                    return;
+                }
+                if (event.touches && event.touches.length === 2) {
+                    // Two fingers: start a pinch zoom (works even at 100%).
+                    this.previewDragging = false;
+                    this.previewPinchStartDistance = this.getTouchPinchDistance(event);
+                    this.previewPinchStartZoom = this.previewZoom;
+                    event.preventDefault();
                     return;
                 }
                 if (this.previewZoom <= this.previewZoomMin) {
@@ -2616,29 +3290,127 @@
                     return;
                 }
                 let point = this.getPanEventPoint(event);
+                // Grabbing mid-glide interrupts it — drag starts from the
+                // current on-screen position, Apple-style interruptibility.
+                this.cancelPanGlide();
+                this.panVelocitySamples = [];
                 this.previewDragging = true;
                 this.previewDragStartX = point.x;
                 this.previewDragStartY = point.y;
                 this.previewDragOriginX = this.previewPanX;
                 this.previewDragOriginY = this.previewPanY;
                 event.preventDefault();
+                if (!event.touches) {
+                    // Mouse drags follow the pointer document-wide: with
+                    // element-bound listeners, the drag died the instant the
+                    // cursor left the viewport (mouseleave) — easy to hit on a
+                    // fast pan. Touch events keep firing on the start element,
+                    // so the template's touch bindings stay as they are.
+                    const moveHandler = (e) => this.movePreviewPan(e);
+                    const upHandler = () => {
+                        this.endPreviewPan();
+                        document.removeEventListener('mousemove', moveHandler);
+                        document.removeEventListener('mouseup', upHandler);
+                    };
+                    document.addEventListener('mousemove', moveHandler);
+                    document.addEventListener('mouseup', upHandler);
+                }
             },
 
             movePreviewPan(event) {
+                if (event.touches && event.touches.length === 2 && this.previewPinchStartDistance) {
+                    let ratio = this.getTouchPinchDistance(event) / this.previewPinchStartDistance;
+                    let midX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+                    let midY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+                    this.setPreviewZoom(
+                        Math.round(this.previewPinchStartZoom * ratio),
+                        this.getZoomFocalPoint(midX, midY)
+                    );
+                    event.preventDefault();
+                    return;
+                }
                 if (!this.previewDragging) {
                     return;
                 }
                 let point = this.getPanEventPoint(event);
-                let bounds = this.getPreviewPanBounds();
                 this.previewPanX = this.previewDragOriginX + point.x - this.previewDragStartX;
                 this.previewPanY = this.previewDragOriginY + point.y - this.previewDragStartY;
-                this.previewPanX = Math.max(-bounds.maxX, Math.min(bounds.maxX, this.previewPanX));
-                this.previewPanY = Math.max(-bounds.maxY, Math.min(bounds.maxY, this.previewPanY));
+                this.clampPreviewPan();
+                // Short position history for release velocity (momentum glide).
+                let now = performance.now();
+                this.panVelocitySamples.push({x: point.x, y: point.y, t: now});
+                if (this.panVelocitySamples.length > 5) {
+                    this.panVelocitySamples.shift();
+                }
                 event.preventDefault();
             },
 
-            endPreviewPan() {
+            endPreviewPan(event) {
+                if (event && event.touches && event.touches.length >= 2) {
+                    return;
+                }
+                let wasDragging = this.previewDragging;
                 this.previewDragging = false;
+                this.previewPinchStartDistance = 0;
+                if (wasDragging) {
+                    this.startPanGlide();
+                }
+                this.panVelocitySamples = [];
+            },
+
+            // Momentum: project the release velocity with exponential decay
+            // (Apple's deceleration model) and glide there, clamping at bounds.
+            startPanGlide() {
+                let samples = this.panVelocitySamples;
+                if (!samples || samples.length < 2) {
+                    return;
+                }
+                let last = samples[samples.length - 1];
+                let first = samples[0];
+                let dt = last.t - first.t;
+                // Stale samples mean the pointer paused before release — no fling.
+                if (dt <= 0 || (performance.now() - last.t) > 80) {
+                    return;
+                }
+                let vx = (last.x - first.x) / dt; // px per ms
+                let vy = (last.y - first.y) / dt;
+                if (Math.hypot(vx, vy) < 0.25) {
+                    return;
+                }
+                const DECAY = 0.95; // per frame @60fps
+                let step = () => {
+                    if (this.previewDragging || !this.isProcessDone) {
+                        this.panGlideFrame = null;
+                        return;
+                    }
+                    this.previewPanX += vx * 16;
+                    this.previewPanY += vy * 16;
+                    let bounds = this.getPreviewPanBounds();
+                    // Kill the axis velocity on impact with a bound.
+                    if (this.previewPanX <= -bounds.maxX || this.previewPanX >= bounds.maxX) {
+                        vx = 0;
+                    }
+                    if (this.previewPanY <= -bounds.maxY || this.previewPanY >= bounds.maxY) {
+                        vy = 0;
+                    }
+                    this.clampPreviewPan();
+                    vx *= DECAY;
+                    vy *= DECAY;
+                    if (Math.hypot(vx, vy) > 0.02) {
+                        this.panGlideFrame = requestAnimationFrame(step);
+                    } else {
+                        this.panGlideFrame = null;
+                    }
+                };
+                this.cancelPanGlide();
+                this.panGlideFrame = requestAnimationFrame(step);
+            },
+
+            cancelPanGlide() {
+                if (this.panGlideFrame) {
+                    cancelAnimationFrame(this.panGlideFrame);
+                    this.panGlideFrame = null;
+                }
             },
 
             versionedUrl(path) {
@@ -2687,6 +3459,23 @@
                 return this.wasmLoadPromise;
             },
 
+            // Idle-time cache warmer: fetch the likely backend's .wasm/.js and
+            // the selected model into the HTTP cache without initializing
+            // anything. ensureWasmLoaded() later hits warm cache entries.
+            prefetchBackendAssets() {
+                Promise.all([
+                    wasmFeatureDetect.simd().catch(() => false),
+                    wasmFeatureDetect.threads().catch(() => false),
+                ]).then(([hasSIMD, hasThreads]) => {
+                    let canUseThreads = this.canUseThreadedBackend(hasSIMD, hasThreads);
+                    let backend = this.getBackendCandidates(hasSIMD, canUseThreads)[0];
+                    let quiet = () => null;
+                    fetch(this.versionedUrl('realcugan-ncnn-webassembly-' + backend + '.wasm'), {cache: 'force-cache'}).catch(quiet);
+                    fetch(this.versionedUrl('realcugan-ncnn-webassembly-' + backend + '.js'), {cache: 'force-cache'}).catch(quiet);
+                    this.preloadSelectedModelAssets();
+                }).catch(() => {});
+            },
+
             checkWasmSupportAndLoad() {
                 return Promise.all([
                     wasmFeatureDetect.simd().catch(() => false),
@@ -2727,6 +3516,19 @@
                 return ['basic'];
             },
 
+            // Fall through to the next backend candidate, or surface the error
+            // once every candidate has failed.
+            handleBackendLoadFailure(backends, backend, error) {
+                Logger.error(error);
+                if (backends.length > 1) {
+                    return this.loadWasmBackend(backends.slice(1));
+                }
+                this.$alert(this.t('dialog.resourceErrorText', {backend: backend}), this.t('dialog.resourceErrorTitle'), {
+                    confirmButtonText: this.t('dialog.ok'),
+                });
+                throw error;
+            },
+
             loadWasmBackend(backends) {
                 let backend = backends[0];
                 this.wasmBackend = backend;
@@ -2734,16 +3536,7 @@
                 this.wasmLoadingProgress = Math.max(this.wasmLoadingProgress, 3);
                 if (this.shouldUseWorkerBackend(backend)) {
                     return this.loadWorkerBackend(backend)
-                        .catch((error) => {
-                            Logger.error(error);
-                            if (backends.length > 1) {
-                                return this.loadWasmBackend(backends.slice(1));
-                            }
-                            this.$alert(this.t('dialog.resourceErrorText', {backend: backend}), this.t('dialog.resourceErrorTitle'), {
-                                confirmButtonText: this.t('dialog.ok'),
-                            });
-                            throw error;
-                        });
+                        .catch((error) => this.handleBackendLoadFailure(backends, backend, error));
                 }
 
                 this.wasmUsesWorker = false;
@@ -2752,7 +3545,34 @@
                         if (!response.ok) {
                             throw new Error('WASM resource not found: ' + backend);
                         }
-                        return response.arrayBuffer();
+                        // Stream the multi-MB download so the progress bar moves
+                        // (5 → 60%) instead of sitting still until it completes.
+                        let totalBytes = Number(response.headers.get('content-length')) || 0;
+                        if (!response.body || !totalBytes) {
+                            return response.arrayBuffer();
+                        }
+                        let reader = response.body.getReader();
+                        let chunks = [];
+                        let receivedBytes = 0;
+                        let pump = () => reader.read().then(({done, value}) => {
+                            if (done) {
+                                let buffer = new Uint8Array(receivedBytes);
+                                let offset = 0;
+                                chunks.forEach((chunk) => {
+                                    buffer.set(chunk, offset);
+                                    offset += chunk.length;
+                                });
+                                return buffer.buffer;
+                            }
+                            chunks.push(value);
+                            receivedBytes += value.length;
+                            this.wasmLoadingProgress = Math.max(
+                                this.wasmLoadingProgress,
+                                5 + Math.round((receivedBytes / totalBytes) * 55)
+                            );
+                            return pump();
+                        });
+                        return pump();
                     })
                     .then((buffer) => {
                         return new Promise((resolve, reject) => {
@@ -2796,16 +3616,7 @@
                             }, 30000);
                         });
                     })
-                    .catch((error) => {
-                        Logger.error(error);
-                        if (backends.length > 1) {
-                            return this.loadWasmBackend(backends.slice(1));
-                        }
-                        this.$alert(this.t('dialog.resourceErrorText', {backend: backend}), this.t('dialog.resourceErrorTitle'), {
-                            confirmButtonText: this.t('dialog.ok'),
-                        });
-                        throw error;
-                    });
+                    .catch((error) => this.handleBackendLoadFailure(backends, backend, error));
             },
 
             shouldUseWorkerBackend(backend) {
@@ -2878,6 +3689,9 @@
             },
 
             handleWorkerMessage(message) {
+                // Any worker traffic counts as liveness for the stall watchdog
+                // (model downloads legitimately take a while before tile progress).
+                this.feedProcessWatchdog();
                 if (message.type === 'loading') {
                     this.wasmLoadingProgress = Math.max(this.wasmLoadingProgress, message.progress || 5);
                     return;
@@ -2955,21 +3769,27 @@
                         this.outputObjectUrl = URL.createObjectURL(blob);
                         this.outputImgSrc = this.outputObjectUrl;
                         if (this.isBatchActive && this.activeBatchItemId) {
-                            this.rememberBatchResult(URL.createObjectURL(blob), canvasOutput.width, canvasOutput.height);
+                            // Share the URL with the batch item: clearUploadPreviewUrl /
+                            // onProcessEnd both check isBatchManagedObjectUrl before
+                            // revoking, so a single URL per blob is safe.
+                            this.rememberBatchResult(this.outputObjectUrl, canvasOutput.width, canvasOutput.height);
                         }
                     } else {
                         this.handleProcessFailure('failed to encode output image');
                         return;
                     }
+                    let costNum = Math.round(cost / 1000);
+                    if (cost < 1000) {
+                        costNum = (cost / 1000).toFixed(2);
+                    }
+                    this.procFinalCostSeconds = costNum;
+                    this.progressTip = this.t('progress.done', {seconds: costNum});
                     this.isProcessing = false;
                     this.isProcessDone = true;
                     this.safeProcessingMode = false;
                     this.scheduleStageLayoutSync();
                     this.beginResultReveal();
                     this.syncPreviewViewport();
-                    setTimeout(() => {
-                        this.scheduleAmbientGlowUpdate();
-                    }, 260);
                     this.scrollStageIntoView();
                     this.resolveCurrentProcess({
                         filename: this.getOutputFilename(),
@@ -2977,21 +3797,16 @@
                         width: canvasOutput.width,
                         height: canvasOutput.height,
                     });
+                    this.$nextTick(() => {
+                        this.$notify({
+                            title: this.t('notify.success'),
+                            message: this.progressTip,
+                            type: 'success'
+                        });
+                    });
                 }, 'image/png');
 
                 this.releaseWasmBuffers();
-
-                let costNum = Math.round(cost / 1000);
-                if (cost < 1000) {
-                    costNum = (cost / 1000).toFixed(2);
-                }
-                this.procFinalCostSeconds = costNum;
-                this.progressTip = this.t('progress.done', {seconds: costNum});
-                this.$notify({
-                    title: this.t('notify.success'),
-                    message: this.progressTip,
-                    type: 'success'
-                });
             },
 
             releaseWasmBuffers() {
@@ -3043,11 +3858,55 @@
                     this.resultRevealTimer = null;
                 }
                 this.isResultRevealing = true;
-                this.primePreviewAmbientGlow();
+                this.startRevealWipeSweep();
                 this.resultRevealTimer = setTimeout(() => {
                     this.isResultRevealing = false;
                     this.resultRevealTimer = null;
-                }, 1450);
+                }, 1900);
+            },
+
+            // The reveal moment: sweep the compare split 0 -> 100 -> 50 so the
+            // first thing the user sees is the result literally wiping across
+            // the original — the product's core value made visible. Respects
+            // reduced motion, and any user drag on the handle cancels it.
+            startRevealWipeSweep() {
+                this.cancelRevealWipeSweep();
+                if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    return;
+                }
+                let start = null;
+                const DURATION = 1500;
+                let step = (now) => {
+                    if (this.splitDragging || !this.isProcessDone) {
+                        // User grabbed the handle (or state changed) — hand over control.
+                        this.revealWipeFrame = null;
+                        return;
+                    }
+                    if (start === null) {
+                        start = now;
+                    }
+                    let t = Math.min(1, (now - start) / DURATION);
+                    // Ease-in-out; phase 1 (0-0.62): 0 -> 100, phase 2: 100 -> 50.
+                    let eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+                    this.previewOverlapRate = eased < 0.62
+                        ? (eased / 0.62) * 100
+                        : 100 - ((eased - 0.62) / 0.38) * 50;
+                    if (t < 1) {
+                        this.revealWipeFrame = requestAnimationFrame(step);
+                    } else {
+                        this.previewOverlapRate = 50;
+                        this.revealWipeFrame = null;
+                    }
+                };
+                this.previewOverlapRate = 0;
+                this.revealWipeFrame = requestAnimationFrame(step);
+            },
+
+            cancelRevealWipeSweep() {
+                if (this.revealWipeFrame) {
+                    cancelAnimationFrame(this.revealWipeFrame);
+                    this.revealWipeFrame = null;
+                }
             },
 
             clearResultReveal() {
@@ -3055,6 +3914,7 @@
                     clearTimeout(this.resultRevealTimer);
                     this.resultRevealTimer = null;
                 }
+                this.cancelRevealWipeSweep();
                 this.isResultRevealing = false;
             },
 
@@ -3065,8 +3925,6 @@
                 this.isCancelling = false;
                 this.isProcessDone = false;
                 this.progressRate = 0;
-                this.procTotalCost = 0;
-                this.procRemainingTime = 0;
                 this.procFinalCostSeconds = null;
                 this.progressTip = '';
                 this.safeProcessingMode = false;
@@ -3081,39 +3939,51 @@
                 }
             },
 
+            // Single mapping from a process error (numeric backend code and/or
+            // raw text) to the actionable dialog message key. Code checks win
+            // when a code is present; text signatures cover the JS-side errors.
+            mapProcessErrorKey(code, lowerText) {
+                if (!isNaN(code)) {
+                    if (code === -1) {
+                        return 'processErrorConflict';
+                    }
+                    if (code === -7) {
+                        return 'processErrorMemory';
+                    }
+                    if (code === -8 || code === -9) {
+                        return 'processErrorModel';
+                    }
+                    if (code >= -6 && code <= -2) {
+                        return 'processErrorInput';
+                    }
+                }
+                if (lowerText.includes('memory access out of bounds') || lowerText.includes('out of memory') || lowerText.includes('malloc failed')) {
+                    return 'processErrorMemory';
+                }
+                if (lowerText.includes('parse magic failed') || lowerText.includes('load_param') || lowerText.includes('.param') || lowerText.includes('.bin') || lowerText.includes('model_')) {
+                    return 'processErrorModel';
+                }
+                if (lowerText.includes('not found') || lowerText.includes('.wasm') || lowerText.includes('worker')) {
+                    return 'processErrorAsset';
+                }
+                if (lowerText.includes('process_image returned')) {
+                    return 'processErrorConflict';
+                }
+                return 'processErrorGeneric';
+            },
+
             getActionableProcessError(error) {
                 let raw = error && error.message ? error.message : (error + '');
-                let lower = raw.toLowerCase();
-                let message = this.t('dialog.processErrorGeneric');
-                if (lower.includes('memory access out of bounds') || lower.includes('out of memory') || lower.includes('malloc failed')) {
-                    message = this.t('dialog.processErrorMemory');
-                } else if (lower.includes('parse magic failed') || lower.includes('load_param') || lower.includes('.param') || lower.includes('model_')) {
-                    message = this.t('dialog.processErrorModel');
-                } else if (lower.includes('not found') || lower.includes('.wasm') || lower.includes('worker')) {
-                    message = this.t('dialog.processErrorAsset');
-                } else if (lower.includes('process_image returned -1') || lower.includes('process_image returned')) {
-                    message = this.t('dialog.processErrorConflict');
-                }
                 return {
                     raw: raw,
-                    message: message,
+                    message: this.t('dialog.' + this.mapProcessErrorKey(NaN, raw.toLowerCase())),
                 };
             },
 
             handleBackendProcessError(error) {
                 let code = Number(error && error.code);
                 let rawMessage = error && error.message ? error.message : '';
-                let lowerMessage = rawMessage.toLowerCase();
-                let message = this.t('dialog.processErrorGeneric');
-                if (code === -1) {
-                    message = this.t('dialog.processErrorConflict');
-                } else if (code === -7) {
-                    message = this.t('dialog.processErrorMemory');
-                } else if (code === -8 || code === -9 || lowerMessage.includes('model_') || lowerMessage.includes('.param') || lowerMessage.includes('.bin')) {
-                    message = this.t('dialog.processErrorModel');
-                } else if (code >= -6 && code <= -2) {
-                    message = this.t('dialog.processErrorInput');
-                }
+                let message = this.t('dialog.' + this.mapProcessErrorKey(code, rawMessage.toLowerCase()));
                 let detail = 'backend code ' + code;
                 if (error && error.message) {
                     detail += ': ' + error.message;
@@ -3133,6 +4003,12 @@
                     : this.getActionableProcessError(error);
                 this.restoreAfterProcessFailure();
                 this.rejectCurrentProcess(error);
+                if (this.isBatchProcessing) {
+                    // No modal mid-batch: the item's red error tag and the final
+                    // summary already tell the story; a dialog per failed image
+                    // would make the user babysit the queue.
+                    return;
+                }
                 if (this.processFailureDialogOpen) {
                     return;
                 }
@@ -3147,14 +4023,50 @@
             },
 
             onProcessProgressChange(totalCost, tileCost, progressRate, remainingTime) {
+                this.feedProcessWatchdog();
                 if (this.isCancelling) {
                     return;
                 }
                 this.progressTip = this.t('progress.processing');
                 this.progressRate = Math.ceil(progressRate * 100);
-                this.procTotalCost = totalCost;
-                this.procRemainingTime = Math.round(remainingTime / 1000);
                 this.procFinalCostSeconds = null;
+            },
+
+            // ---- stall watchdog -------------------------------------------
+            // If the backend hangs (worker deadlock, wasm stall) isProcessing
+            // stays true forever with no signal. Track the last progress event
+            // and surface a one-shot warning so the user knows to cancel.
+            feedProcessWatchdog() {
+                this.processWatchdogLastActivity = Date.now();
+            },
+
+            startProcessWatchdog() {
+                this.stopProcessWatchdog();
+                this.feedProcessWatchdog();
+                this.processWatchdogNotified = false;
+                this.processWatchdogInterval = setInterval(() => {
+                    if (!this.isProcessing) {
+                        this.stopProcessWatchdog();
+                        return;
+                    }
+                    let stalledSeconds = Math.round((Date.now() - this.processWatchdogLastActivity) / 1000);
+                    if (stalledSeconds >= 90 && !this.processWatchdogNotified) {
+                        this.processWatchdogNotified = true;
+                        this.$notify({
+                            title: this.t('dialog.processErrorTitle'),
+                            message: this.t('progress.stalled', {seconds: stalledSeconds}),
+                            type: 'warning',
+                            duration: 0,
+                        });
+                    }
+                }, 10000);
+            },
+
+            stopProcessWatchdog() {
+                if (this.processWatchdogInterval) {
+                    clearInterval(this.processWatchdogInterval);
+                    this.processWatchdogInterval = null;
+                }
             },
 
             saveOutput() {
@@ -3222,10 +4134,9 @@
                 this.isProcessDone = false;
                 this.isResultRevealing = false;
                 this.progressRate = 0;
-                this.procTotalCost = 0;
-                this.procRemainingTime = 0;
                 this.procFinalCostSeconds = null;
                 this.progressTip = '';
+                this.designDots = [];
                 this.processFailureDialogOpen = false;
                 this.safeProcessingMode = false;
                 this.activeBatchItemId = null;
@@ -3242,7 +4153,6 @@
                 this.previewZoom = this.previewZoomMin;
                 this.previewViewportWidth = 0;
                 this.previewViewportHeight = 0;
-                this.previewSliderHeight = ADAPTIVE_LAYOUT.previewSliderFallbackHeight;
                 this.resetPreviewPan();
                 this.resetTheme();
                 this.scheduleStageLayoutSync();
@@ -3269,10 +4179,6 @@
                 });
             },
 
-            handleOOM() {
-                this.handleProcessFailure('memory access out of bounds');
-            },
-
             runTestCase() {
                 this.preloadSelectedModelAssets();
                 this.ensureWasmLoaded()
@@ -3281,7 +4187,7 @@
             },
 
             loadTestCase() {
-                let filename = 'test-img.jpg';
+                let filename = 'test-img.png';
                 let canvas = document.getElementById('canvas-upload');
                 let ctx = canvas.getContext('2d');
                 let img = new Image();
@@ -3294,15 +4200,21 @@
                     this.uploadPreviewName = filename;
                     this.scheduleStageLayoutSync();
                     this.applyImageThemeFromCanvas(canvas);
+                    this.buildWebReDots(canvas);
                     this.scrollStageIntoView();
-                    this.preflightProcess(canvas, canvas.width, canvas.height);
+                    this.progressTip = '';
+                }
+                img.onerror = () => {
+                    this.uploadImgSrc = '';
+                    this.progressTip = '';
+                    this.handleProcessFailure('failed to decode input image');
                 }
                 img.src = filename;
                 this.uploadImgSrc = img.src;
             }
         }
     });
-
+});
 </script>
 
 
