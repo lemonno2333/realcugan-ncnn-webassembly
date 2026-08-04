@@ -23,3 +23,5 @@ debug.log
 /web/up3x*
 /web/up4x*
 /web/models-pro/
+/.agents
+web/plan.md

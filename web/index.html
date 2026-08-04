@@ -17,6 +17,22 @@
     <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
     <meta name="description" content="realcugan-ncnn-assembly - browser-based anime image super-resolution">
     <meta name="theme-color" content="#120a18">
+    <link rel="canonical" href="https://realcugan.lemonno.xyz/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Real-CUGAN">
+    <meta property="og:title" content="免费在线 Real-CUGAN 动漫图片超分辨率">
+    <meta property="og:description" content="图片在浏览器本地处理，无需上传；支持 2×、3×、4× 动漫图片放大与降噪。">
+    <meta property="og:url" content="https://realcugan.lemonno.xyz/">
+    <meta property="og:image" content="https://realcugan.lemonno.xyz/social-preview.jpg">
+    <meta property="og:image:secure_url" content="https://realcugan.lemonno.xyz/social-preview.jpg">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Real-CUGAN 动漫图片超分辨率处理前后对比">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="免费在线 Real-CUGAN 动漫图片超分辨率">
+    <meta name="twitter:description" content="图片在浏览器本地处理，无需上传；支持 2×、3×、4× 动漫图片放大与降噪。">
+    <meta name="twitter:image" content="https://realcugan.lemonno.xyz/social-preview.jpg">
     <link rel="icon" href="favicon.ico">
     <link rel="icon" type="image/svg+xml" href="icon.svg">
     <link rel="manifest" href="manifest.webmanifest">
@@ -30,16 +46,16 @@
     <!-- defer: parsing continues and the skeleton paints while ~1MB of JS
          downloads; execution order among deferred scripts is preserved, and
          the inline app script below waits for DOMContentLoaded. -->
-    <script defer src="vue.min.js?v=2026.07.26-unified.3"></script>
-    <link rel="stylesheet" href="normalize.css?v=2026.07.26-unified.3">
-    <link rel="stylesheet" href="element.css?v=2026.07.26-unified.3">
-    <link rel="stylesheet" href="app.css?v=2026.07.26-unified.3">
-    <script defer src="element.js?v=2026.07.26-unified.3"></script>
-    <script defer src="wasmFeatureDetect.js?v=2026.07.26-unified.3"></script>
-    <script defer src="debugLogger.js?v=2026.07.26-unified.3"></script>
-    <script defer src="modelManifest.js?v=2026.07.26-unified.3"></script>
-    <script defer src="zipStore.js?v=2026.07.26-unified.3"></script>
-    <script defer src="i18n.js?v=2026.07.26-unified.3"></script>
+    <script defer src="vue.min.js?v=2026.07.26-unified.4"></script>
+    <link rel="stylesheet" href="normalize.css?v=2026.07.26-unified.4">
+    <link rel="stylesheet" href="element.css?v=2026.07.26-unified.4">
+    <link rel="stylesheet" href="app.css?v=2026.07.26-unified.4">
+    <script defer src="element.js?v=2026.07.26-unified.4"></script>
+    <script defer src="wasmFeatureDetect.js?v=2026.07.26-unified.4"></script>
+    <script defer src="debugLogger.js?v=2026.07.26-unified.4"></script>
+    <script defer src="modelManifest.js?v=2026.07.26-unified.4"></script>
+    <script defer src="zipStore.js?v=2026.07.26-unified.4"></script>
+    <script defer src="i18n.js?v=2026.07.26-unified.4"></script>
 </head>
 
 <body>
@@ -62,6 +78,112 @@
             </div>
         </div>
     </div>
+    <section class="seo-content" aria-label="Real-CUGAN introduction">
+        <article class="seo-copy" lang="zh-CN" aria-labelledby="seo-title-zh">
+            <p class="seo-kicker">LOCAL AI IMAGE UPSCALER</p>
+            <h2 id="seo-title-zh">免费在线 Real-CUGAN 动漫图片超分辨率</h2>
+            <p class="seo-lead">直接在浏览器中放大和修复动漫、插画与线稿图片。无需安装软件，也不会把图片上传到服务器；Real-CUGAN 模型通过 WebAssembly 在你的设备本地运行。</p>
+            <div class="seo-feature-grid">
+                <section>
+                    <h3>图片留在本机</h3>
+                    <p>选择图片后，读取、推理、预览和导出都在当前浏览器中完成，适合处理不希望上传到第三方服务的作品。</p>
+                </section>
+                <section>
+                    <h3>2×、3×、4× 放大</h3>
+                    <p>可选择 SE 或 Pro 模型以及多档降噪强度，用于改善低分辨率动漫截图、插画边缘和压缩噪点。</p>
+                </section>
+                <section>
+                    <h3>处理前后对比</h3>
+                    <p>完成后可拖动分割线检查原图与结果，支持缩放、平移、批量处理，并将增强图片保存到本地。</p>
+                </section>
+            </div>
+            <div class="seo-faq">
+                <h3>常见问题</h3>
+                <details>
+                    <summary>Real-CUGAN 是什么？</summary>
+                    <p>Real-CUGAN 是面向动漫和插画图像的 AI 超分辨率模型，可在放大图片的同时修复线条、色块和压缩造成的细节损失。</p>
+                </details>
+                <details>
+                    <summary>网站会保存或上传我的图片吗？</summary>
+                    <p>不会。图片处理在浏览器本地完成；关闭或刷新页面后，当前未保存的处理状态会被清除。</p>
+                </details>
+                <details>
+                    <summary>支持哪些图片格式？</summary>
+                    <p>支持浏览器可读取的 JPG、PNG、WebP 和 BMP 图片。处理速度取决于图片尺寸、放大倍率、模型和设备 CPU 性能。</p>
+                </details>
+            </div>
+        </article>
+
+        <article class="seo-copy" lang="en" aria-labelledby="seo-title-en">
+            <p class="seo-kicker">LOCAL AI IMAGE UPSCALER</p>
+            <h2 id="seo-title-en">Free online Real-CUGAN anime image upscaler</h2>
+            <p class="seo-lead">Upscale and restore anime artwork, illustrations, and line art directly in your browser. Nothing is uploaded: the Real-CUGAN model runs locally on your device through WebAssembly.</p>
+            <div class="seo-feature-grid">
+                <section>
+                    <h3>Your images stay local</h3>
+                    <p>Reading, inference, preview, and export all happen in the current browser, making the tool suitable for artwork you do not want to send to a third-party server.</p>
+                </section>
+                <section>
+                    <h3>2×, 3×, and 4× upscaling</h3>
+                    <p>Choose SE or Pro models and several denoise levels to improve low-resolution anime screenshots, illustration edges, and compression artifacts.</p>
+                </section>
+                <section>
+                    <h3>Compare before and after</h3>
+                    <p>Inspect the result with a draggable comparison slider, zoom and pan the preview, process batches, and save enhanced images locally.</p>
+                </section>
+            </div>
+            <div class="seo-faq">
+                <h3>Frequently asked questions</h3>
+                <details>
+                    <summary>What is Real-CUGAN?</summary>
+                    <p>Real-CUGAN is an AI super-resolution model designed for anime and illustration images. It enlarges images while restoring lines, flat colors, and details damaged by compression.</p>
+                </details>
+                <details>
+                    <summary>Are my images uploaded or stored?</summary>
+                    <p>No. Processing happens locally in your browser. Refreshing or closing the page clears any unsaved processing state.</p>
+                </details>
+                <details>
+                    <summary>Which image formats are supported?</summary>
+                    <p>The tool supports browser-readable JPG, PNG, WebP, and BMP images. Processing time depends on image size, scale, model, and CPU performance.</p>
+                </details>
+            </div>
+        </article>
+
+        <article class="seo-copy" lang="ja" aria-labelledby="seo-title-ja">
+            <p class="seo-kicker">LOCAL AI IMAGE UPSCALER</p>
+            <h2 id="seo-title-ja">無料オンライン Real-CUGAN アニメ画像超解像</h2>
+            <p class="seo-lead">アニメ、イラスト、線画をブラウザ上で拡大・補正できます。画像はサーバーへ送信されず、Real-CUGAN モデルが WebAssembly を通じて端末内で動作します。</p>
+            <div class="seo-feature-grid">
+                <section>
+                    <h3>画像は端末内で処理</h3>
+                    <p>画像の読み込み、推論、プレビュー、書き出しは現在のブラウザ内で完結するため、外部サービスへ送りたくない作品にも利用できます。</p>
+                </section>
+                <section>
+                    <h3>2倍・3倍・4倍に拡大</h3>
+                    <p>SE／Pro モデルと複数のノイズ除去レベルを選び、低解像度のアニメ画像、輪郭、圧縮ノイズを改善できます。</p>
+                </section>
+                <section>
+                    <h3>処理前後を比較</h3>
+                    <p>スライダーで元画像と結果を比較し、ズーム、移動、複数画像の一括処理、端末への保存ができます。</p>
+                </section>
+            </div>
+            <div class="seo-faq">
+                <h3>よくある質問</h3>
+                <details>
+                    <summary>Real-CUGAN とは何ですか？</summary>
+                    <p>Real-CUGAN はアニメやイラスト向けの AI 超解像モデルです。画像を拡大しながら、線、色面、圧縮で失われた細部を補正します。</p>
+                </details>
+                <details>
+                    <summary>画像はアップロードまたは保存されますか？</summary>
+                    <p>いいえ。処理はブラウザ内で行われ、ページを閉じるか再読み込みすると未保存の処理状態は消去されます。</p>
+                </details>
+                <details>
+                    <summary>対応している画像形式は？</summary>
+                    <p>JPG、PNG、WebP、BMP に対応しています。処理時間は画像サイズ、倍率、モデル、端末の CPU 性能によって変わります。</p>
+                </details>
+            </div>
+        </article>
+    </section>
 </body>
 
 <script type="text/x-template" id="form">
@@ -482,7 +604,7 @@
 // Deferred head scripts (Vue, Element, i18n, ...) finish before
 // DOMContentLoaded fires, so everything they define is available here.
 window.addEventListener('DOMContentLoaded', function () {
-    const APP_VERSION = '2026.07.26-unified.3';
+    const APP_VERSION = '2026.07.26-unified.4';
     const Logger = window.RealCuganLogger || {
         debug() {},
         info() {},

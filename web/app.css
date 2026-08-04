@@ -85,6 +85,24 @@
       @keyframes twinkle { from { opacity: 0.72; } to { opacity: 1; } }
 
       #app { position: relative; z-index: 1; }
+      .seo-content { position: relative; z-index: 2; max-width: 1120px; margin: 0 auto; padding: 5rem 1.5rem 7rem; }
+      .seo-copy { display: none; }
+      html[lang^="zh"] .seo-copy[lang="zh-CN"],
+      html[lang^="en"] .seo-copy[lang="en"],
+      html[lang^="ja"] .seo-copy[lang="ja"] { display: block; }
+      .seo-kicker { margin: 0 0 .75rem; color: var(--c-primary); font-family: var(--f-mono); font-size: 11px; font-weight: 700; letter-spacing: .16em; }
+      .seo-copy h2 { max-width: 850px; margin: 0; font-family: var(--f-dis); font-size: clamp(2rem, 4.5vw, 4.2rem); line-height: 1.04; letter-spacing: -.04em; }
+      .seo-lead { max-width: 800px; margin: 1.25rem 0 2.25rem; color: var(--ink2); font-size: clamp(1rem, 1.5vw, 1.2rem); line-height: 1.8; }
+      .seo-feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+      .seo-feature-grid section { padding: 1.4rem; border: 1px solid var(--line); border-radius: 20px; background: color-mix(in srgb, var(--paper) 82%, transparent); }
+      .seo-feature-grid h3, .seo-faq h3 { margin: 0 0 .65rem; font-size: 1rem; }
+      .seo-feature-grid p, .seo-faq p { margin: 0; color: var(--ink2); font-size: .92rem; line-height: 1.7; }
+      .seo-faq { max-width: 850px; margin-top: 2.5rem; }
+      .seo-faq > h3 { margin-bottom: .8rem; font-size: 1.25rem; }
+      .seo-faq details { border-top: 1px solid var(--line); padding: 1rem 0; }
+      .seo-faq details:last-child { border-bottom: 1px solid var(--line); }
+      .seo-faq summary { cursor: pointer; color: var(--ink); font-weight: 700; }
+      .seo-faq details p { padding-top: .75rem; }
       ::selection { background: var(--c-primary); color: var(--c-on-primary); }
       * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--c-primary) 50%, transparent) transparent; }
 
@@ -1491,6 +1509,14 @@ button:active,
 }
 
 @media (max-width: 640px) {
+  .seo-content {
+    padding: 3.5rem 1rem 7rem;
+  }
+
+  .seo-feature-grid {
+    grid-template-columns: 1fr;
+  }
+
   .app-main.shell,
   .app-main-adaptive.shell {
     padding-right: .5rem;
