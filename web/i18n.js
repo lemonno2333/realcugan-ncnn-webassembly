@@ -2,10 +2,10 @@
 window.I18N = {
         zh: {
             app: {
-                title: '动漫图片超分辨率 Real-CUGAN',
+                title: 'REAL-CUGAN 超·分辨率',
                 heading: '动漫图片超分辨率',
                 brandSuffix: '超·分辨率',
-                description: '基于 Real-CUGAN 的浏览器端动漫图片超分辨率，图片在本地 CPU 处理，永不上传。',
+                description: '免费在线 Real-CUGAN 动漫图片超分辨率工具，使用 WebAssembly 在浏览器本地放大 2×-4× 动漫、插画与线稿，保障隐私且无需上传。',
             },
             nav: {
                 originalProject: '原作项目',
@@ -32,6 +32,7 @@ window.I18N = {
             controls: {
                 backendMode: '后端模式',
                 params: '参数',
+                settingsButton: '参数设置',
                 model: '模型',
                 scale: '倍率',
                 denoise: '降噪',
@@ -144,10 +145,10 @@ window.I18N = {
         },
         en: {
             app: {
-                title: 'Real-CUGAN Anime Image Upscaler',
+                title: 'REAL-CUGAN SUPER·RESOLUTION',
                 heading: 'Anime Image Upscaler',
                 brandSuffix: 'SUPER·RESOLUTION',
-                description: 'Browser-based anime image super-resolution powered by Real-CUGAN. Images are processed locally on your CPU and never uploaded.',
+                description: 'Free online Real-CUGAN anime image upscaler. Enlarge anime art, illustrations and line art 2×-4× locally in your browser with WebAssembly — nothing is uploaded.',
             },
             nav: {
                 originalProject: 'Original project',
@@ -174,6 +175,7 @@ window.I18N = {
             controls: {
                 backendMode: 'Backend',
                 params: 'Settings',
+                settingsButton: 'Parameter settings',
                 model: 'Model',
                 scale: 'Scale',
                 denoise: 'Denoise',
@@ -286,10 +288,10 @@ window.I18N = {
         },
         ja: {
             app: {
-                title: 'Real-CUGAN アニメ画像アップスケーラー',
+                title: 'REAL-CUGAN 超·解像',
                 heading: 'アニメ画像アップスケーラー',
                 brandSuffix: '超·解像',
-                description: 'Real-CUGAN によるブラウザー内アニメ画像超解像。画像はローカル CPU で処理され、アップロードされることはありません。',
+                description: '無料のオンライン Real-CUGAN アニメ画像超解像ツール。WebAssembly でブラウザー内のまま、アニメ・イラスト・線画を 2×〜4× に拡大します。画像はアップロードされません。',
             },
             nav: {
                 originalProject: '元プロジェクト',
@@ -316,6 +318,7 @@ window.I18N = {
             controls: {
                 backendMode: 'バックエンド',
                 params: '設定',
+                settingsButton: 'パラメータ設定',
                 model: 'モデル',
                 scale: '倍率',
                 denoise: 'ノイズ除去',
