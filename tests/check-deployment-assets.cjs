@@ -73,7 +73,8 @@ function collectStaticReferences(html) {
         if (/^(?:https?:|data:|#|mailto:)/i.test(value)) {
             continue;
         }
-        references.add(value.split('?')[0]);
+        const asset = value.split('?')[0];
+        references.add(asset.endsWith('/') ? asset + 'index.html' : asset);
     }
     return references;
 }
@@ -148,6 +149,18 @@ function buildReport(webRoot) {
 
     const html = readText(indexPath);
     const manifest = extractModelManifest(webRoot);
+    const uiVersion = readText(path.join(webRoot, 'app.js')).match(/const APP_VERSION = '([^']+)'/)[1];
+    for (const entry of ['index.html', 'gpt-denoise.html', 'en/index.html', 'ja/index.html']) {
+        const file = path.join(webRoot, entry);
+        if (!fs.existsSync(file)) continue;
+        const source = readText(file);
+        for (const asset of ['app.js', 'appTemplate.js', 'app.css', 'gptDenoise.js']) {
+            if (!source.includes(asset + '?v=' + uiVersion + '"')) {
+                report.ok = false;
+                report.errors.push(entry + ': stale or missing shared UI asset ' + asset);
+            }
+        }
+    }
 
     addAsset(report, webRoot, 'index.html');
     collectStaticReferences(html).forEach((relativePath) => {
@@ -161,9 +174,35 @@ function buildReport(webRoot) {
         'realcugan-ncnn-webassembly-simd.js',
         'realcugan-ncnn-webassembly-simd.wasm',
         'realcugan-ncnn-webassembly-simd-threads.js',
-        'realcugan-ncnn-webassembly-simd-threads.wasm',
-        'realcugan-ncnn-webassembly-simd-threads.worker.js'
+        'realcugan-ncnn-webassembly-simd-threads.wasm'
     ].forEach((relativePath) => addAsset(report, webRoot, relativePath));
+
+    // Older Emscripten emits a separate worker; newer versions use the main JS
+    // as their pthread Worker. Require the extra file only if it is referenced.
+    const threadedPath = path.join(webRoot, 'realcugan-ncnn-webassembly-simd-threads.js');
+    if (fs.existsSync(threadedPath) && readText(threadedPath).includes('.worker.js')) {
+        addAsset(report, webRoot, 'realcugan-ncnn-webassembly-simd-threads.worker.js');
+    }
+
+    ['gpt-denoise.html', 'en/index.html', 'ja/index.html', 'appTemplate.js', 'app.js', 'THIRD_PARTY_NOTICES.md'].forEach(relativePath => addAsset(report, webRoot, relativePath));
+    const denoiseHtml = path.join(webRoot, 'gpt-denoise.html');
+    if (fs.existsSync(denoiseHtml)) {
+        collectStaticReferences(readText(denoiseHtml)).forEach(relativePath => addAsset(report, webRoot, relativePath));
+    }
+    ['gptDenoiseWorker.js', 'gpt-denoise-basic.js', 'gpt-denoise-basic.wasm',
+        'gpt-denoise-simd.js', 'gpt-denoise-simd.wasm'].forEach(relativePath => addAsset(report, webRoot, relativePath));
+    const denoiseModels = require('../web/gptDenoiseModels.js');
+    denoiseModels.files.forEach(file => {
+        const relativePath = path.join('models', 'esrgan', file.name);
+        addAsset(report, webRoot, relativePath, {expectedBytes: file.bytes});
+        const filePath = path.join(webRoot, relativePath);
+        if (fs.existsSync(filePath) && require('node:crypto').createHash('sha256')
+            .update(fs.readFileSync(filePath)).digest('hex') !== file.sha256) {
+            report.ok = false;
+            report.errors.push(relativePath + ': SHA-256 mismatch');
+        }
+    });
+    addAsset(report, webRoot, 'models/esrgan/LICENSE');
 
     collectModelAssets(manifest).forEach((expectedBytes, modelPath) => {
         addAsset(report, webRoot, path.join('models', modelPath), {expectedBytes});

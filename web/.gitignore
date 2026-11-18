@@ -10,3 +10,7 @@
 /up3x*
 /up4x*
 /models-pro/
+
+# Generated GPT-denoise WASM modules.
+/gpt-denoise-basic.*
+/gpt-denoise-simd.*

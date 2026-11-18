@@ -334,6 +334,17 @@
        *  controls match the rest of the page (and your Element family).
        * ============================================================ */
       /* segmented model picker */
+      /* Shared Element controls use the same image-derived palette as the main UI. */
+      .ctl .el-slider__runway { background: var(--line); }
+      .ctl .el-slider__bar { background: var(--c-primary); }
+      .ctl .el-slider__button { border-color: var(--c-primary); background: var(--paper); }
+      .ctl .el-input__inner { background: transparent; border-color: var(--line-strong); color: var(--ink); font-family: var(--f-maru); border-radius: 999px; }
+      .ctl .el-input__inner:focus { border-color: var(--c-primary); }
+      .ctl .el-input-number__decrease, .ctl .el-input-number__increase { background: transparent; border-color: var(--line); color: var(--ink2); }
+      .ctl .el-input-number__decrease:hover, .ctl .el-input-number__increase:hover { color: var(--c-primary); }
+      .ctl .el-input-number__decrease { border-radius: 999px 0 0 999px; }
+      .ctl .el-input-number__increase { border-radius: 0 999px 999px 0; }
+      .ctl .el-input.is-disabled .el-input__inner { background: var(--paper2); color: var(--mute); }
       .ctl .el-radio-button__inner { display: block !important; width: 100% !important; background: transparent !important; border-color: var(--line-strong) !important; color: var(--ink2) !important; font-family: var(--f-maru) !important; font-weight: 700 !important; box-shadow: none !important; transition: color .25s var(--ease), background .25s var(--ease), border-color .25s var(--ease); }
       .ctl .el-radio-button:first-child .el-radio-button__inner { border-radius: 999px 0 0 999px; }
       .ctl .el-radio-button:last-child .el-radio-button__inner { border-radius: 0 999px 999px 0; }
@@ -462,16 +473,18 @@ button:active,
 @media (min-width: 1121px) {
   .workspace.workspace-adaptive {
     position: absolute;
-    top: 50vh;
+    top: var(--workspace-center-y, 50%);
     left: 50%;
     margin: 0;
     flex: 0 0 auto;
     transform: translate(-50%, -50%);
+    max-width: 100%;
+    max-height: var(--workspace-max-height);
   }
 
   .control-panel.card-ctl {
     height: auto;
-    max-height: calc(100vh - 2rem);
+    max-height: var(--workspace-max-height, calc(100dvh - 2rem));
     align-self: center;
   }
 }
@@ -699,6 +712,8 @@ button:active,
   display: flex;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: var(--workspace-max-height);
   overflow: hidden;
   flex-direction: column;
 }
@@ -1253,13 +1268,51 @@ button:active,
   line-height: 1;
 }
 
+/* Keep the original wipes/isle animations, but give their content separate
+   layout space. A short viewport scrolls this overlay instead of clipping controls. */
+.ready-ui,
+.processing-ui {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.ready-ui .wipe-stack {
+  position: relative;
+  top: auto;
+  left: auto;
+  flex: none;
+  width: fit-content;
+  max-width: calc(100% - 2rem);
+  margin: 1rem 1rem 0;
+}
+
+.ready-ui .wipe-line {
+  max-width: 100%;
+}
+
+.ready-ui .wipe-base,
+.ready-ui .wipe-on {
+  width: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .ready-action-layer {
+  position: relative;
+  inset: auto;
+  flex: 1 0 auto;
   z-index: 9;
   padding: 1.5rem;
   pointer-events: none;
 }
 
 .ready-isle {
+  max-width: 100%;
   pointer-events: auto;
 }
 
@@ -1279,6 +1332,15 @@ button:active,
   width: min(82%, 420px);
   color: #fff7fb;
   text-shadow: 0 2px 24px color-mix(in srgb, var(--c-primary) 70%, transparent);
+}
+
+.processing-ui .processing-hud {
+  position: relative;
+  inset: auto;
+  flex: none;
+  margin: auto;
+  padding: 1rem 0;
+  transform: none;
 }
 
 .processing-number {
@@ -1424,8 +1486,8 @@ button:active,
   .workspace-adaptive,
   .workspace.console-grid {
     display: block;
-    height: auto !important;
-    flex: 1 1 auto;
+    max-height: var(--workspace-max-height);
+    flex: 0 1 auto;
   }
 
   .control-panel {
@@ -1436,6 +1498,8 @@ button:active,
     left: 0;
     width: 100% !important;
     height: min(76vh, 640px) !important;
+    height: min(76dvh, 640px) !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
     border-radius: 26px 26px 0 0;
     background: var(--paper);
@@ -1470,9 +1534,10 @@ button:active,
     height: 100% !important;
   }
 
-  /* the JS floor writes inline widths; never let them overflow the viewport */
+  /* Include the body's margins in the width cap, not just the image box. */
   .stage-surface-adaptive {
-    max-width: 100%;
+    max-width: calc(100% - 2rem);
+    align-self: center;
   }
 
   /* Below the breakpoint the panel is forced full-width (see .stage-panel-adaptive
@@ -1577,6 +1642,7 @@ button:active,
 
   .stage-body {
     margin: .65rem;
+    max-width: calc(100% - 1.3rem);
   }
 
   .app-footer {
@@ -1606,5 +1672,17 @@ button:active,
   .el-popover {
     background: var(--paper) !important;
     backdrop-filter: none !important;
+  }
+}
+
+/* Companion browser-only GPT-denoise tool. */
+.topnav-denoise-link { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--paper); font: 600 12px var(--f-sans); text-decoration: none; }
+.topnav-denoise-link:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 3px; }
+
+/* Leave room for a usable action even in a short landscape viewport. */
+@media (max-width: 1120px) and (max-height: 480px) {
+  .stage-body {
+    margin: .5rem;
+    max-width: calc(100% - 1rem);
   }
 }

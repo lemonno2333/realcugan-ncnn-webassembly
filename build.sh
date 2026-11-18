@@ -27,6 +27,8 @@ if [ -d ./ncnn/.git ]; then
     fi
 fi
 
+python3 scripts/prepare-denoise-model.py
+
 mkdir -p ./build ./web/models
 cp -R ./models/. ./web/models
 
@@ -62,5 +64,8 @@ for feature in ${FEATURES}; do
             ../..
         cmake --build . --parallel "${JOBS}"
         cp realcugan-ncnn-webassembly-* ../../web
+        if [ -f "gpt-denoise-${feature}.js" ]; then
+            cp gpt-denoise-${feature}.js gpt-denoise-${feature}.wasm ../../web
+        fi
     )
 done

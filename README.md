@@ -1,4 +1,15 @@
 # RealCUGAN-ncnn-webassembly
+## Browser-only GPT image denoising
+
+Open `gpt-denoise.html` via the new GPT Denoise link in the existing upscaler.
+Ports the default [gpt-anime-denoise](https://github.com/CXP-2024/gpt-anime-denoise)
+recipe: BOX downscale 60% → Real-ESRGAN anime-6B 4× → original size → L0 0.001.
+Inference and FFT run in a dedicated Worker, without image uploads or a Python backend.
+Supports cancellation, original alpha, original-size PNG, and model-free L0 mode.
+
+`sh build.sh` downloads checksum-verified weights and builds basic / SIMD modules.
+See [docs/gpt-denoise.md](docs/gpt-denoise.md) for setup, limits and validation.
+
 [中文](https://github.com/lemonno2333/realcugan-ncnn-webassembly/blob/main/README_CN.md)
 
 This project uses WebAssembly technology to run the Real-CUGAN model based on ncnn.

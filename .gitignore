@@ -25,3 +25,11 @@ debug.log
 /web/models-pro/
 /.agents
 web/plan.md
+
+# Official ESRGAN assets are downloaded and checksum-verified at build time.
+/models/esrgan/*.bin
+/models/esrgan/*.param
+
+# Local browser QA artifacts.
+/.playwright-cli/
+/output/

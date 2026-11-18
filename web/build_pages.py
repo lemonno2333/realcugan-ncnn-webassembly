@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate the /en/ and /ja/ language pages from index.html.
 
-index.html is the source of truth: it holds the whole app (inline Vue) plus the
-Chinese SEO copy. This script clones it per language, swapping only the three
+index.html is the source of truth for the entry shell and Chinese SEO copy.
+All entries load the same appTemplate.js and app.js (Vue UI and motion). This script clones it per language, swapping only the three
 marked regions in the head/body and rewriting <html lang>.
 
 Two things make a subdirectory copy work without touching any app code:
@@ -219,10 +219,14 @@ def build(src, lang, html_lang, meta, jsonld_block, seo):
 
 src = (ROOT / "index.html").read_text(encoding="utf-8")
 
-m = re.search(r"const APP_VERSION = '([^']+)'", src)
+m = re.search(r"const APP_VERSION = '([^']+)'", (ROOT / "app.js").read_text(encoding="utf-8"))
 if not m:
-    sys.exit("index.html: APP_VERSION not found")
+    sys.exit("app.js: APP_VERSION not found")
 APP_VERSION = m.group(1)
+# The entry shells must bust the same UI cache as the controller. Engine/model
+# versions are independent and deliberately left unchanged.
+src = re.sub(r"(?<=\?v=)[0-9.]+-ui\.\d+", APP_VERSION, src)
+(ROOT / "index.html").write_text(src, encoding="utf-8")
 
 PAGES = {
     "en": dict(
@@ -255,3 +259,14 @@ for lang, cfg in PAGES.items():
     print(f"wrote {target.relative_to(ROOT)}  ({len(html):,} bytes)")
 
 print(f"source index.html      ({len(src):,} bytes, APP_VERSION={APP_VERSION})")
+
+# GPT is another entry shell, not another app/template/controller.
+gpt = src
+gpt = re.sub(r"<!-- I18N:JSONLD:START[\s\S]*?<!-- I18N:JSONLD:END -->", "", gpt)
+gpt = re.sub(r"<!-- I18N:META:START[\s\S]*?<!-- I18N:META:END -->", """<title>GPT 图片去噪 · Real-CUGAN</title>
+    <meta name="description" content="Real-ESRGAN + L0 在浏览器本地处理 GPT 动漫图片，保留原尺寸与透明度，不上传图片。">
+    <link rel="canonical" href="https://realcugan.lemonno.xyz/gpt-denoise.html">""", gpt)
+gpt = re.sub(r"<!-- I18N:SEO:START[\s\S]*?<!-- I18N:SEO:END -->", "", gpt)
+gpt = re.sub(r"[ \t]+$", "", gpt, flags=re.MULTILINE)
+(ROOT / "gpt-denoise.html").write_text(gpt, encoding="utf-8")
+print("wrote gpt-denoise.html (shared app shell)")

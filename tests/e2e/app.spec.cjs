@@ -72,6 +72,7 @@ async function uploadTinyImage(page) {
     mimeType: 'image/png',
     buffer: tinyImage,
   });
+  await page.getByRole('button', {name: /Start rebuild/}).click();
 }
 
 async function uploadTinyImages(page) {
@@ -105,11 +106,13 @@ async function seedPreferences(page, overrides = {}) {
 
 async function openApp(page) {
   await page.goto('/');
-  await expect(page.getByRole('heading', {name: 'Anime Image Upscaler'})).toBeVisible();
+  await expect(page.locator('.brand-stroke')).toBeVisible();
 }
 
 async function waitForSuccess(page) {
   await expect(page.locator('.stage-status')).toContainText(/Done\. Time:/, {timeout: 90000});
+  const settings = page.getByRole('button', {name: 'Parameter settings'});
+  if (await settings.isVisible()) await settings.click();
   await expect(page.getByRole('button', {name: 'Save image'})).toBeVisible();
 }
 
@@ -137,7 +140,7 @@ test('uploads an image, processes it, downloads the result, and resets', async (
   expect(download.suggestedFilename()).toMatch(/tiny-se-up2x-denoise3x\.png$/);
 
   await page.getByRole('complementary').getByRole('button', {name: 'Reset'}).click();
-  await expect(page.getByText('Waiting for image')).toBeVisible();
+  await expect(page.locator('.large-upload')).toBeVisible();
   await expect(page.getByRole('button', {name: 'Sample'})).toBeVisible();
 });
 
@@ -215,6 +218,10 @@ test('offers safer settings for risky mobile jobs', async ({page}) => {
       configurable: true,
       value: 2,
     });
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      value: navigator.userAgent + ' Mobile',
+    });
   });
   await page.setViewportSize({width: 390, height: 844});
   await openApp(page);
@@ -226,4 +233,57 @@ test('offers safer settings for risky mobile jobs', async ({page}) => {
 
   await waitForSuccess(page);
   await expect(page.locator('.stage-meta')).toContainText('8 × 8 -> 16 × 16');
+});
+
+test('keeps tiny-image controls usable within the shared preview size limits', async ({page}) => {
+  await seedPreferences(page);
+  for (const route of ['/', '/gpt-denoise.html']) {
+    await page.setViewportSize({width: 1440, height: 900});
+    await page.goto(route);
+    await page.locator('input[type="file"]').setInputFiles({name: 'tiny-' + 'anime-'.repeat(20) + '.png', mimeType: 'image/png', buffer: tinyImage});
+    await expect(page.locator('.btn-run')).toBeVisible();
+    for (const [width, height] of [[1440, 900], [1280, 720], [1440, 400], [320, 568], [390, 844], [844, 390]]) {
+      await page.setViewportSize({width, height});
+      for (const state of ['ready', 'processing', 'result']) {
+        // Exercise layout states without rerunning an inference for every viewport.
+        await page.evaluate((state) => {
+          const app = document.querySelector('.design-root').__vue__;
+          app.isProcessing = state === 'processing';
+          app.isProcessDone = state === 'result';
+          app.outputPreviewWidth = 8; app.outputPreviewHeight = 8;
+          app.progressRate = 50; app.progressTip = 'Processing 50%';
+          app.scheduleStageLayoutSync();
+        }, state);
+        await expect.poll(() => page.evaluate(() => {
+          const app = document.querySelector('.design-root').__vue__;
+          const bounds = app.getAdaptiveStageBounds();
+          const stage = document.querySelector('.stage-panel').getBoundingClientRect();
+          const surface = document.querySelector('.stage-body').getBoundingClientRect();
+          const inside = (box, outer) => box.left >= outer.left - 1 && box.top >= outer.top - 1 && box.right <= outer.right + 1 && box.bottom <= outer.bottom + 1;
+          if (!inside(stage, {left: 0, top: 0, right: innerWidth, bottom: innerHeight}) || !inside(surface, stage)) return false;
+          if (stage.height > bounds.maxPanelHeight + 1) return false;
+          if (!app.isMobile && (stage.width < Math.floor(Math.min(668, bounds.maxSurfaceWidth)) - 1 || surface.height < Math.floor(Math.min(408, bounds.maxSurfaceHeight)) - 1)) return false;
+          const preview = app.getInputPreviewSize();
+          return preview.width <= 8 && preview.height <= 8;
+        })).toBe(true);
+        if (state === 'ready') {
+          await page.locator('.btn-run').scrollIntoViewIfNeeded();
+          await expect.poll(() => page.evaluate(() => {
+            const overlay = document.querySelector('.ready-ui').getBoundingClientRect();
+            const button = document.querySelector('.btn-run').getBoundingClientRect();
+            const wipes = document.querySelector('.wipe-stack').getBoundingClientRect();
+            const isle = document.querySelector('.ready-isle').getBoundingClientRect();
+            return button.left >= overlay.left && button.right <= overlay.right && button.top >= overlay.top - 1 && button.bottom <= overlay.bottom + 1 && wipes.bottom <= isle.top;
+          })).toBe(true);
+        } else if (state === 'processing') {
+          await page.locator('.processing-cancel').scrollIntoViewIfNeeded();
+          await expect.poll(() => page.evaluate(() => {
+            const overlay = document.querySelector('.processing-ui').getBoundingClientRect();
+            const button = document.querySelector('.processing-cancel').getBoundingClientRect();
+            return button.left >= overlay.left && button.right <= overlay.right && button.top >= overlay.top - 1 && button.bottom <= overlay.bottom + 1;
+          })).toBe(true);
+        }
+      }
+    }
+  }
 });

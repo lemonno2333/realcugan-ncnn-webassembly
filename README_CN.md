@@ -1,4 +1,15 @@
 # RealCUGAN-ncnn-webassembly
+## GPT 图片去噪（纯浏览器）
+
+新增 `gpt-denoise.html`，可从原超分页面右上角进入。默认移植
+[gpt-anime-denoise](https://github.com/CXP-2024/gpt-anime-denoise) 的
+「预缩 60% → Real-ESRGAN anime-6B → 原尺寸 → L0 0.001」流程。
+模型推理和 L0 都在 Worker 内本地运行，不上传图片、不需要 Python 后端。
+支持取消、透明通道、原尺寸 PNG 和仅 L0 模式。
+
+执行 `sh build.sh` 会下载校验模型并生成额外的 basic / simd WASM。
+部署与性能限制见 [docs/gpt-denoise.md](docs/gpt-denoise.md)。
+
 本项目使用 WebAssembly 技术，基于 ncnn 运行 Real-CUGAN 模型。目前使用 CPU
 进行计算，在浏览器本地完成图片处理，不会上传图片到服务器。
 

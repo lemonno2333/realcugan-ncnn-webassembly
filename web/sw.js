@@ -45,10 +45,10 @@ self.addEventListener('fetch', (event) => {
             fetch(request)
                 .then((response) => {
                     const copy = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => cache.put('./', copy));
+                    caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
                     return response;
                 })
-                .catch(() => caches.match('./'))
+                .catch(async () => (await caches.match(request, {ignoreSearch: true})) || caches.match('./'))
         );
         return;
     }
