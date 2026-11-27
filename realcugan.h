@@ -18,7 +18,7 @@ enum RealCUGANProcessResult {
 
 class RealCUGAN {
 public:
-    RealCUGAN();
+    explicit RealCUGAN(bool use_local_pool_allocator = true);
 
     int load(int scale, int noise, int model_type);
     bool is_loaded(int scale, int noise, int model_type) const;

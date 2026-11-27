@@ -8,6 +8,7 @@
     "test:e2e:headed": "node tests/e2e/run.cjs --headed",
     "serve:e2e": "node tests/e2e/server.cjs",
     "test:denoise": "node tests/denoise-core.cjs && node tests/denoise-smoke.cjs",
+    "test:denoise:backends": "node tests/denoise-backends.cjs",
     "test:denoise:large": "DENOISE_LARGE=1 node tests/denoise-smoke.cjs"
   },
   "devDependencies": {

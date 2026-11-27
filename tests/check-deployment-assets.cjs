@@ -190,10 +190,16 @@ function buildReport(webRoot) {
         collectStaticReferences(readText(denoiseHtml)).forEach(relativePath => addAsset(report, webRoot, relativePath));
     }
     ['gptDenoiseWorker.js', 'gpt-denoise-basic.js', 'gpt-denoise-basic.wasm',
-        'gpt-denoise-simd.js', 'gpt-denoise-simd.wasm'].forEach(relativePath => addAsset(report, webRoot, relativePath));
+        'gpt-denoise-simd.js', 'gpt-denoise-simd.wasm',
+        'gpt-denoise-simd-threads.js', 'gpt-denoise-simd-threads.wasm'].forEach(relativePath => addAsset(report, webRoot, relativePath));
+    const gptThreaded = path.join(webRoot, 'gpt-denoise-simd-threads.js');
+    if (fs.existsSync(gptThreaded) && readText(gptThreaded).includes('.worker.js')) {
+        addAsset(report, webRoot, 'gpt-denoise-simd-threads.worker.js');
+    }
     const denoiseModels = require('../web/gptDenoiseModels.js');
-    denoiseModels.files.forEach(file => {
-        const relativePath = path.join('models', 'esrgan', file.name);
+    [...denoiseModels.files.map(file => ({...file, folder: 'esrgan'})),
+        ...denoiseModels.cuganFiles.map(file => ({...file, folder: ''}))].forEach(file => {
+        const relativePath = path.join('models', file.folder, file.name);
         addAsset(report, webRoot, relativePath, {expectedBytes: file.bytes});
         const filePath = path.join(webRoot, relativePath);
         if (fs.existsSync(filePath) && require('node:crypto').createHash('sha256')

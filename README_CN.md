@@ -5,9 +5,11 @@
 [gpt-anime-denoise](https://github.com/CXP-2024/gpt-anime-denoise) 的
 「预缩 60% → Real-ESRGAN anime-6B → 原尺寸 → L0 0.001」流程。
 模型推理和 L0 都在 Worker 内本地运行，不上传图片、不需要 Python 后端。
-支持取消、透明通道、原尺寸 PNG 和仅 L0 模式。
+支持 CUGAN SE 2× / 降噪 3 档 + L0、取消、透明通道、原尺寸 PNG 和仅 L0 模式。
+GPT 与主页面共用“自动／多线程+SIMD／SIMD／兼容”实际后端与自动回退；
+多线程需 COOP/COEP 响应头，L0 仍为单线程 JS。
 
-执行 `sh build.sh` 会下载校验模型并生成额外的 basic / simd WASM。
+执行 `sh build.sh` 会下载校验模型并生成额外的 basic / simd / simd-threads WASM。
 部署与性能限制见 [docs/gpt-denoise.md](docs/gpt-denoise.md)。
 
 本项目使用 WebAssembly 技术，基于 ncnn 运行 Real-CUGAN 模型。目前使用 CPU

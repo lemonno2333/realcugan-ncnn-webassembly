@@ -1,7 +1,7 @@
 // Deferred head scripts (Vue, Element, i18n, ...) finish before
 // DOMContentLoaded fires, so everything they define is available here.
 window.addEventListener('DOMContentLoaded', function () {
-    const APP_VERSION = '2026.11.18-ui.5';
+    const APP_VERSION = '2026.11.18-ui.6';
     const Logger = window.RealCuganLogger || {
         debug() {},
         info() {},
@@ -919,6 +919,12 @@ window.addEventListener('DOMContentLoaded', function () {
 
             onBackendModeChange() {
                 this.savePreference('backendMode', this.backendMode);
+                if (this.isGpt) {
+                    if (this.gptWorker) this.gptWorker.terminate();
+                    this.gptWorker = null;
+                    this.wasmBackend = '';
+                    return;
+                }
                 if (this.wasmModuleLoaded) {
                     this.$alert(this.t('dialog.backendSavedText'), this.t('dialog.backendSavedTitle'), {
                         confirmButtonText: this.t('dialog.reload'),
@@ -1514,7 +1520,9 @@ window.addEventListener('DOMContentLoaded', function () {
             },
 
             getGptRecipe() {
-                return this.gptMethod === 'l0' ? this.t('gpt.l0Recipe') : `${this.gptDown}% → ESRGAN 4× → ${this.t('gpt.originalSize')} → L0`;
+                if (this.gptMethod === 'l0') return this.t('gpt.l0Recipe');
+                const model = this.gptMethod === 'cugan' ? 'CUGAN 2× · DN3' : 'ESRGAN 4×';
+                return `${this.gptDown}% → ${model} → ${this.t('gpt.originalSize')} → L0`;
             },
 
             getReadyWipeLines() {

@@ -65,7 +65,7 @@ for feature in ${FEATURES}; do
         cmake --build . --parallel "${JOBS}"
         cp realcugan-ncnn-webassembly-* ../../web
         if [ -f "gpt-denoise-${feature}.js" ]; then
-            cp gpt-denoise-${feature}.js gpt-denoise-${feature}.wasm ../../web
+            cp gpt-denoise-${feature}* ../../web
         fi
     )
 done

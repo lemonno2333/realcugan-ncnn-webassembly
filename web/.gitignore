@@ -14,3 +14,5 @@
 # Generated GPT-denoise WASM modules.
 /gpt-denoise-basic.*
 /gpt-denoise-simd.*
+
+/gpt-denoise-simd-threads.*

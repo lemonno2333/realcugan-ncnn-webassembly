@@ -27,13 +27,14 @@ static int clamp_runtime_tile_size(int requested) {
     return 200;
 }
 
-RealCUGAN::RealCUGAN() : noise(-999), scale(0), model_type(-1), prepadding(0) {
+RealCUGAN::RealCUGAN(bool use_local_pool_allocator) : noise(-999), scale(0), model_type(-1), prepadding(0) {
     const int default_threads = clamp_runtime_thread_count(4);
     std::cout << "cpu count: " << ncnn::get_big_cpu_count() << std::endl;
     ncnn::set_cpu_powersave(2);
     ncnn::set_omp_num_threads(default_threads);
 
     ncnnNet.opt = ncnn::Option();
+    ncnnNet.opt.use_local_pool_allocator = use_local_pool_allocator;
     ncnnNet.opt.num_threads = default_threads;
     thread_count = default_threads;
 }
@@ -59,6 +60,37 @@ static bool should_emit_progress(long total_cost, float progress_rate, long *las
         return true;
     }
     return false;
+}
+
+// ncnn 20220729's reflect border reads outside the source when padding is
+// as large as a tiny tile. Fold repeatedly instead, including 1-pixel images.
+static int reflected_index(int position, int size) {
+    if (size == 1) return 0;
+    const int period = 2 * (size - 1);
+    int index = position % period;
+    if (index < 0) index += period;
+    return index < size ? index : period - index;
+}
+
+static void safe_reflect_border(const ncnn::Mat &source, ncnn::Mat &output,
+                                int top, int bottom, int left, int right,
+                                const ncnn::Option &opt) {
+    if (source.w > std::max(left, right) && source.h > std::max(top, bottom)) {
+        ncnn::copy_make_border(source, output, top, bottom, left, right, 2, 0.f, opt);
+        return;
+    }
+    output.create(source.w + left + right, source.h + top + bottom, source.c);
+    if (output.empty()) return;
+    for (int q = 0; q < source.c; ++q) {
+        const ncnn::Mat channel = source.channel(q);
+        ncnn::Mat padded = output.channel(q);
+        for (int y = 0; y < output.h; ++y) {
+            const float *input = channel.row(reflected_index(y - top, source.h));
+            float *row = padded.row(y);
+            for (int x = 0; x < output.w; ++x)
+                row[x] = input[reflected_index(x - left, source.w)];
+        }
+    }
 }
 
 static unsigned char float_to_u8(float value) {
@@ -218,10 +250,12 @@ int RealCUGAN::process(const ncnn::Mat &inimage, unsigned char *outimage_rgba,
             }
 
             {
+                if (in.empty()) return REALCUGAN_PROCESS_FAILED;
                 // split alpha and preproc
                 ncnn::Mat in_tile;
                 {
                     in_tile.create(in.w, in.h, 3);
+                    if (in_tile.empty()) return REALCUGAN_PROCESS_FAILED;
                     for (int q = 0; q < 3; q++) {
                         const float *ptr = in.channel(q);
                         float *outptr = in_tile.channel(q);
@@ -242,8 +276,9 @@ int RealCUGAN::process(const ncnn::Mat &inimage, unsigned char *outimage_rgba,
                                              0);
 
                     ncnn::Mat in_tile_padded;
-                    ncnn::copy_make_border(in_tile, in_tile_padded, pad_top, pad_bottom, pad_left, pad_right, 2, 0.f,
-                                           ncnnNet.opt);
+                    safe_reflect_border(in_tile, in_tile_padded, pad_top, pad_bottom, pad_left, pad_right,
+                                        ncnnNet.opt);
+                    if (in_tile_padded.empty()) return REALCUGAN_PROCESS_FAILED;
                     in_tile = in_tile_padded;
                 }
                 // realcugan
@@ -256,7 +291,11 @@ int RealCUGAN::process(const ncnn::Mat &inimage, unsigned char *outimage_rgba,
                         return REALCUGAN_PROCESS_FAILED;
                     }
 
-                    if (ex.extract("out0", out_tile) != 0 || out_tile.empty()) {
+                    if (ex.extract("out0", out_tile) != 0 || out_tile.empty() ||
+                        out_tile.c != 3 || out_tile.elempack != 1 ||
+                        // The model graph already crops the input prepadding.
+                        out_tile.w < tile_w_nopad * scale ||
+                        out_tile.h < tile_h_nopad * scale) {
                         return REALCUGAN_PROCESS_FAILED;
                     }
                 }

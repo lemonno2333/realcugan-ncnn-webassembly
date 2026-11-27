@@ -39,12 +39,12 @@ add_executable(realcugan-ncnn-webassembly-${WASM_FEATURE} main.cpp realcugan.cpp
 set_property(TARGET realcugan-ncnn-webassembly-${WASM_FEATURE} PROPERTY CXX_STANDARD 11)
 target_link_libraries(realcugan-ncnn-webassembly-${WASM_FEATURE} ncnn fmt)
 
-# GPT denoising runs inside a dedicated single-thread Worker; COOP/COEP is not required.
-if(WASM_FEATURE STREQUAL "basic" OR WASM_FEATURE STREQUAL "simd")
-    add_executable(gpt-denoise-${WASM_FEATURE} denoise.cpp)
-    target_link_libraries(gpt-denoise-${WASM_FEATURE} ncnn)
+# Both GPT reconstruction models share this Worker runtime and the ncnn backend.
+if(WASM_FEATURE STREQUAL "basic" OR WASM_FEATURE STREQUAL "simd" OR WASM_FEATURE STREQUAL "simd-threads")
+    add_executable(gpt-denoise-${WASM_FEATURE} denoise.cpp realcugan.cpp)
+    target_link_libraries(gpt-denoise-${WASM_FEATURE} ncnn fmt)
     set_property(TARGET gpt-denoise-${WASM_FEATURE} PROPERTY CXX_STANDARD 11)
     # Override the Real-CUGAN ABI flags inherited above: this module has no main().
     set_property(TARGET gpt-denoise-${WASM_FEATURE} PROPERTY LINK_FLAGS
-        "--no-entry -sMODULARIZE=1 -sEXPORT_NAME=createDenoiseModule -sENVIRONMENT=worker -sEXIT_RUNTIME=0 -sEXPORTED_FUNCTIONS=['_denoise_load_model','_denoise_tile','_malloc','_free'] -sEXPORTED_RUNTIME_METHODS=['FS','UTF8ToString']")
+        "--no-entry -sMODULARIZE=1 -sEXPORT_NAME=createDenoiseModule -sENVIRONMENT=worker -sEXIT_RUNTIME=0 -sEXPORTED_FUNCTIONS=['_denoise_load_model','_denoise_tile','_denoise_set_threads','_denoise_get_threads','_denoise_cugan_load','_denoise_cugan','_malloc','_free'] -sEXPORTED_RUNTIME_METHODS=['FS','UTF8ToString']")
 endif()

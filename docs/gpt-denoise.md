@@ -16,7 +16,7 @@ RGB → BOX 预缩 60% → RealESRGAN_x4plus_anime_6B 4×
 
 **整个流程在浏览器本地运行**：只有静态 JS/WASM/模型与主页面字体的 GET 请求，无上传接口、
 Python 服务、远程推理 API 或 CDN 推理依赖。现有 Real-CUGAN 超分功能保持独立。
-本次移植范围是默认去噪流程，不包括 APISR、人物分割、笔刷、套索或原项目的桌面 GUI。主页面现有批量队列与下载在去噪模式下同样可用。
+本次移植范围是 ESRGAN / CUGAN + L0 去噪流程，不包括 APISR、人物分割、笔刷、套索或原项目的桌面 GUI。主页面现有批量队列与下载在去噪模式下同样可用。
 
 ## 界面复用
 
@@ -25,12 +25,27 @@ Vue / Element UI 控件、品牌与布局、上传/粘贴/批量队列、图像�
 文字擦入、结果揭示与对比滑杆/缩放/拖动、主题圆形揭示、移动抽屉及焦点交互全部共用。
 `prefers-reduced-motion` 也遵循同一实现，并非复制样式或另写一套相似动效。
 
-GPT 模式只切换专属参数（ESRGAN/L0、预缩比例、λ）与推理后端。
+GPT 模式只切换专属参数（ESRGAN / CUGAN / L0、预缩比例、λ）与推理后端。
 `gptDenoise.js` 现在仅是 Worker 适配器和专属文案，不再控制 DOM；
-独立的原生控件样式 `gptDenoise.css` 已移除。不会加载 Real-CUGAN WASM 或模型。
+独立的原生控件样式 `gptDenoise.css` 已移除。不会加载主页面 WASM；
+GPT runtime 根据所选方法加载 ESRGAN 或 CUGAN 模型。
 
 修改 UI 与动效请编辑共享文件；修改入口/SEO 后运行 `python3 web/build_pages.py`，
 生成英文、日文与 GPT 入口壳，避免语言页和去噪页漂移。
+
+## 方法与后端
+
+- **ESRGAN + L0**：默认的 60% 预缩 → anime-6B 4× → 原尺寸 → L0。
+- **CUGAN + L0**：60% 预缩 → Real-CUGAN SE 2× / 降噪 3 档 → 原尺寸 → L0。
+  复用本仓库的 `up2x-denoise3x` ncnn 模型及分块代码；不承诺与上游
+  `up2x-latest-denoise3x.pth` 逐像素一致。模型按所选方法懒加载，并校验大小及 SHA-256。
+- **仅 L0**：不下载模型或 WASM；L0 的 Float64 FFT 仍是单线程 JavaScript。
+
+GPT 与主页面共用“自动 / 多线程+SIMD / SIMD / 兼容”选择与回退顺序。
+自动优先多线程+SIMD，再 SIMD、basic；手动 SIMD 不启用线程，兼容只用 basic。
+多线程+SIMD 实际使用共享 WASM 内存、pthread Workers 与 ncnn OpenMP，最多 4 线程；
+线程设置加速神经网络推理，不会让 L0 自动并行。页脚显示实际后端及推理线程数。
+切换后端会重建 Worker；处理或批量运行期间禁用切换，取消会终止 Worker。
 
 ## 构建
 
@@ -50,11 +65,14 @@ Emscripten 和 ncnn 20220729 / fmt 依赖。可参考主 README 的环境准备�
 
 - `web/gpt-denoise-basic.js` / `.wasm`
 - `web/gpt-denoise-simd.js` / `.wasm`
+- `web/gpt-denoise-simd-threads.js` / `.wasm`
+- 旧版 Emscripten 额外生成的 `web/gpt-denoise-simd-threads.worker.js`（若存在）
+- `web/models/up2x-denoise3x.param` / `.bin`
 - `web/models/esrgan/realesrgan-x4plus-anime.param` / `.bin`
 - `web/models/esrgan/LICENSE`
 
-`basic` 和 `simd` 两种构建都会额外生成 GPT runtime；`simd-threads` 不生成它。
-完整部署必须构建 basic 和 simd，例如默认 `sh build.sh`。不要只发布一个 HTML。
+`basic`、`simd`、`simd-threads` 都会额外生成 GPT runtime。
+完整部署请使用默认 `sh build.sh` 构建三种后端。不要只发布一个 HTML。
 
 ```sh
 # 构建后检查完整静态目录
@@ -66,12 +84,20 @@ python3 -m http.server 8000 --bind 127.0.0.1 --directory web
 
 公网使用 HTTPS（SHA-256 校验依赖 Web Crypto），本地 localhost HTTP 也可。
 WASM 必须以 `application/wasm` 服务；模型是普通静态资源，不依赖文件系统写权限。
-不用 SharedArrayBuffer，所以 **GPT 去噪页面无需 COOP/COEP 响应头**。
-原超分页面的线程后端仍建议使用这些响应头。
+**GPT 的多线程后端需要 COOP/COEP 和 SharedArrayBuffer**，与主页面相同：
+
+```text
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+所有脚本、模型与 WASM 建议同源部署。不支持线程或没有隔离响应头时，
+包括手动“多线程+SIMD”在内都会回退到 SIMD / basic；页面仍可正常使用。
+上面的 Python 演示服务器不加隔离响应头，只能验证单线程回退。
 
 ## 推理、内存和取消
 
-- 自动检测 SIMD；加载失败回退到 basic；均在单独 Worker 中运行 CPU 推理。
+- 自动检测 SIMD、线程及跨源隔离；按所选模式加载，失败回退；均在独立 Worker 内执行。
 - ncnn 处理 96×96 核心 tile，并读取裁剪到图片边缘的 96 像素真实邻域。
 - 模型图固定为官方 anime-6B：`data` 输入、`501` trunk 输出、`output` 最终输出。
   C++ 在 trunk 后截取核心区域和 3 像素 feature halo，再执行 4× tail，避免对全部
@@ -79,6 +105,8 @@ WASM 必须以 `application/wasm` 服务；模型是普通静态资源，不依�
 - GPT 引擎关闭 ncnn 的网络级临时内存池：不同形状的 halo tile 不再累积缓存，
   避免 1672×941 默认流程在第一个二维内部 tile 超过 2 GiB WASM 上限。
   保留 SIMD、96 像素邻域、模型和 Float32 推理精度；不改 Real-CUGAN 的配置。
+- CUGAN 对边长不够反射填充宽度的小图使用重复反射，1 像素边长退化为边缘复制，
+  避免旧版 ncnn 的越界读取；正常分块仍使用原 SIMD / OpenMP 优化路径。
 - L0 使用 Float64 和任意尺寸二维 FFT；非 2 的幂尺寸由 Bluestein 处理，
   不通过填充图片改变原算法的周期边界。
 - 取消直接终止专用 Worker，能够打断同步 WASM 或 FFT；原图留在主线程供重试。
@@ -103,6 +131,10 @@ CPU 浮点计算、8 位舍入与重采样系数也可能有微小差异。96 �
 npm ci
 npx playwright install chromium
 npm run test:denoise
+# 两个真实模型 × 四种模式 × 有/无隔离，以及线程加载失败回退、CUGAN 多分块
+PLAYWRIGHT_CHANNEL=chrome npm run test:denoise:backends
+# 慢测试：1672×941 CUGAN + L0（多线程）
+DENOISE_LARGE=1 PLAYWRIGHT_CHANNEL=chrome npm run test:denoise:backends
 # 慢测试：1672×941 默认 ESRGAN + L0 完整流程、alpha 与 PNG
 PLAYWRIGHT_CHANNEL=chrome npm run test:denoise:large
 npm run check:deploy

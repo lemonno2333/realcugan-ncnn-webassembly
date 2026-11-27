@@ -44,3 +44,6 @@ assert.throws(() => validateOptions({method: 'unknown'}));
 assert.throws(() => checkImage(new Uint8Array(4), 0, 1));
 assert.throws(() => checkImage(src.subarray(0, 4), 7, 5));
 console.log('GPT-denoise core passed: FFT/DFT, NumPy L0 parity, Pillow resampling, alpha, parameters.');
+
+assert.equal(validateOptions({method: 'cugan'}).method, 'cugan');
+assert.throws(() => validateOptions({method: 'unknown'}));

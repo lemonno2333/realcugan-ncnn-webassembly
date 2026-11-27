@@ -264,7 +264,7 @@ print(f"source index.html      ({len(src):,} bytes, APP_VERSION={APP_VERSION})")
 gpt = src
 gpt = re.sub(r"<!-- I18N:JSONLD:START[\s\S]*?<!-- I18N:JSONLD:END -->", "", gpt)
 gpt = re.sub(r"<!-- I18N:META:START[\s\S]*?<!-- I18N:META:END -->", """<title>GPT 图片去噪 · Real-CUGAN</title>
-    <meta name="description" content="Real-ESRGAN + L0 在浏览器本地处理 GPT 动漫图片，保留原尺寸与透明度，不上传图片。">
+    <meta name="description" content="Real-ESRGAN / Real-CUGAN + L0 在浏览器本地处理 GPT 动漫图片，保留原尺寸与透明度，不上传图片。">
     <link rel="canonical" href="https://realcugan.lemonno.xyz/gpt-denoise.html">""", gpt)
 gpt = re.sub(r"<!-- I18N:SEO:START[\s\S]*?<!-- I18N:SEO:END -->", "", gpt)
 gpt = re.sub(r"[ \t]+$", "", gpt, flags=re.MULTILINE)

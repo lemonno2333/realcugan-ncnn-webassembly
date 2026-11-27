@@ -1,17 +1,59 @@
-// Browser-only RealESRGAN_x4plus_anime_6B inference, using ncnn's CPU backend.
+// Browser-only ESRGAN and CUGAN reconstruction, sharing ncnn CPU backends.
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <net.h>
+#include <cpu.h>
+#include <memory>
+#include <vector>
+#include "realcugan.h"
 
 static ncnn::Net net;
 static bool loaded = false;
+static int thread_count = 1;
+static std::unique_ptr<RealCUGAN> cugan;
 
 extern "C" {
+int denoise_get_threads() { return thread_count; }
+
+int denoise_set_threads(int requested) {
+    if (requested < 1 || requested > 4) return -2;
+#ifdef REALCUGAN_USE_PTHREADS
+    thread_count = std::max(1, std::min(requested, ncnn::get_big_cpu_count()));
+#else
+    thread_count = 1;
+#endif
+    ncnn::set_omp_num_threads(thread_count);
+    net.opt.num_threads = thread_count;
+    if (cugan) cugan->configure_runtime(thread_count, 128);
+    return thread_count;
+}
+
+// Reuse the main page's SE 2x / denoise3 model, padding and tile merging.
+int denoise_cugan_load() {
+    try {
+        if (!cugan) cugan.reset(new RealCUGAN(false));
+        cugan->configure_runtime(thread_count, 128);
+        return cugan->load(2, 3, 0);
+    } catch (...) { return -7; }
+}
+
+int denoise_cugan(const uint8_t* rgba, int w, int h, uint8_t* output) {
+    if (!cugan || !cugan->is_loaded(2, 3, 0) || !rgba || !output ||
+        w < 1 || h < 1 || w > 4096 || h > 4096 || w * h > 4000000) return -2;
+    try {
+        std::vector<uint8_t> rgb(static_cast<size_t>(w) * h * 3);
+        for (int i = 0; i < w * h; ++i)
+            for (int c = 0; c < 3; ++c) rgb[i * 3 + c] = rgba[i * 4 + c];
+        ncnn::Mat input(w, h, rgb.data(), static_cast<size_t>(3), 3);
+        return cugan->process(input, output, nullptr);
+    } catch (...) { return -7; }
+}
+
 int denoise_load_model(const char* param, const char* weights) {
     loaded = false;
     net.clear();
-    net.opt.num_threads = 1;
+    net.opt.num_threads = thread_count;
     // ncnn pools retain buffers across differently sized halo tiles and can
     // exhaust the 2 GiB WASM heap. Return temporary buffers to malloc instead.
     net.opt.use_local_pool_allocator = false;

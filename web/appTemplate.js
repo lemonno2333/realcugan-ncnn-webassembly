@@ -105,9 +105,9 @@ window.APP_TEMPLATE = String.raw`
                                 </div>
                             </div>
 
-                            <div class="field" v-if="!isGpt">
+                            <div class="field backend-mode">
                                 <div class="field-l">{{t('controls.backendMode')}}</div>
-                                <el-radio-group v-model="backendMode" v-on:change="onBackendModeChange" size="small" class="w100" style="display:flex">
+                                <el-radio-group v-model="backendMode" v-on:change="onBackendModeChange" :disabled="isProcessing || isBatchProcessing" size="small" class="w100" style="display:flex">
                                     <el-radio-button label="auto" style="flex:1">{{t('backend.auto')}}</el-radio-button>
                                     <el-radio-button label="simd-threads" style="flex:1">{{t('backend.threads')}}</el-radio-button>
                                     <el-radio-button label="simd" style="flex:1">SIMD</el-radio-button>
@@ -120,6 +120,7 @@ window.APP_TEMPLATE = String.raw`
                                     <div class="field-l">{{t('gpt.method')}}</div>
                                     <el-radio-group v-model="gptMethod" :disabled="isProcessing || isBatchProcessing" size="small" class="w100" style="display:flex">
                                         <el-radio-button label="esrgan" style="flex:1">ESRGAN + L0</el-radio-button>
+                                        <el-radio-button label="cugan" style="flex:1">CUGAN + L0</el-radio-button>
                                         <el-radio-button label="l0" style="flex:1">{{t('gpt.l0Only')}}</el-radio-button>
                                     </el-radio-group>
                                 </div>

@@ -117,7 +117,7 @@
     }
 
     function validateOptions({method = 'esrgan', down = 0.6, lambda = 0.001} = {}) {
-        if (!['esrgan', 'l0'].includes(method) || !Number.isFinite(down) || down < 0.1 || down > 1 ||
+        if (!['esrgan', 'cugan', 'l0'].includes(method) || !Number.isFinite(down) || down < 0.1 || down > 1 ||
             !Number.isFinite(lambda) || lambda < 0 || lambda > 0.01) {
             throw new Error('去噪参数无效。');
         }
